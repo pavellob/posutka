@@ -1,4 +1,4 @@
-import type { UUID, DateTime } from '@repo/shared';
+import type { UUID, DateTime } from '@repo/shared/types-only';
 
 export type { UUID, DateTime };
 

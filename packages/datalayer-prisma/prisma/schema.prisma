@@ -75,15 +75,15 @@ model Booking {
   checkIn             DateTime
   checkOut            DateTime
   guestsCount         Int
-  basePriceAmount     Float
+  basePriceAmount     Int
   basePriceCurrency   String
-  cleaningFeeAmount   Float?
+  cleaningFeeAmount   Int?
   cleaningFeeCurrency String?
-  serviceFeeAmount    Float?
+  serviceFeeAmount    Int?
   serviceFeeCurrency  String?
-  taxesAmount         Float?
+  taxesAmount         Int?
   taxesCurrency       String?
-  totalAmount         Float
+  totalAmount         Int
   totalCurrency       String
   notes               String?
   cancellationReason  String?
@@ -110,7 +110,7 @@ model DepositTransaction {
   id            String         @id @default(cuid())
   bookingId     String
   action        DepositAction
-  amount        Float
+  amount        Int
   currency      String
   status        TransactionStatus @default(PENDING)
   transactionId String?
@@ -184,7 +184,7 @@ model ServiceOrder {
   taskId      String
   providerId  String?
   status      ServiceOrderStatus @default(CREATED)
-  costAmount  Float?
+  costAmount  Int?
   costCurrency String?
   invoiceId   String?
   notes       String?
@@ -220,7 +220,7 @@ model Invoice {
   id            String        @id @default(cuid())
   orgId         String
   orderId       String?
-  totalAmount   Float
+  totalAmount   Int
   totalCurrency String
   status        InvoiceStatus @default(OPEN)
   issuedAt      DateTime
@@ -236,9 +236,9 @@ model InvoiceItem {
   invoiceId       String
   name            String
   qty             Int
-  priceAmount     Float
+  priceAmount     Int
   priceCurrency   String
-  sumAmount       Float
+  sumAmount       Int
   sumCurrency     String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -249,7 +249,7 @@ model Payment {
   id            String        @id @default(cuid())
   invoiceId     String
   method        PaymentMethod
-  amountAmount  Float
+  amountAmount  Int
   amountCurrency String
   status        PaymentStatus @default(PENDING)
   provider      String?
@@ -313,7 +313,7 @@ model Listing {
   unitId      String
   status      ListingStatus @default(DRAFT)
   channel     Channel
-  basePriceAmount    Float
+  basePriceAmount    Int
   basePriceCurrency  String
   minNights   Int
   maxNights   Int?
@@ -361,11 +361,11 @@ model LegalDocument {
 model LegalDepositTransaction {
   id            String   @id @default(cuid())
   bookingId     String
-  holdAmount    Float
+  holdAmount    Int
   holdCurrency  String
-  capturedAmount Float?
+  capturedAmount Int?
   capturedCurrency String?
-  refundedAmount Float?
+  refundedAmount Int?
   refundedCurrency String?
   method        String
   status        String

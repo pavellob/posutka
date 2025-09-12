@@ -1,16 +1,16 @@
 import { PrismaClient } from '@prisma/client';
-import type {
-  IBillingDL,
-  Invoice,
-  Payment,
+import type { 
+  IBillingDL, 
+  Invoice, 
+  Payment, 
   PaymentLink,
   CreateInvoiceInput,
   AddInvoiceItemsInput,
   RecordPaymentInput,
   GeneratePaymentLinkInput,
   IssueRefundInput,
-  UUID,
-  InvoiceStatus,
+  InvoiceConnection,
+  Money
 } from '@repo/datalayer';
 
 export class BillingDLPrisma implements IBillingDL {
@@ -21,33 +21,30 @@ export class BillingDLPrisma implements IBillingDL {
       where: { id },
       include: { items: true }
     });
-    
+
     if (!invoice) return null;
-    
+
     return this.mapInvoiceFromPrisma(invoice);
   }
 
-  async listInvoices(params: {
-    orgId: string;
-    status?: InvoiceStatus;
-    first?: number;
-    after?: string;
-  }): Promise<{ edges: Invoice[]; endCursor?: string; hasNextPage: boolean }> {
-    const where: any = { orgId: params.orgId };
+  async listInvoices(params: { 
+    orgId: string; 
+    status?: string; 
+    first?: number; 
+    after?: string 
+  }): Promise<InvoiceConnection> {
+    const { orgId, status, first = 20, after } = params;
     
-    if (params.status) where.status = params.status;
-
-    const first = params.first || 10;
-    const skip = params.after ? 1 : 0;
-    const cursor = params.after ? { id: params.after } : undefined;
+    const where: any = { orgId };
+    if (status) where.status = status;
 
     const invoices = await this.prisma.invoice.findMany({
       where,
       include: { items: true },
       take: first + 1,
-      skip,
-      cursor,
-      orderBy: { issuedAt: 'desc' }
+      skip: after ? 1 : 0,
+      cursor: after ? { id: after } : undefined,
+      orderBy: { createdAt: 'desc' }
     });
 
     const hasNextPage = invoices.length > first;
@@ -55,37 +52,37 @@ export class BillingDLPrisma implements IBillingDL {
     const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
 
     return {
-      edges: edges.map(invoice => this.mapInvoiceFromPrisma(invoice)),
+      edges: edges.map(this.mapInvoiceFromPrisma),
       endCursor,
       hasNextPage
     };
   }
 
   async createInvoice(input: CreateInvoiceInput): Promise<Invoice> {
-    const items = input.items.map(item => ({
-      name: item.name,
-      qty: item.qty,
-      priceAmount: item.price.amount,
-      priceCurrency: item.price.currency,
-      sumAmount: item.qty * item.price.amount,
-      sumCurrency: item.price.currency,
-    }));
-
-    const totalAmount = items.reduce((sum, item) => sum + item.sumAmount, 0);
-    const totalCurrency = items[0]?.priceCurrency || 'RUB';
+    const { orgId, orderId, items, dueAt } = input;
+    
+    // Calculate total
+    const totalAmount = items.reduce((sum, item) => sum + (item.qty * item.price.amount), 0);
+    const totalCurrency = items[0]?.price.currency || 'RUB';
 
     const invoice = await this.prisma.invoice.create({
       data: {
-        id: crypto.randomUUID(),
-        orgId: input.orgId,
-        orderId: input.orderId,
+        orgId,
+        orderId,
         totalAmount,
         totalCurrency,
         status: 'OPEN',
-        issuedAt: new Date().toISOString(),
-        dueAt: input.dueAt,
+        issuedAt: new Date(),
+        dueAt: dueAt ? new Date(dueAt) : null,
         items: {
-          create: items
+          create: items.map(item => ({
+            name: item.name,
+            qty: item.qty,
+            priceAmount: item.price.amount,
+            priceCurrency: item.price.currency,
+            sumAmount: item.qty * item.price.amount,
+            sumCurrency: item.price.currency
+          }))
         }
       },
       include: { items: true }
@@ -95,119 +92,112 @@ export class BillingDLPrisma implements IBillingDL {
   }
 
   async addInvoiceItems(input: AddInvoiceItemsInput): Promise<Invoice> {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id: input.invoiceId },
+    const { invoiceId, items } = input;
+
+    // Get current invoice to calculate new total
+    const currentInvoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
       include: { items: true }
     });
 
-    if (!invoice) {
-      throw new Error('Invoice not found');
+    if (!currentInvoice) {
+      throw new Error(`Invoice ${invoiceId} not found`);
     }
 
-    if (invoice.status !== 'OPEN') {
+    if (currentInvoice.status !== 'OPEN') {
       throw new Error('Cannot add items to non-open invoice');
     }
 
-    const newItems = input.items.map(item => ({
-      name: item.name,
-      qty: item.qty,
-      priceAmount: item.price.amount,
-      priceCurrency: item.price.currency,
-      sumAmount: item.qty * item.price.amount,
-      sumCurrency: item.price.currency,
-    }));
+    // Calculate additional amount
+    const additionalAmount = items.reduce((sum, item) => sum + (item.qty * item.price.amount), 0);
+    const newTotalAmount = currentInvoice.totalAmount + additionalAmount;
 
-    const newTotalAmount = invoice.totalAmount + newItems.reduce((sum, item) => sum + item.sumAmount, 0);
-
-    const updatedInvoice = await this.prisma.invoice.update({
-      where: { id: input.invoiceId },
+    // Create new items and update total
+    const invoice = await this.prisma.invoice.update({
+      where: { id: invoiceId },
       data: {
         totalAmount: newTotalAmount,
         items: {
-          create: newItems
+          create: items.map(item => ({
+            name: item.name,
+            qty: item.qty,
+            priceAmount: item.price.amount,
+            priceCurrency: item.price.currency,
+            sumAmount: item.qty * item.price.amount,
+            sumCurrency: item.price.currency
+          }))
         }
       },
       include: { items: true }
     });
 
-    return this.mapInvoiceFromPrisma(updatedInvoice);
+    return this.mapInvoiceFromPrisma(invoice);
   }
 
   async cancelInvoice(id: string): Promise<Invoice> {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id },
-      include: { items: true }
-    });
-
-    if (!invoice) {
-      throw new Error('Invoice not found');
-    }
-
-    if (invoice.status !== 'OPEN') {
-      throw new Error('Cannot cancel non-open invoice');
-    }
-
-    const updatedInvoice = await this.prisma.invoice.update({
+    const invoice = await this.prisma.invoice.update({
       where: { id },
       data: { status: 'CANCELED' },
       include: { items: true }
     });
 
-    return this.mapInvoiceFromPrisma(updatedInvoice);
+    return this.mapInvoiceFromPrisma(invoice);
   }
 
   async getPaymentById(id: string): Promise<Payment | null> {
     const payment = await this.prisma.payment.findUnique({
       where: { id }
     });
-    
+
     if (!payment) return null;
-    
+
     return this.mapPaymentFromPrisma(payment);
   }
 
   async recordPayment(input: RecordPaymentInput): Promise<Payment> {
+    const { invoiceId, method, amount, provider, providerRef, receiptUrl } = input;
+
+    // Get invoice to check status and total
     const invoice = await this.prisma.invoice.findUnique({
-      where: { id: input.invoiceId }
+      where: { id: invoiceId }
     });
 
     if (!invoice) {
-      throw new Error('Invoice not found');
+      throw new Error(`Invoice ${invoiceId} not found`);
     }
 
-    if (invoice.status !== 'OPEN') {
-      throw new Error('Cannot record payment for non-open invoice');
+    if (invoice.status === 'CANCELED') {
+      throw new Error('Cannot record payment for canceled invoice');
     }
 
+    // Create payment
     const payment = await this.prisma.payment.create({
       data: {
-        id: crypto.randomUUID(),
-        invoiceId: input.invoiceId,
-        method: input.method,
-        amountAmount: input.amount.amount,
-        amountCurrency: input.amount.currency,
+        invoiceId,
+        method,
+        amountAmount: amount.amount,
+        amountCurrency: amount.currency,
         status: 'SUCCEEDED',
-        createdAt: new Date().toISOString(),
-        provider: input.provider,
-        providerRef: input.providerRef,
-        receiptUrl: input.receiptUrl,
+        provider,
+        providerRef,
+        receiptUrl
       }
     });
 
-    // Check if payment covers the full invoice amount
+    // Check if invoice should be marked as paid
     const totalPaid = await this.prisma.payment.aggregate({
       where: { 
-        invoiceId: input.invoiceId,
+        invoiceId,
         status: 'SUCCEEDED'
       },
       _sum: { amountAmount: true }
     });
 
-    const totalPaidAmount = totalPaid._sum.amountAmount || 0;
+    const paidAmount = totalPaid._sum.amountAmount || 0;
     
-    if (totalPaidAmount >= invoice.totalAmount) {
+    if (paidAmount >= invoice.totalAmount) {
       await this.prisma.invoice.update({
-        where: { id: input.invoiceId },
+        where: { id: invoiceId },
         data: { status: 'PAID' }
       });
     }
@@ -216,43 +206,46 @@ export class BillingDLPrisma implements IBillingDL {
   }
 
   async generatePaymentLink(input: GeneratePaymentLinkInput): Promise<PaymentLink> {
-    // В MVP возвращаем тестовую ссылку
-    // В реальной реализации здесь будет интеграция с провайдерами
-    const url = `https://pay.example.com/invoice/${input.invoiceId}?provider=${input.provider}`;
+    const { invoiceId, provider, successUrl, cancelUrl } = input;
+
+    // In a real implementation, this would integrate with payment providers
+    // For now, return a mock payment link
+    const url = `https://pay.${provider.toLowerCase()}.com/invoice/${invoiceId}?success=${encodeURIComponent(successUrl)}${cancelUrl ? `&cancel=${encodeURIComponent(cancelUrl)}` : ''}`;
     
     return {
       url,
-      provider: input.provider,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 часа
+      provider,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
     };
   }
 
   async issueRefund(input: IssueRefundInput): Promise<Payment> {
+    const { paymentId, amount, reason } = input;
+
+    // Get original payment
     const originalPayment = await this.prisma.payment.findUnique({
-      where: { id: input.paymentId }
+      where: { id: paymentId }
     });
 
     if (!originalPayment) {
-      throw new Error('Payment not found');
+      throw new Error(`Payment ${paymentId} not found`);
     }
 
     if (originalPayment.status !== 'SUCCEEDED') {
-      throw new Error('Cannot refund non-succeeded payment');
+      throw new Error('Can only refund succeeded payments');
     }
 
-    // Создаём новый payment с отрицательной суммой как refund
+    // Create refund as a new payment with negative amount
     const refund = await this.prisma.payment.create({
       data: {
-        id: crypto.randomUUID(),
         invoiceId: originalPayment.invoiceId,
         method: originalPayment.method,
-        amountAmount: -input.amount.amount, // отрицательная сумма
-        amountCurrency: input.amount.currency,
+        amountAmount: -amount.amount, // Negative amount for refund
+        amountCurrency: amount.currency,
         status: 'SUCCEEDED',
-        createdAt: new Date().toISOString(),
         provider: originalPayment.provider,
         providerRef: `refund_${originalPayment.providerRef}`,
-        receiptUrl: input.reason ? `Refund reason: ${input.reason}` : undefined,
+        receiptUrl: undefined
       }
     });
 
@@ -265,6 +258,7 @@ export class BillingDLPrisma implements IBillingDL {
       orgId: invoice.orgId,
       orderId: invoice.orderId,
       items: invoice.items.map((item: any) => ({
+        id: item.id,
         name: item.name,
         qty: item.qty,
         price: { amount: item.priceAmount, currency: item.priceCurrency },
@@ -272,8 +266,8 @@ export class BillingDLPrisma implements IBillingDL {
       })),
       total: { amount: invoice.totalAmount, currency: invoice.totalCurrency },
       status: invoice.status,
-      issuedAt: invoice.issuedAt,
-      dueAt: invoice.dueAt
+      issuedAt: invoice.issuedAt.toISOString(),
+      dueAt: invoice.dueAt?.toISOString()
     };
   }
 
@@ -284,7 +278,7 @@ export class BillingDLPrisma implements IBillingDL {
       method: payment.method,
       amount: { amount: payment.amountAmount, currency: payment.amountCurrency },
       status: payment.status,
-      createdAt: payment.createdAt,
+      createdAt: payment.createdAt.toISOString(),
       provider: payment.provider,
       providerRef: payment.providerRef,
       receiptUrl: payment.receiptUrl

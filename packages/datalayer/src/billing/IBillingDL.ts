@@ -1,25 +1,26 @@
-import type {
-  UUID,
-  DateTime,
-  Invoice,
-  InvoiceItem,
-  Payment,
-  Money,
+import type { 
+  UUID, 
+  DateTime, 
+  Invoice, 
+  InvoiceItem, 
+  Payment, 
+  Money, 
   PaymentLink,
-  InvoiceStatus,
+  InvoiceStatus, 
   PaymentMethod,
-} from './types.js';
+  InvoiceConnection
+} from './types';
 
 export interface CreateInvoiceInput {
   orgId: UUID;
   orderId?: UUID;
-  items: Array<Omit<InvoiceItem, 'sum'>>;
+  items: Array<Omit<InvoiceItem, 'id' | 'sum'>>;
   dueAt?: DateTime;
 }
 
 export interface AddInvoiceItemsInput {
   invoiceId: UUID;
-  items: Array<Omit<InvoiceItem, 'sum'>>;
+  items: Array<Omit<InvoiceItem, 'id' | 'sum'>>;
 }
 
 export interface RecordPaymentInput {
@@ -47,12 +48,12 @@ export interface IssueRefundInput {
 export interface IBillingDL {
   // Invoices
   getInvoiceById(id: UUID): Promise<Invoice | null>;
-  listInvoices(params: {
-    orgId: UUID;
-    status?: InvoiceStatus;
-    first?: number;
-    after?: string;
-  }): Promise<{ edges: Invoice[]; endCursor?: string; hasNextPage: boolean }>;
+  listInvoices(params: { 
+    orgId: UUID; 
+    status?: InvoiceStatus; 
+    first?: number; 
+    after?: string 
+  }): Promise<InvoiceConnection>;
   createInvoice(input: CreateInvoiceInput): Promise<Invoice>;
   addInvoiceItems(input: AddInvoiceItemsInput): Promise<Invoice>;
   cancelInvoice(id: UUID): Promise<Invoice>;
@@ -61,5 +62,5 @@ export interface IBillingDL {
   getPaymentById(id: UUID): Promise<Payment | null>;
   recordPayment(input: RecordPaymentInput): Promise<Payment>;
   generatePaymentLink(input: GeneratePaymentLinkInput): Promise<PaymentLink>;
-  issueRefund(input: IssueRefundInput): Promise<Payment>; // может создать отдельный payment с отрицательной суммой
+  issueRefund(input: IssueRefundInput): Promise<Payment>;
 }

@@ -17,6 +17,7 @@ describe('Billing Resolvers', () => {
             id: 'inv-1',
             orgId: 'org-1',
             items: [{
+                    id: 'item-1',
                     name: 'Уборка',
                     qty: 1,
                     price: { amount: 3000, currency: 'RUB' },

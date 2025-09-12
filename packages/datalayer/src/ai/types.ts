@@ -1,4 +1,4 @@
-import type { UUID } from '@repo/shared';
+import type { UUID } from '@repo/shared/types-only';
 
 export type { UUID };
 
