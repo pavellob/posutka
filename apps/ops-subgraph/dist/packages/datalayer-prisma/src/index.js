@@ -1,4 +1,5 @@
 export * from './inventory/DataLayerInventoryPrisma.js';
+export * from './inventory/InventoryDLPrisma.js';
 export * from './bookings/BookingsDLPrisma.js';
 export * from './ops/OpsDLPrisma.js';
 export * from './billing/BillingDLPrisma.js';

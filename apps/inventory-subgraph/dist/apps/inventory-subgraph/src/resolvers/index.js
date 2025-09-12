@@ -3,6 +3,12 @@ export const resolvers = {
         property: (_, { id }, { dl }) => dl.getPropertyById(id),
         unit: (_, { id }, { dl }) => dl.getUnitById(id),
     },
+    // Резолверы для связей между типами
+    Unit: {
+        property: (parent, _, { dl }) => {
+            return dl.getPropertyById(parent.propertyId);
+        },
+    },
     Mutation: {
         createProperty: (_, args, { dl }) => dl.createProperty(args),
         createUnit: (_, args, { dl }) => dl.createUnit(args),

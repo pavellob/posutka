@@ -5,6 +5,19 @@ export const resolvers = {
     booking: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getBookingById(id),
     bookings: (_: unknown, params: any, { dl }: Context) => dl.listBookings(params),
   },
+  
+  // Резолверы для связей между типами
+  Booking: {
+    org: (parent: any, _: unknown, { identityDL }: Context) => {
+      return identityDL.getOrganizationById(parent.orgId);
+    },
+    unit: (parent: any, _: unknown, { inventoryDL }: Context) => {
+      return inventoryDL.getUnitById(parent.unitId);
+    },
+    guest: (parent: any, _: unknown, { dl }: Context) => {
+      return dl.getGuestById(parent.guestId);
+    },
+  },
   Mutation: {
     createBooking: async (_: unknown, { input }: { input: any }, { dl }: Context) => {
       // Check availability first

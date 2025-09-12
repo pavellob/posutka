@@ -3,6 +3,18 @@ export const resolvers = {
         booking: (_, { id }, { dl }) => dl.getBookingById(id),
         bookings: (_, params, { dl }) => dl.listBookings(params),
     },
+    // Резолверы для связей между типами
+    Booking: {
+        org: (parent, _, { identityDL }) => {
+            return identityDL.getOrganizationById(parent.orgId);
+        },
+        unit: (parent, _, { inventoryDL }) => {
+            return inventoryDL.getUnitById(parent.unitId);
+        },
+        guest: (parent, _, { dl }) => {
+            return dl.getGuestById(parent.guestId);
+        },
+    },
     Mutation: {
         createBooking: async (_, { input }, { dl }) => {
             // Check availability first

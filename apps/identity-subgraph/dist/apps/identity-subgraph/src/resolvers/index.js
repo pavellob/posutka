@@ -9,6 +9,17 @@ export const resolvers = {
         membershipsByOrg: (_, { orgId }, { dl }) => dl.getMembershipsByOrg(orgId),
         membershipsByUser: (_, { userId }, { dl }) => dl.getMembershipsByUser(userId),
     },
+    // Резолверы для связей между типами
+    Organization: {
+        members: (parent, _, { dl }) => {
+            return dl.getMembershipsByOrg(parent.id);
+        },
+    },
+    Membership: {
+        user: (parent, _, { dl }) => {
+            return dl.getUserById(parent.userId);
+        },
+    },
     Mutation: {
         createUser: (_, { input }, { dl }) => dl.createUser(input),
         updateUser: (_, { id, input }, { dl }) => dl.updateUser(id, input),

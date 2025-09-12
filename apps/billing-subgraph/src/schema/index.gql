@@ -1,40 +1,89 @@
+# Billing Subgraph - Управление счетами и платежами
+# Отвечает за выставление счетов, обработку платежей и интеграцию с платежными системами
+
+"""
+Денежная сумма с валютой.
+Amount хранится в копейках/центах для точности вычислений.
+Пример: {amount: 150000, currency: "RUB"} = 1500.00 RUB
+"""
 type Money {
+  """Сумма в копейках/центах (минимальная единица валюты)"""
   amount: Int!
+  """Код валюты в формате ISO 4217 (RUB, USD, EUR)"""
   currency: String!
 }
 
+"""
+Входные данные для денежной суммы.
+Используется в мутациях для создания/обновления денежных значений.
+"""
 input MoneyInput {
+  """Сумма в копейках/центах"""
   amount: Int!
+  """Код валюты в формате ISO 4217"""
   currency: String!
 }
 
+"""
+Информация о пагинации для соединений (connections).
+Используется в GraphQL для реализации cursor-based пагинации.
+"""
 type PageInfo {
+  """Есть ли следующая страница результатов"""
   hasNextPage: Boolean!
+  """Есть ли предыдущая страница результатов"""
   hasPreviousPage: Boolean!
+  """Курсор для начала текущей страницы"""
   startCursor: String
+  """Курсор для конца текущей страницы"""
   endCursor: String
+  """Общее количество элементов (опционально)"""
   totalCount: Int
 }
 
+"""
+Действия с депозитом/залогом.
+Используется для управления залогами при бронировании.
+"""
 enum DepositAction {
+  """Заблокировать средства на карте гостя"""
   HOLD
+  """Разблокировать заблокированные средства"""
   RELEASE
+  """Списать средства с карты гостя"""
   CHARGE
+  """Подтвердить списание (окончательно)"""
   CAPTURE
+  """Вернуть средства гостю"""
   REFUND
 }
 
+"""
+Статус транзакции в системе.
+"""
 enum TransactionStatus {
+  """Транзакция в процессе обработки"""
   PENDING
+  """Транзакция успешно завершена"""
   COMPLETED
+  """Транзакция не удалась"""
   FAILED
 }
 
+"""
+Каналы продаж для бронирований.
+Определяет источник бронирования.
+"""
 enum Channel {
+  """Прямое бронирование через сайт/приложение"""
   DIRECT
+  """Бронирование через Airbnb"""
   AIRBNB
+  """Бронирование через Booking.com"""
   BOOKING_COM
+  """Бронирование через Avito"""
   AVITO
+  """Другие каналы продаж"""
   OTHER
 }
 
@@ -42,135 +91,274 @@ enum Channel {
 scalar UUID
 scalar DateTime
 
+"""
+Организация (компания, отель, хостел и т.д.).
+Ссылка на основную сущность из identity-subgraph.
+"""
 type Organization {
+  """Уникальный идентификатор организации"""
   id: UUID!
 }
 
+"""
+Заказ на услуги.
+Ссылка на сущность из ops-subgraph.
+"""
 type ServiceOrder {
+  """Уникальный идентификатор заказа"""
   id: UUID!
 }
 
+"""
+Статус счета.
+Определяет текущее состояние выставленного счета.
+"""
 enum InvoiceStatus {
+  """Счет выставлен, ожидает оплаты"""
   OPEN
+  """Счет полностью оплачен"""
   PAID
+  """Счет отменен"""
   CANCELED
 }
 
+"""
+Статус платежа.
+Определяет результат обработки платежа.
+"""
 enum PaymentStatus {
+  """Платеж в процессе обработки"""
   PENDING
+  """Платеж успешно обработан"""
   SUCCEEDED
+  """Платеж не удался"""
   FAILED
+  """Платеж отменен"""
   CANCELED
 }
 
+"""
+Способ оплаты.
+Определяет метод, которым был произведен платеж.
+"""
 enum PaymentMethod {
+  """Оплата банковской картой"""
   CARD
+  """Оплата наличными"""
   CASH
+  """Банковский перевод"""
   TRANSFER
+  """Другие способы оплаты"""
   OTHER
 }
 
+"""
+Позиция в счете.
+Представляет отдельную услугу или товар в счете.
+"""
 type InvoiceItem {
+  """Название позиции (например, "Проживание", "Уборка")"""
   name: String!
+  """Количество единиц"""
   qty: Int!
+  """Цена за единицу"""
   price: Money!
+  """Общая сумма по позиции (qty * price)"""
   sum: Money!
 }
 
+"""
+Счет на оплату.
+Документ, содержащий список услуг/товаров и общую сумму к оплате.
+"""
 type Invoice {
+  """Уникальный идентификатор счета"""
   id: UUID!
+  """Организация, выставившая счет"""
   org: Organization!
+  """Связанный заказ на услуги (опционально)"""
   order: ServiceOrder
+  """Список позиций в счете"""
   items: [InvoiceItem!]!
+  """Общая сумма счета"""
   total: Money!
+  """Текущий статус счета"""
   status: InvoiceStatus!
+  """Дата и время выставления счета"""
   issuedAt: DateTime!
+  """Дата, до которой должен быть оплачен счет (опционально)"""
   dueAt: DateTime
 }
 
+"""
+Платеж по счету.
+Запись о попытке оплаты или успешной оплате счета.
+"""
 type Payment {
+  """Уникальный идентификатор платежа"""
   id: UUID!
+  """Счет, по которому произведен платеж"""
   invoice: Invoice!
+  """Способ оплаты"""
   method: PaymentMethod!
+  """Сумма платежа"""
   amount: Money!
+  """Статус платежа"""
   status: PaymentStatus!
+  """Дата и время создания записи о платеже"""
   createdAt: DateTime!
-  provider: String      # STRIPE | YOOKASSA | OFFLINE
-  providerRef: String   # id в платёжном провайдере
+  """Платежный провайдер (STRIPE, YOOKASSA, OFFLINE)"""
+  provider: String
+  """Идентификатор в платежном провайдере"""
+  providerRef: String
+  """Ссылка на чек/квитанцию об оплате"""
   receiptUrl: String
 }
 
 
+"""
+Элемент списка счетов для пагинации.
+"""
 type InvoiceEdge {
+  """Счет"""
   node: Invoice!
+  """Курсор для пагинации"""
   cursor: String!
 }
 
+"""
+Соединение счетов с пагинацией.
+"""
 type InvoiceConnection {
+  """Список счетов с курсорами"""
   edges: [InvoiceEdge!]!
+  """Информация о пагинации"""
   pageInfo: PageInfo!
 }
 
+"""
+Ссылка для оплаты.
+Генерируется платежными провайдерами для онлайн-оплаты.
+"""
 type PaymentLink {
+  """URL для перехода к оплате"""
   url: String!
+  """Платежный провайдер, который сгенерировал ссылку"""
   provider: String!
+  """Дата истечения ссылки (опционально)"""
   expiresAt: DateTime
 }
 
+"""
+Запросы для работы со счетами и платежами.
+"""
 type Query {
+  """Получить счет по ID"""
   invoice(id: UUID!): Invoice
+  """Получить список счетов организации с пагинацией и фильтрацией"""
   invoices(orgId: UUID!, first: Int, after: String, status: InvoiceStatus): InvoiceConnection!
+  """Получить платеж по ID"""
   payment(id: UUID!): Payment
+  """Получить счет по ID заказа на услуги"""
   invoiceByOrderId(orderId: UUID!): Invoice
 }
 
+"""
+Входные данные для позиции в счете.
+"""
 input InvoiceItemInput {
+  """Название позиции"""
   name: String!
+  """Количество единиц"""
   qty: Int!
+  """Цена за единицу"""
   price: MoneyInput!
 }
 
 
+"""
+Входные данные для создания счета.
+"""
 input CreateInvoiceInput {
+  """ID организации, выставляющей счет"""
   orgId: UUID!
+  """ID связанного заказа на услуги (опционально)"""
   orderId: UUID
+  """Список позиций в счете"""
   items: [InvoiceItemInput!]!
+  """Дата, до которой должен быть оплачен счет (опционально)"""
   dueAt: DateTime
 }
 
+"""
+Входные данные для добавления позиций в существующий счет.
+"""
 input AddInvoiceItemsInput {
+  """ID счета для добавления позиций"""
   invoiceId: UUID!
+  """Список позиций для добавления"""
   items: [InvoiceItemInput!]!
 }
 
+"""
+Входные данные для записи платежа.
+"""
 input RecordPaymentInput {
+  """ID счета, по которому произведен платеж"""
   invoiceId: UUID!
+  """Способ оплаты"""
   method: PaymentMethod!
+  """Сумма платежа"""
   amount: MoneyInput!
+  """Платежный провайдер (опционально)"""
   provider: String
+  """Идентификатор в платежном провайдере (опционально)"""
   providerRef: String
+  """Ссылка на чек/квитанцию (опционально)"""
   receiptUrl: String
 }
 
+"""
+Входные данные для генерации ссылки на оплату.
+"""
 input GeneratePaymentLinkInput {
+  """ID счета для оплаты"""
   invoiceId: UUID!
-  provider: String!      # STRIPE|YOOKASSA
+  """Платежный провайдер (STRIPE, YOOKASSA)"""
+  provider: String!
+  """URL для перенаправления после успешной оплаты"""
   successUrl: String!
+  """URL для перенаправления при отмене оплаты (опционально)"""
   cancelUrl: String
 }
 
+"""
+Входные данные для возврата средств.
+"""
 input IssueRefundInput {
+  """ID платежа для возврата"""
   paymentId: UUID!
+  """Сумма возврата"""
   amount: MoneyInput!
+  """Причина возврата (опционально)"""
   reason: String
 }
 
+"""
+Мутации для управления счетами и платежами.
+"""
 type Mutation {
+  """Создать новый счет"""
   createInvoice(input: CreateInvoiceInput!): Invoice!
+  """Добавить позиции в существующий счет"""
   addInvoiceItems(input: AddInvoiceItemsInput!): Invoice!
+  """Отменить счет"""
   cancelInvoice(id: UUID!): Invoice!
 
+  """Записать платеж по счету"""
   recordPayment(input: RecordPaymentInput!): Payment!
+  """Сгенерировать ссылку для онлайн-оплаты"""
   generatePaymentLink(input: GeneratePaymentLinkInput!): PaymentLink!
-  issueRefund(input: IssueRefundInput!): Payment!   # создаёт запись refund как Payment со знаком минус или отдельный тип
+  """Оформить возврат средств (создает запись Payment со знаком минус)"""
+  issueRefund(input: IssueRefundInput!): Payment!
 }

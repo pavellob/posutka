@@ -5,6 +5,13 @@ export const resolvers = {
     property: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getPropertyById(id),
     unit: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getUnitById(id),
   },
+  
+  // Резолверы для связей между типами
+  Unit: {
+    property: (parent: any, _: unknown, { dl }: Context) => {
+      return dl.getPropertyById(parent.propertyId);
+    },
+  },
   Mutation: {
     createProperty: (_: unknown, args: any, { dl }: Context) => dl.createProperty(args),
     createUnit: (_: unknown, args: any, { dl }: Context) => dl.createUnit(args),

@@ -13,6 +13,19 @@ export const resolvers: any = {
     membershipsByOrg: (_: unknown, { orgId }: { orgId: string }, { dl }: Context) => dl.getMembershipsByOrg(orgId),
     membershipsByUser: (_: unknown, { userId }: { userId: string }, { dl }: Context) => dl.getMembershipsByUser(userId),
   },
+  
+  // Резолверы для связей между типами
+  Organization: {
+    members: (parent: any, _: unknown, { dl }: Context) => {
+      return dl.getMembershipsByOrg(parent.id);
+    },
+  },
+  
+  Membership: {
+    user: (parent: any, _: unknown, { dl }: Context) => {
+      return dl.getUserById(parent.userId);
+    },
+  },
   Mutation: {
     createUser: (_: unknown, { input }: { input: any }, { dl }: Context) => dl.createUser(input),
     updateUser: (_: unknown, { id, input }: { id: string; input: any }, { dl }: Context) => dl.updateUser(id, input),

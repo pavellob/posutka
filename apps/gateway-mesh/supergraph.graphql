@@ -45,608 +45,1235 @@ enum join__Graph {
   OPS_SUBGRAPH @join__graph(name: "ops-subgraph", url: "http://localhost:4003/graphql")
 }
 
+"""
+Универсальный уникальный идентификатор (UUID v4).
+Используется для всех сущностей в системе.
+Пример: "550e8400-e29b-41d4-a716-446655440000"
+"""
 scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
+"""
+Дата и время в формате ISO 8601 с часовым поясом.
+Пример: "2024-01-15T14:30:00Z" или "2024-01-15T14:30:00+03:00"
+"""
 scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
+"""
+Произвольный JSON объект для хранения метаданных и дополнительной информации.
+Может содержать любую валидную JSON структуру.
+Пример: {"key": "value", "nested": {"array": [1, 2, 3]}}
+"""
 scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH)
 
 scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
+"""
+Организация (компания, отель, хостел и т.д.).
+Ссылка на основную сущность из identity-subgraph.
+"""
 type Organization @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH, key: "id") @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Уникальный идентификатор организации"""
   id: UUID!
+  """Название организации"""
   name: String! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Часовой пояс организации (например, "Europe/Moscow")"""
   timezone: String! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Основная валюта организации (ISO 4217 код)"""
   currency: String! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Список всех участников организации"""
   members: [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Дата и время создания организации"""
   createdAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Дата и время последнего обновления"""
   updatedAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
 }
 
+"""
+Результат выполнения AI-команды.
+Содержит информацию об успешности выполнения и затронутых сущностях.
+"""
 type AICommandResult @join__type(graph: AI_SUBGRAPH) {
+  """Успешно ли выполнена команда"""
   ok: Boolean!
+  """Сообщение о результате выполнения (опционально)"""
   message: String
+  """Список ID сущностей, которые были затронуты командой"""
   affectedIds: [UUID!]!
+  """Предварительный просмотр изменений в формате JSON (опционально)"""
   preview: JSON
 }
 
+"""Запросы для работы с AI-функциональностью."""
 type Query @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Пустой запрос (требуется для GraphQL схемы)"""
   _empty: Boolean @join__field(graph: AI_SUBGRAPH)
+  """Получить счет по ID"""
   invoice(id: UUID!): Invoice @merge(subgraph: "billing-subgraph", keyField: "id", keyArg: "id") @join__field(graph: BILLING_SUBGRAPH)
+  """Получить список счетов организации с пагинацией и фильтрацией"""
   invoices(orgId: UUID!, first: Int, after: String, status: InvoiceStatus): InvoiceConnection! @join__field(graph: BILLING_SUBGRAPH)
+  """Получить платеж по ID"""
   payment(id: UUID!): Payment @merge(subgraph: "billing-subgraph", keyField: "id", keyArg: "id") @join__field(graph: BILLING_SUBGRAPH)
+  """Получить счет по ID заказа на услуги"""
   invoiceByOrderId(orderId: UUID!): Invoice @join__field(graph: BILLING_SUBGRAPH)
+  """Получить бронирование по ID"""
   booking(id: UUID!): Booking @merge(subgraph: "bookings-subgraph", keyField: "id", keyArg: "id") @join__field(graph: BOOKINGS_SUBGRAPH)
-  bookings(orgId: UUID, unitId: UUID, from: DateTime, to: DateTime, status: BookingStatus, first: Int, after: String): BookingConnection! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Получить список бронирований с фильтрацией и пагинацией"""
+  bookings(
+    """ID организации для фильтрации"""
+    orgId: UUID
+    """ID единицы недвижимости для фильтрации"""
+    unitId: UUID
+    """Начальная дата для фильтрации (включительно)"""
+    from: DateTime
+    """Конечная дата для фильтрации (включительно)"""
+    to: DateTime
+    """Статус бронирования для фильтрации"""
+    status: BookingStatus
+    """Количество элементов на странице"""
+    first: Int
+    """Курсор для пагинации"""
+    after: String
+  ): BookingConnection! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Получить пользователя по ID"""
   user(id: UUID!): User @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id") @join__field(graph: IDENTITY_SUBGRAPH)
+  """Получить пользователя по email адресу"""
   userByEmail(email: String!): User @join__field(graph: IDENTITY_SUBGRAPH)
+  """Получить список пользователей с пагинацией"""
   users(first: Int, after: String): UserConnection! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Получить организацию по ID"""
   organization(id: UUID!): Organization @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id") @join__field(graph: IDENTITY_SUBGRAPH)
+  """Получить список организаций с пагинацией"""
   organizations(first: Int, after: String): OrganizationConnection! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Получить все организации, в которых состоит пользователь"""
   organizationsByUserId(userId: UUID!): [Organization!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Получить членство по ID"""
   membership(id: UUID!): Membership @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id") @join__field(graph: IDENTITY_SUBGRAPH)
+  """Получить всех участников организации"""
   membershipsByOrg(orgId: UUID!): [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Получить все членства пользователя"""
   membershipsByUser(userId: UUID!): [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Получить объект недвижимости по ID"""
   property(id: UUID!): Property @merge(subgraph: "inventory-subgraph", keyField: "id", keyArg: "id") @join__field(graph: INVENTORY_SUBGRAPH)
+  """Получить единицу недвижимости по ID"""
   unit(id: UUID!): Unit @merge(subgraph: "inventory-subgraph", keyField: "id", keyArg: "id") @join__field(graph: INVENTORY_SUBGRAPH)
+  """Получить все объекты недвижимости организации"""
   propertiesByOrgId(orgId: UUID!): [Property!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Получить все единицы недвижимости в объекте"""
   unitsByPropertyId(propertyId: UUID!): [Unit!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Получить документ по ID"""
   document(id: UUID!): Document @merge(subgraph: "legal-subgraph", keyField: "id", keyArg: "id") @join__field(graph: LEGAL_SUBGRAPH)
+  """Получить транзакцию с депозитом по ID"""
   depositTx(id: UUID!): DepositTransaction @join__field(graph: LEGAL_SUBGRAPH)
+  """Получить все документы по бронированию"""
   documentsByBookingId(bookingId: UUID!): [Document!]! @join__field(graph: LEGAL_SUBGRAPH)
+  """Получить все транзакции с депозитом по бронированию"""
   depositTransactionsByBookingId(bookingId: UUID!): [DepositTransaction!]! @join__field(graph: LEGAL_SUBGRAPH)
+  """Получить объявление по ID"""
   listing(id: UUID!): Listing @merge(subgraph: "listings-subgraph", keyField: "id", keyArg: "id") @join__field(graph: LISTINGS_SUBGRAPH)
+  """Получить список объявлений для единицы недвижимости с пагинацией"""
   listings(unitId: UUID!, first: Int, after: String): ListingConnection! @join__field(graph: LISTINGS_SUBGRAPH)
+  """Получить задачу по ID"""
   task(id: UUID!): Task @merge(subgraph: "ops-subgraph", keyField: "id", keyArg: "id") @join__field(graph: OPS_SUBGRAPH)
-  tasks(orgId: UUID!, status: TaskStatus, type: TaskType, first: Int, after: String): TaskConnection! @join__field(graph: OPS_SUBGRAPH)
+  """Получить список задач с фильтрацией и пагинацией"""
+  tasks(
+    """ID организации для фильтрации"""
+    orgId: UUID!
+    """Статус задач для фильтрации (опционально)"""
+    status: TaskStatus
+    """Тип задач для фильтрации (опционально)"""
+    type: TaskType
+    """Количество элементов на странице"""
+    first: Int
+    """Курсор для пагинации"""
+    after: String
+  ): TaskConnection! @join__field(graph: OPS_SUBGRAPH)
+  """Получить заказ на услуги по ID"""
   serviceOrder(id: UUID!): ServiceOrder @merge(subgraph: "ops-subgraph", keyField: "id", keyArg: "id") @join__field(graph: OPS_SUBGRAPH)
+  """Получить поставщика услуг по ID"""
   serviceProvider(id: UUID!): ServiceProvider @merge(subgraph: "ops-subgraph", keyField: "id", keyArg: "id") @join__field(graph: OPS_SUBGRAPH)
+  """Получить список поставщиков услуг с фильтрацией по типам услуг"""
   serviceProviders(serviceTypes: [TaskType!]): [ServiceProvider!]! @join__field(graph: OPS_SUBGRAPH)
 }
 
+"""Мутации для выполнения AI-команд."""
 type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
-  aiCommand(orgId: UUID!, command: String!, context: JSON): AICommandResult! @join__field(graph: AI_SUBGRAPH)
+  """Выполнить AI-команду на естественном языке"""
+  aiCommand(
+    """ID организации, для которой выполняется команда"""
+    orgId: UUID!
+    """Текст команды на естественном языке"""
+    command: String!
+    """Дополнительный контекст в формате JSON (опционально)"""
+    context: JSON
+  ): AICommandResult! @join__field(graph: AI_SUBGRAPH)
+  """Создать новый счет"""
   createInvoice(input: CreateInvoiceInput!): Invoice! @join__field(graph: BILLING_SUBGRAPH)
+  """Добавить позиции в существующий счет"""
   addInvoiceItems(input: AddInvoiceItemsInput!): Invoice! @join__field(graph: BILLING_SUBGRAPH)
+  """Отменить счет"""
   cancelInvoice(id: UUID!): Invoice! @join__field(graph: BILLING_SUBGRAPH)
+  """Записать платеж по счету"""
   recordPayment(input: RecordPaymentInput!): Payment! @join__field(graph: BILLING_SUBGRAPH)
+  """Сгенерировать ссылку для онлайн-оплаты"""
   generatePaymentLink(input: GeneratePaymentLinkInput!): PaymentLink! @join__field(graph: BILLING_SUBGRAPH)
+  """Оформить возврат средств (создает запись Payment со знаком минус)"""
   issueRefund(input: IssueRefundInput!): Payment! @join__field(graph: BILLING_SUBGRAPH)
+  """Создать новое бронирование"""
   createBooking(input: CreateBookingInput!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Отменить бронирование с указанием причины"""
   cancelBooking(id: UUID!, reason: String): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Изменить даты заезда и выезда в бронировании"""
   changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Создать нового пользователя"""
   createUser(input: CreateUserInput!): User! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Обновить данные пользователя"""
   updateUser(id: UUID!, input: CreateUserInput!): User! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Создать новую организацию"""
   createOrganization(input: CreateOrganizationInput!): Organization! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Обновить данные организации"""
   updateOrganization(id: UUID!, input: CreateOrganizationInput!): Organization! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Добавить пользователя в организацию"""
   addMember(input: AddMemberInput!): Membership! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Изменить роль участника в организации"""
   updateMemberRole(input: UpdateMemberRoleInput!): Membership! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Удалить участника из организации"""
   removeMember(membershipId: UUID!): Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Создать новый объект недвижимости"""
   createProperty(orgId: UUID!, title: String!, address: String!, amenities: [String!]): Property! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Создать новую единицу недвижимости в объекте"""
   createUnit(propertyId: UUID!, name: String!, capacity: Int!, beds: Int!, bathrooms: Int!, amenities: [String!]): Unit! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Заблокировать даты в календаре единицы недвижимости"""
   blockDates(unitId: UUID!, from: DateTime!, to: DateTime!, note: String): [CalendarDay!]! @join__field(graph: INVENTORY_SUBGRAPH)
-  generateContract(bookingId: UUID!, template: String): Document! @join__field(graph: LEGAL_SUBGRAPH)
-  depositAction(bookingId: UUID!, action: String!, amount: MoneyInput): DepositTransaction! @join__field(graph: LEGAL_SUBGRAPH)
+  """Сгенерировать договор для бронирования"""
+  generateContract(
+    """ID бронирования, для которого генерируется договор"""
+    bookingId: UUID!
+    """Название шаблона договора (опционально)"""
+    template: String
+  ): Document! @join__field(graph: LEGAL_SUBGRAPH)
+  """Выполнить действие с депозитом по бронированию"""
+  depositAction(
+    """ID бронирования"""
+    bookingId: UUID!
+    """Действие с депозитом (HOLD, RELEASE, CHARGE, CAPTURE, REFUND)"""
+    action: String!
+    """Сумма для действия (опционально, не требуется для RELEASE)"""
+    amount: MoneyInput
+  ): DepositTransaction! @join__field(graph: LEGAL_SUBGRAPH)
+  """Создать новое объявление или обновить существующее"""
   upsertListing(input: UpsertListingInput!): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
+  """Обновить ценообразование для объявления"""
   setPricing(listingId: UUID!, basePrice: MoneyInput!, minNights: Int!, maxNights: Int): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
+  """Добавить правило скидки к объявлению"""
   addDiscountRule(input: DiscountRuleInput!): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
+  """Удалить правило скидки"""
   removeDiscountRule(id: UUID!): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
+  """Создать новую задачу"""
   createTask(input: CreateTaskInput!): Task! @join__field(graph: OPS_SUBGRAPH)
+  """Назначить задачу поставщику услуг"""
   assignTask(input: AssignTaskInput!): Task! @join__field(graph: OPS_SUBGRAPH)
+  """Обновить статус задачи"""
   updateTaskStatus(id: UUID!, status: TaskStatus!): Task! @join__field(graph: OPS_SUBGRAPH)
+  """Создать заказ на услуги"""
   createServiceOrder(input: CreateServiceOrderInput!): ServiceOrder! @join__field(graph: OPS_SUBGRAPH)
+  """Обновить статус заказа на услуги"""
   updateServiceOrderStatus(id: UUID!, status: String!): ServiceOrder! @join__field(graph: OPS_SUBGRAPH)
+  """Создать нового поставщика услуг"""
   createServiceProvider(input: CreateServiceProviderInput!): ServiceProvider! @join__field(graph: OPS_SUBGRAPH)
 }
 
+"""
+Денежная сумма с валютой.
+Amount хранится в копейках/центах для точности вычислений.
+Пример: {amount: 150000, currency: "RUB"} = 1500.00 RUB
+"""
 type Money @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Сумма в копейках/центах (минимальная единица валюты)"""
   amount: Int!
+  """Код валюты в формате ISO 4217 (RUB, USD, EUR)"""
   currency: String!
 }
 
+"""
+Информация о пагинации для соединений (connections).
+Используется в GraphQL для реализации cursor-based пагинации.
+"""
 type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Есть ли следующая страница результатов"""
   hasNextPage: Boolean!
+  """Есть ли предыдущая страница результатов"""
   hasPreviousPage: Boolean!
+  """Курсор для начала текущей страницы"""
   startCursor: String
+  """Курсор для конца текущей страницы"""
   endCursor: String
+  """Общее количество элементов (опционально)"""
   totalCount: Int
 }
 
+"""
+Заказ на услуги.
+Ссылка на сущность из ops-subgraph.
+"""
 type ServiceOrder @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор заказа"""
   id: UUID!
+  """Организация, разместившая заказ"""
   org: Organization! @join__field(graph: OPS_SUBGRAPH)
+  """Задача, для которой создан заказ"""
   task: Task! @join__field(graph: OPS_SUBGRAPH)
+  """Поставщик услуг, выполняющий заказ (опционально)"""
   provider: ServiceProvider @join__field(graph: OPS_SUBGRAPH)
+  """Статус заказа (например, "pending", "confirmed", "completed")"""
   status: String! @join__field(graph: OPS_SUBGRAPH)
+  """Стоимость услуг (опционально)"""
   cost: Money @join__field(graph: OPS_SUBGRAPH)
+  """Счет на оплату услуг (опционально)"""
   invoice: Invoice @join__field(graph: OPS_SUBGRAPH)
+  """Дата и время создания заказа"""
   createdAt: DateTime! @join__field(graph: OPS_SUBGRAPH)
+  """Дата и время последнего обновления"""
   updatedAt: DateTime! @join__field(graph: OPS_SUBGRAPH)
+  """Дополнительные заметки к заказу (опционально)"""
   notes: String @join__field(graph: OPS_SUBGRAPH)
 }
 
+"""
+Позиция в счете.
+Представляет отдельную услугу или товар в счете.
+"""
 type InvoiceItem @join__type(graph: BILLING_SUBGRAPH) {
+  """Название позиции (например, "Проживание", "Уборка")"""
   name: String!
+  """Количество единиц"""
   qty: Int!
+  """Цена за единицу"""
   price: Money!
+  """Общая сумма по позиции (qty * price)"""
   sum: Money!
 }
 
+"""
+Счет на оплату.
+Документ, содержащий список услуг/товаров и общую сумму к оплате.
+"""
 type Invoice @join__type(graph: BILLING_SUBGRAPH, key: "id") @join__type(graph: OPS_SUBGRAPH) {
+  """Уникальный идентификатор счета"""
   id: UUID!
+  """Организация, выставившая счет"""
   org: Organization! @join__field(graph: BILLING_SUBGRAPH)
+  """Связанный заказ на услуги (опционально)"""
   order: ServiceOrder @join__field(graph: BILLING_SUBGRAPH)
+  """Список позиций в счете"""
   items: [InvoiceItem!]! @join__field(graph: BILLING_SUBGRAPH)
+  """Общая сумма счета"""
   total: Money! @join__field(graph: BILLING_SUBGRAPH)
+  """Текущий статус счета"""
   status: InvoiceStatus! @join__field(graph: BILLING_SUBGRAPH)
+  """Дата и время выставления счета"""
   issuedAt: DateTime! @join__field(graph: BILLING_SUBGRAPH)
+  """Дата, до которой должен быть оплачен счет (опционально)"""
   dueAt: DateTime @join__field(graph: BILLING_SUBGRAPH)
 }
 
+"""
+Платеж по счету.
+Запись о попытке оплаты или успешной оплате счета.
+"""
 type Payment @join__type(graph: BILLING_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор платежа"""
   id: UUID!
+  """Счет, по которому произведен платеж"""
   invoice: Invoice!
+  """Способ оплаты"""
   method: PaymentMethod!
+  """Сумма платежа"""
   amount: Money!
+  """Статус платежа"""
   status: PaymentStatus!
+  """Дата и время создания записи о платеже"""
   createdAt: DateTime!
+  """Платежный провайдер (STRIPE, YOOKASSA, OFFLINE)"""
   provider: String
+  """Идентификатор в платежном провайдере"""
   providerRef: String
+  """Ссылка на чек/квитанцию об оплате"""
   receiptUrl: String
 }
 
+"""Элемент списка счетов для пагинации."""
 type InvoiceEdge @join__type(graph: BILLING_SUBGRAPH) {
+  """Счет"""
   node: Invoice!
+  """Курсор для пагинации"""
   cursor: String!
 }
 
+"""Соединение счетов с пагинацией."""
 type InvoiceConnection @join__type(graph: BILLING_SUBGRAPH) {
+  """Список счетов с курсорами"""
   edges: [InvoiceEdge!]!
+  """Информация о пагинации"""
   pageInfo: PageInfo!
 }
 
+"""
+Ссылка для оплаты.
+Генерируется платежными провайдерами для онлайн-оплаты.
+"""
 type PaymentLink @join__type(graph: BILLING_SUBGRAPH) {
+  """URL для перехода к оплате"""
   url: String!
+  """Платежный провайдер, который сгенерировал ссылку"""
   provider: String!
+  """Дата истечения ссылки (опционально)"""
   expiresAt: DateTime
 }
 
+"""
+Объект недвижимости (здание, комплекс и т.д.).
+Ссылка на сущность из inventory-subgraph.
+"""
 type Property @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор объекта недвижимости"""
   id: UUID!
+  """Организация, владеющая объектом"""
   org: Organization! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Название объекта недвижимости"""
   title: String! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Адрес объекта недвижимости"""
   address: String! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Список удобств объекта (WiFi, парковка, бассейн и т.д.)"""
   amenities: [String!]! @join__field(graph: INVENTORY_SUBGRAPH)
 }
 
+"""
+Единица недвижимости (номер, квартира, дом и т.д.).
+Ссылка на основную сущность из inventory-subgraph.
+"""
 type Unit @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH, key: "id") @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Уникальный идентификатор единицы недвижимости"""
   id: UUID!
+  """Объект недвижимости, к которому относится единица"""
   property: Property! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Название единицы (например, "Номер 101", "Квартира 2А")"""
   name: String! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Максимальная вместимость (количество гостей)"""
   capacity: Int! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Количество кроватей"""
   beds: Int! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Количество ванных комнат"""
   bathrooms: Int! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Список удобств единицы (кондиционер, кухня, балкон и т.д.)"""
   amenities: [String!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Календарь доступности единицы на указанный период"""
   calendar(rangeStart: DateTime!, rangeEnd: DateTime!): [CalendarDay!]! @join__field(graph: INVENTORY_SUBGRAPH)
 }
 
+"""
+Бронирование недвижимости.
+Представляет зарезервированный период проживания гостя в единице недвижимости.
+"""
 type Booking @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Уникальный идентификатор бронирования"""
   id: UUID!
+  """Организация, владеющая недвижимостью"""
   org: Organization! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Единица недвижимости, которая забронирована"""
   unit: Unit! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Информация о госте"""
   guest: Guest! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Текущий статус бронирования"""
   status: BookingStatus! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Источник бронирования (канал продаж)"""
   source: BookingSource! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Дата и время заезда"""
   checkIn: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Дата и время выезда"""
   checkOut: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Количество гостей"""
   guestsCount: Int! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Детализация стоимости бронирования"""
   priceBreakdown: PriceBreakdown! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Дополнительные заметки к бронированию"""
   notes: String @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Причина отмены (если бронирование отменено)"""
   cancellationReason: String @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Дата и время создания бронирования"""
   createdAt: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Дата и время последнего обновления"""
   updatedAt: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
 }
 
+"""
+Гость - человек, который бронирует недвижимость.
+Содержит контактную информацию и документы гостя.
+"""
 type Guest @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """Уникальный идентификатор гостя"""
   id: UUID!
+  """Полное имя гостя"""
   name: String!
+  """Email адрес гостя"""
   email: String!
+  """Номер телефона гостя (опционально)"""
   phone: String
+  """Тип документа, удостоверяющего личность (опционально)"""
   documentType: String
+  """Номер документа (опционально)"""
   documentNumber: String
+  """Дата и время создания записи о госте"""
   createdAt: DateTime!
+  """Дата и время последнего обновления"""
   updatedAt: DateTime!
 }
 
+"""
+Детализация стоимости бронирования.
+Разбивает общую стоимость на составляющие.
+"""
 type PriceBreakdown @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """Базовая стоимость проживания"""
   basePrice: Money!
+  """Стоимость уборки (опционально)"""
   cleaningFee: Money
+  """Сервисный сбор (опционально)"""
   serviceFee: Money
+  """Налоги (опционально)"""
   taxes: Money
+  """Общая стоимость бронирования"""
   total: Money!
 }
 
+"""
+Сервисный сбор.
+Дополнительная плата за услуги платформы.
+"""
 type ServiceFee @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """Тип сервисного сбора"""
   type: String!
+  """Сумма сбора"""
   amount: Money!
+  """Описание сбора (опционально)"""
   description: String
 }
 
+"""Соединение бронирований с пагинацией."""
 type BookingConnection @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """Список бронирований с курсорами"""
   edges: [BookingEdge!]!
+  """Информация о пагинации"""
   pageInfo: PageInfo!
+  """Общее количество бронирований (опционально)"""
   totalCount: Int
 }
 
+"""Элемент списка бронирований для пагинации."""
 type BookingEdge @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """Бронирование"""
   node: Booking!
+  """Курсор для пагинации"""
   cursor: String!
 }
 
+"""
+Пользователь системы.
+Представляет физическое лицо, которое может работать с платформой.
+"""
 type User @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор пользователя"""
   id: UUID!
+  """Email адрес пользователя (уникальный)"""
   email: String!
+  """Полное имя пользователя (опционально)"""
   name: String
+  """Дата и время создания аккаунта"""
   createdAt: DateTime!
+  """Дата и время последнего обновления"""
   updatedAt: DateTime!
 }
 
+"""
+Членство пользователя в организации.
+Связывает пользователя с организацией и определяет его роль.
+"""
 type Membership @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор членства"""
   id: UUID!
+  """Пользователь, который является членом организации"""
   user: User!
+  """Роль пользователя в организации"""
   role: Role!
+  """Дата и время добавления в организацию"""
   createdAt: DateTime!
+  """Дата и время последнего обновления роли"""
   updatedAt: DateTime!
 }
 
+"""Элемент списка пользователей для пагинации."""
 type UserEdge @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Пользователь"""
   node: User!
+  """Курсор для пагинации"""
   cursor: String!
 }
 
+"""Соединение пользователей с пагинацией."""
 type UserConnection @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Список пользователей с курсорами"""
   edges: [UserEdge!]!
+  """Информация о пагинации"""
   pageInfo: PageInfo!
 }
 
+"""Элемент списка организаций для пагинации."""
 type OrganizationEdge @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Организация"""
   node: Organization!
+  """Курсор для пагинации"""
   cursor: String!
 }
 
+"""Соединение организаций с пагинацией."""
 type OrganizationConnection @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Список организаций с курсорами"""
   edges: [OrganizationEdge!]!
+  """Информация о пагинации"""
   pageInfo: PageInfo!
 }
 
+"""
+День в календаре единицы недвижимости.
+Представляет статус доступности единицы на конкретную дату.
+"""
 type CalendarDay @join__type(graph: INVENTORY_SUBGRAPH) {
+  """Дата в календаре"""
   date: DateTime!
+  """Статус доступности на эту дату"""
   status: AvailabilityStatus!
+  """ID бронирования, если единица забронирована (опционально)"""
   bookingId: UUID
+  """Дополнительная заметка о статусе (опционально)"""
   note: String
 }
 
+"""
+Юридический документ.
+Представляет договор, соглашение или другой юридический документ, связанный с бронированием.
+"""
 type Document @join__type(graph: LEGAL_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор документа"""
   id: UUID!
+  """Тип документа (например, "rental_agreement", "deposit_contract")"""
   type: String!
+  """Название шаблона документа"""
   template: String!
+  """Содержимое документа в текстовом формате"""
   content: String!
-  url: String!
+  """URL для скачивания документа (опционально)"""
+  url: String
+  """Дата и время подписания документа (опционально)"""
   signedAt: DateTime
+  """Дата и время создания документа"""
   createdAt: DateTime!
+  """Дата и время последнего обновления"""
   updatedAt: DateTime!
+  """Дополнительные метаданные документа в формате JSON (опционально)"""
   meta: JSON
+  """Связанное бронирование (опционально)"""
   booking: Booking
 }
 
+"""
+Транзакция с депозитом/залогом.
+Запись о действии с залогом по бронированию (блокировка, списание, возврат).
+"""
 type DepositTransaction @join__type(graph: LEGAL_SUBGRAPH) {
+  """Уникальный идентификатор транзакции"""
   id: UUID!
+  """Бронирование, по которому производится транзакция"""
   booking: Booking!
+  """Действие с депозитом"""
   action: DepositAction!
+  """Сумма транзакции"""
   amount: Money!
+  """Статус транзакции"""
   status: TransactionStatus!
+  """Идентификатор транзакции в платежной системе (опционально)"""
   transactionId: String
+  """Дополнительные заметки к транзакции (опционально)"""
   notes: String
+  """Дата и время создания транзакции"""
   createdAt: DateTime!
+  """Дата и время последнего обновления"""
   updatedAt: DateTime!
 }
 
+"""
+Объявление о сдаче недвижимости в аренду.
+Представляет единицу недвижимости на конкретном канале продаж с настройками ценообразования.
+"""
 type Listing @join__type(graph: LISTINGS_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор объявления"""
   id: UUID!
+  """Единица недвижимости, которая сдается"""
   unit: Unit!
+  """Текущий статус объявления"""
   status: ListingStatus!
+  """Канал продаж, на котором размещено объявление"""
   channel: Channel!
+  """Базовая цена за ночь"""
   basePrice: Money!
+  """Минимальное количество ночей для бронирования"""
   minNights: Int!
+  """Максимальное количество ночей для бронирования (опционально)"""
   maxNights: Int
+  """Внешний ID объявления на платформе (например, Airbnb listing ID)"""
   externalId: String
+  """Дата и время последней синхронизации с внешней платформой"""
   lastSyncAt: DateTime
+  """Список правил скидок для данного объявления"""
   discounts: [DiscountRule!]!
 }
 
+"""
+Правило скидки для объявления.
+Определяет условия предоставления скидки при бронировании.
+"""
 type DiscountRule @join__type(graph: LISTINGS_SUBGRAPH) {
+  """Уникальный идентификатор правила скидки"""
   id: UUID!
+  """Название правила скидки (например, "Скидка за неделю")"""
   name: String!
+  """Процент скидки (от 1 до 100)"""
   percentOff: Int!
+  """Минимальное количество ночей для применения скидки (опционально)"""
   minNights: Int
 }
 
+"""Элемент списка объявлений для пагинации."""
 type ListingEdge @join__type(graph: LISTINGS_SUBGRAPH) {
+  """Объявление"""
   node: Listing!
+  """Курсор для пагинации"""
   cursor: String!
 }
 
+"""Соединение объявлений с пагинацией."""
 type ListingConnection @join__type(graph: LISTINGS_SUBGRAPH) {
+  """Список объявлений с курсорами"""
   edges: [ListingEdge!]!
+  """Информация о пагинации"""
   pageInfo: PageInfo!
 }
 
+"""
+Поставщик услуг.
+Компания или физическое лицо, предоставляющее услуги по обслуживанию недвижимости.
+"""
 type ServiceProvider @join__type(graph: OPS_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор поставщика услуг"""
   id: UUID!
+  """Название поставщика услуг"""
   name: String!
+  """Типы услуг, которые предоставляет поставщик"""
   serviceTypes: [TaskType!]!
+  """Рейтинг поставщика (от 1.0 до 5.0, опционально)"""
   rating: Float
+  """Контактная информация (телефон, email)"""
   contact: String
+  """Дата и время добавления поставщика"""
   createdAt: DateTime!
+  """Дата и время последнего обновления"""
   updatedAt: DateTime!
 }
 
+"""
+Операционная задача.
+Представляет задачу, которую необходимо выполнить для обслуживания недвижимости.
+"""
 type Task @join__type(graph: OPS_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор задачи"""
   id: UUID!
+  """Организация, для которой создана задача"""
   org: Organization!
+  """Единица недвижимости, к которой относится задача (опционально)"""
   unit: Unit
+  """Бронирование, связанное с задачей (опционально)"""
   booking: Booking
+  """Тип задачи"""
   type: TaskType!
+  """Текущий статус задачи"""
   status: TaskStatus!
+  """Дата и время, к которому должна быть выполнена задача (опционально)"""
   dueAt: DateTime
+  """Поставщик услуг, назначенный на задачу (опционально)"""
   assignedTo: ServiceProvider
+  """Чек-лист для выполнения задачи"""
   checklist: [String!]!
+  """Дата и время создания задачи"""
   createdAt: DateTime!
+  """Дата и время последнего обновления"""
   updatedAt: DateTime!
+  """Дополнительные заметки к задаче (опционально)"""
   note: String
 }
 
+"""Элемент списка задач для пагинации."""
 type TaskEdge @join__type(graph: OPS_SUBGRAPH) {
+  """Задача"""
   node: Task!
+  """Курсор для пагинации"""
   cursor: String!
 }
 
+"""Соединение задач с пагинацией."""
 type TaskConnection @join__type(graph: OPS_SUBGRAPH) {
+  """Список задач с курсорами"""
   edges: [TaskEdge!]!
+  """Информация о пагинации"""
   pageInfo: PageInfo!
+  """Общее количество задач (опционально)"""
   totalCount: Int
 }
 
+"""
+Действия с депозитом/залогом.
+Используется для управления залогами при бронировании.
+"""
 enum DepositAction @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Заблокировать средства на карте гостя"""
   HOLD @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Разблокировать заблокированные средства"""
   RELEASE @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Списать средства с карты гостя"""
   CHARGE @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Подтвердить списание (окончательно)"""
   CAPTURE @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Вернуть средства гостю"""
   REFUND @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
 }
 
+"""Статус транзакции в системе."""
 enum TransactionStatus @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Транзакция в процессе обработки"""
   PENDING @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Транзакция успешно завершена"""
   COMPLETED @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Транзакция не удалась"""
   FAILED @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
 }
 
+"""
+Каналы продаж для бронирований.
+Определяет источник бронирования.
+"""
 enum Channel @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Прямое бронирование через сайт/приложение"""
   DIRECT @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Бронирование через Airbnb"""
   AIRBNB @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Бронирование через Booking.com"""
   BOOKING_COM @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Бронирование через Avito"""
   AVITO @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  """Другие каналы продаж"""
   OTHER @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
 }
 
+"""
+Статус счета.
+Определяет текущее состояние выставленного счета.
+"""
 enum InvoiceStatus @join__type(graph: BILLING_SUBGRAPH) {
+  """Счет выставлен, ожидает оплаты"""
   OPEN @join__enumValue(graph: BILLING_SUBGRAPH)
+  """Счет полностью оплачен"""
   PAID @join__enumValue(graph: BILLING_SUBGRAPH)
+  """Счет отменен"""
   CANCELED @join__enumValue(graph: BILLING_SUBGRAPH)
 }
 
+"""
+Статус платежа.
+Определяет результат обработки платежа.
+"""
 enum PaymentStatus @join__type(graph: BILLING_SUBGRAPH) {
+  """Платеж в процессе обработки"""
   PENDING @join__enumValue(graph: BILLING_SUBGRAPH)
+  """Платеж успешно обработан"""
   SUCCEEDED @join__enumValue(graph: BILLING_SUBGRAPH)
+  """Платеж не удался"""
   FAILED @join__enumValue(graph: BILLING_SUBGRAPH)
+  """Платеж отменен"""
   CANCELED @join__enumValue(graph: BILLING_SUBGRAPH)
 }
 
+"""
+Способ оплаты.
+Определяет метод, которым был произведен платеж.
+"""
 enum PaymentMethod @join__type(graph: BILLING_SUBGRAPH) {
+  """Оплата банковской картой"""
   CARD @join__enumValue(graph: BILLING_SUBGRAPH)
+  """Оплата наличными"""
   CASH @join__enumValue(graph: BILLING_SUBGRAPH)
+  """Банковский перевод"""
   TRANSFER @join__enumValue(graph: BILLING_SUBGRAPH)
+  """Другие способы оплаты"""
   OTHER @join__enumValue(graph: BILLING_SUBGRAPH)
 }
 
+"""
+Статус бронирования.
+Определяет текущее состояние бронирования в жизненном цикле.
+"""
 enum BookingStatus @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """Ожидает подтверждения"""
   PENDING @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  """Подтверждено и активно"""
   CONFIRMED @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  """Отменено"""
   CANCELLED @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  """Завершено (гость выехал)"""
   COMPLETED @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  """Гость не явился (no-show)"""
   NO_SHOW @join__enumValue(graph: BOOKINGS_SUBGRAPH)
 }
 
+"""
+Источник бронирования.
+Определяет канал, через который было создано бронирование.
+"""
 enum BookingSource @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """Прямое бронирование через сайт/приложение"""
   DIRECT @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  """Бронирование через Airbnb"""
   AIRBNB @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  """Бронирование через Booking.com"""
   BOOKING_COM @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  """Бронирование через Avito"""
   AVITO @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  """Другие каналы продаж"""
   OTHER @join__enumValue(graph: BOOKINGS_SUBGRAPH)
 }
 
+"""
+Роли пользователей в организации.
+Определяет уровень доступа и права.
+"""
 enum Role @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Владелец организации - полный доступ ко всем функциям"""
   OWNER @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  """Менеджер - управление бронированиями и операциями"""
   MANAGER @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  """Сотрудник - ограниченный доступ к функциям"""
   STAFF @join__enumValue(graph: IDENTITY_SUBGRAPH)
 }
 
+"""
+Статус доступности единицы недвижимости.
+Определяет, можно ли забронировать единицу на конкретную дату.
+"""
 enum AvailabilityStatus @join__type(graph: INVENTORY_SUBGRAPH) {
+  """Доступна для бронирования"""
   AVAILABLE @join__enumValue(graph: INVENTORY_SUBGRAPH)
+  """Заблокирована (недоступна для бронирования)"""
   BLOCKED @join__enumValue(graph: INVENTORY_SUBGRAPH)
+  """Забронирована"""
   BOOKED @join__enumValue(graph: INVENTORY_SUBGRAPH)
 }
 
+"""
+Статус объявления.
+Определяет видимость и доступность объявления для бронирования.
+"""
 enum ListingStatus @join__type(graph: LISTINGS_SUBGRAPH) {
+  """Черновик - объявление создано, но не опубликовано"""
   DRAFT @join__enumValue(graph: LISTINGS_SUBGRAPH)
+  """Опубликовано - объявление активно и доступно для бронирования"""
   PUBLISHED @join__enumValue(graph: LISTINGS_SUBGRAPH)
+  """Архивировано - объявление скрыто, но не удалено"""
   ARCHIVED @join__enumValue(graph: LISTINGS_SUBGRAPH)
 }
 
+"""
+Статус задачи.
+Определяет текущее состояние выполнения задачи.
+"""
 enum TaskStatus @join__type(graph: OPS_SUBGRAPH) {
+  """Задача создана, ожидает выполнения"""
   TODO @join__enumValue(graph: OPS_SUBGRAPH)
+  """Задача в процессе выполнения"""
   IN_PROGRESS @join__enumValue(graph: OPS_SUBGRAPH)
+  """Задача выполнена"""
   DONE @join__enumValue(graph: OPS_SUBGRAPH)
+  """Задача отменена"""
   CANCELED @join__enumValue(graph: OPS_SUBGRAPH)
 }
 
+"""
+Тип задачи.
+Определяет категорию и характер выполняемой задачи.
+"""
 enum TaskType @join__type(graph: OPS_SUBGRAPH) {
+  """Уборка помещения"""
   CLEANING @join__enumValue(graph: OPS_SUBGRAPH)
+  """Заселение гостя"""
   CHECKIN @join__enumValue(graph: OPS_SUBGRAPH)
+  """Выселение гостя"""
   CHECKOUT @join__enumValue(graph: OPS_SUBGRAPH)
+  """Техническое обслуживание"""
   MAINTENANCE @join__enumValue(graph: OPS_SUBGRAPH)
+  """Инвентаризация"""
   INVENTORY @join__enumValue(graph: OPS_SUBGRAPH)
 }
 
+"""
+Входные данные для денежной суммы.
+Используется в мутациях для создания/обновления денежных значений.
+"""
 input MoneyInput @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  """Сумма в копейках/центах"""
   amount: Int!
+  """Код валюты в формате ISO 4217"""
   currency: String!
 }
 
+"""Входные данные для позиции в счете."""
 input InvoiceItemInput @join__type(graph: BILLING_SUBGRAPH) {
+  """Название позиции"""
   name: String!
+  """Количество единиц"""
   qty: Int!
+  """Цена за единицу"""
   price: MoneyInput!
 }
 
+"""Входные данные для создания счета."""
 input CreateInvoiceInput @join__type(graph: BILLING_SUBGRAPH) {
+  """ID организации, выставляющей счет"""
   orgId: UUID!
+  """ID связанного заказа на услуги (опционально)"""
   orderId: UUID
+  """Список позиций в счете"""
   items: [InvoiceItemInput!]!
+  """Дата, до которой должен быть оплачен счет (опционально)"""
   dueAt: DateTime
 }
 
+"""Входные данные для добавления позиций в существующий счет."""
 input AddInvoiceItemsInput @join__type(graph: BILLING_SUBGRAPH) {
+  """ID счета для добавления позиций"""
   invoiceId: UUID!
+  """Список позиций для добавления"""
   items: [InvoiceItemInput!]!
 }
 
+"""Входные данные для записи платежа."""
 input RecordPaymentInput @join__type(graph: BILLING_SUBGRAPH) {
+  """ID счета, по которому произведен платеж"""
   invoiceId: UUID!
+  """Способ оплаты"""
   method: PaymentMethod!
+  """Сумма платежа"""
   amount: MoneyInput!
+  """Платежный провайдер (опционально)"""
   provider: String
+  """Идентификатор в платежном провайдере (опционально)"""
   providerRef: String
+  """Ссылка на чек/квитанцию (опционально)"""
   receiptUrl: String
 }
 
+"""Входные данные для генерации ссылки на оплату."""
 input GeneratePaymentLinkInput @join__type(graph: BILLING_SUBGRAPH) {
+  """ID счета для оплаты"""
   invoiceId: UUID!
+  """Платежный провайдер (STRIPE, YOOKASSA)"""
   provider: String!
+  """URL для перенаправления после успешной оплаты"""
   successUrl: String!
+  """URL для перенаправления при отмене оплаты (опционально)"""
   cancelUrl: String
 }
 
+"""Входные данные для возврата средств."""
 input IssueRefundInput @join__type(graph: BILLING_SUBGRAPH) {
+  """ID платежа для возврата"""
   paymentId: UUID!
+  """Сумма возврата"""
   amount: MoneyInput!
+  """Причина возврата (опционально)"""
   reason: String
 }
 
+"""Входные данные для создания бронирования."""
 input CreateBookingInput @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """ID организации, владеющей недвижимостью"""
   orgId: UUID!
+  """ID единицы недвижимости для бронирования"""
   unitId: UUID!
+  """Информация о госте"""
   guest: GuestInput!
+  """Дата и время заезда"""
   checkIn: DateTime!
+  """Дата и время выезда"""
   checkOut: DateTime!
+  """Количество гостей"""
   guestsCount: Int!
+  """Детализация стоимости"""
   priceBreakdown: PriceBreakdownInput!
+  """Дополнительные заметки (опционально)"""
   notes: String
+  """Источник бронирования (опционально, по умолчанию DIRECT)"""
   source: BookingSource
 }
 
+"""Входные данные для информации о госте."""
 input GuestInput @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """Полное имя гостя"""
   name: String!
+  """Email адрес гостя"""
   email: String!
+  """Номер телефона гостя (опционально)"""
   phone: String
+  """Тип документа, удостоверяющего личность (опционально)"""
   documentType: String
+  """Номер документа (опционально)"""
   documentNumber: String
 }
 
+"""Входные данные для детализации стоимости бронирования."""
 input PriceBreakdownInput @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """Базовая стоимость проживания"""
   basePrice: MoneyInput!
+  """Стоимость уборки (опционально)"""
   cleaningFee: MoneyInput
+  """Сервисный сбор (опционально)"""
   serviceFee: MoneyInput
+  """Налоги (опционально)"""
   taxes: MoneyInput
+  """Общая стоимость бронирования"""
   total: MoneyInput!
 }
 
+"""Входные данные для создания пользователя."""
 input CreateUserInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Email адрес пользователя (обязательно)"""
   email: String!
+  """Полное имя пользователя (опционально)"""
   name: String
 }
 
+"""Входные данные для создания организации."""
 input CreateOrganizationInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Название организации"""
   name: String!
+  """Часовой пояс (например, "Europe/Moscow")"""
   timezone: String!
+  """Основная валюта (ISO 4217 код, например "RUB")"""
   currency: String!
 }
 
+"""Входные данные для добавления участника в организацию."""
 input AddMemberInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  """ID пользователя для добавления"""
   userId: UUID!
+  """ID организации"""
   orgId: UUID!
+  """Роль пользователя в организации"""
   role: Role!
 }
 
+"""Входные данные для обновления роли участника."""
 input UpdateMemberRoleInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  """ID членства для обновления"""
   membershipId: UUID!
+  """Новая роль пользователя"""
   role: Role!
 }
 
+"""Входные данные для создания или обновления объявления."""
 input UpsertListingInput @join__type(graph: LISTINGS_SUBGRAPH) {
+  """ID единицы недвижимости для объявления"""
   unitId: UUID!
+  """Статус объявления"""
   status: ListingStatus!
+  """Канал продаж для размещения"""
   channel: Channel!
+  """Базовая цена за ночь"""
   basePrice: MoneyInput!
+  """Минимальное количество ночей"""
   minNights: Int!
+  """Максимальное количество ночей (опционально)"""
   maxNights: Int
+  """Внешний ID на платформе (опционально)"""
   externalId: String
 }
 
+"""Входные данные для создания правила скидки."""
 input DiscountRuleInput @join__type(graph: LISTINGS_SUBGRAPH) {
+  """ID объявления, для которого создается скидка"""
   listingId: UUID!
+  """Название правила скидки"""
   name: String!
+  """Процент скидки (от 1 до 100)"""
   percentOff: Int!
+  """Минимальное количество ночей для применения (опционально)"""
   minNights: Int
 }
 
+"""Входные данные для создания задачи."""
 input CreateTaskInput @join__type(graph: OPS_SUBGRAPH) {
+  """ID организации, для которой создается задача"""
   orgId: UUID!
+  """Тип задачи"""
   type: TaskType!
+  """ID единицы недвижимости (опционально)"""
   unitId: UUID
+  """ID бронирования (опционально)"""
   bookingId: UUID
+  """Дата и время выполнения задачи (опционально)"""
   dueAt: DateTime
+  """Чек-лист для выполнения задачи (опционально)"""
   checklist: [String!]
+  """Дополнительные заметки (опционально)"""
   note: String
 }
 
+"""Входные данные для назначения задачи."""
 input AssignTaskInput @join__type(graph: OPS_SUBGRAPH) {
+  """ID задачи для назначения"""
   taskId: UUID!
+  """ID поставщика услуг (опционально)"""
   providerId: UUID
+  """Новый статус задачи (опционально)"""
   status: TaskStatus
+  """Дополнительные заметки (опционально)"""
   note: String
 }
 
+"""Входные данные для создания заказа на услуги."""
 input CreateServiceOrderInput @join__type(graph: OPS_SUBGRAPH) {
+  """ID задачи, для которой создается заказ"""
   taskId: UUID!
+  """ID поставщика услуг (опционально)"""
   providerId: UUID
+  """Стоимость услуг (опционально)"""
   cost: MoneyInput
+  """Дополнительные заметки (опционально)"""
   notes: String
 }
 
+"""Входные данные для создания поставщика услуг."""
 input CreateServiceProviderInput @join__type(graph: OPS_SUBGRAPH) {
+  """Название поставщика услуг"""
   name: String!
+  """Типы услуг, которые предоставляет поставщик"""
   serviceTypes: [TaskType!]!
+  """Рейтинг поставщика (опционально)"""
   rating: Float
+  """Контактная информация (опционально)"""
   contact: String
 }
