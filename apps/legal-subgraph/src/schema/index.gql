@@ -1,0 +1,82 @@
+# Общие типы
+scalar UUID
+scalar DateTime
+scalar JSON
+
+type Money {
+  amount: Int!
+  currency: String!
+}
+
+input MoneyInput {
+  amount: Int!
+  currency: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+  totalCount: Int
+}
+
+enum DepositAction {
+  HOLD
+  RELEASE
+  CHARGE
+  CAPTURE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Channel {
+  DIRECT
+  AIRBNB
+  BOOKING_COM
+  AVITO
+  OTHER
+}
+
+type Booking {
+  id: UUID!
+}
+
+type Document {
+  id: UUID!
+  type: String!
+  url: String!
+  createdAt: DateTime!
+  meta: JSON
+  booking: Booking
+}
+
+type DepositTransaction {
+  id: UUID!
+  booking: Booking!
+  action: DepositAction!
+  amount: Money!
+  status: TransactionStatus!
+  transactionId: String
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Query {
+  document(id: UUID!): Document
+  depositTx(id: UUID!): DepositTransaction
+  documentsByBookingId(bookingId: UUID!): [Document!]!
+  depositTransactionsByBookingId(bookingId: UUID!): [DepositTransaction!]!
+}
+
+
+type Mutation {
+  generateContract(bookingId: UUID!, template: String): Document!
+  depositAction(bookingId: UUID!, action: String!, amount: MoneyInput): DepositTransaction!
+}

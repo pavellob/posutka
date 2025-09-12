@@ -1,0 +1,215 @@
+schema
+    @link(url: "https://specs.apollo.dev/link/v1.0")
+    @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+    
+    
+    
+    
+    
+    
+    @link(url: "https://the-guild.dev/graphql/mesh/spec/v1.0", import: ["@merge"]) 
+  {
+    query: Query
+    mutation: Mutation
+    
+  }
+
+  
+    directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+    directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+    
+      directive @join__field(
+        graph: join__Graph
+        requires: join__FieldSet
+        provides: join__FieldSet
+        type: String
+        external: Boolean
+        override: String
+        usedOverridden: Boolean
+        
+        
+      ) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+    
+    
+
+    directive @join__implements(
+      graph: join__Graph!
+      interface: String!
+    ) repeatable on OBJECT | INTERFACE
+
+    directive @join__type(
+      graph: join__Graph!
+      key: join__FieldSet
+      extension: Boolean! = false
+      resolvable: Boolean! = true
+      isInterfaceObject: Boolean! = false
+    ) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+    directive @join__unionMember(
+      graph: join__Graph!
+      member: String!
+    ) repeatable on UNION
+
+    scalar join__FieldSet
+    
+  
+  
+  directive @link(
+    url: String
+    as: String
+    for: link__Purpose
+    import: [link__Import]
+  ) repeatable on SCHEMA
+
+  scalar link__Import
+
+  enum link__Purpose {
+    """
+    `SECURITY` features provide metadata necessary to securely resolve fields.
+    """
+    SECURITY
+
+    """
+    `EXECUTION` features provide metadata necessary for operation execution.
+    """
+    EXECUTION
+  }
+
+  
+  
+  
+  
+  
+  
+  
+enum join__Graph {
+  AI_SUBGRAPH @join__graph(name: "ai-subgraph", url: "http://localhost:4008/graphql") 
+  IDENTITY_SUBGRAPH @join__graph(name: "identity-subgraph", url: "http://localhost:4005/graphql") 
+}
+
+directive @merge(
+  subgraph: String
+  argsExpr: String
+  keyArg: String
+  keyField: String
+  key: [String!]
+  additionalArgs: String
+) repeatable on FIELD_DEFINITION
+
+scalar UUID @join__type(graph: AI_SUBGRAPH)  @join__type(graph: IDENTITY_SUBGRAPH) 
+
+scalar JSON @join__type(graph: AI_SUBGRAPH) 
+
+scalar TransportOptions @join__type(graph: AI_SUBGRAPH)  @join__type(graph: IDENTITY_SUBGRAPH) 
+
+scalar DateTime @join__type(graph: IDENTITY_SUBGRAPH) 
+
+type Organization @join__type(graph: AI_SUBGRAPH, key: "id")  @join__type(graph: IDENTITY_SUBGRAPH, key: "id")  {
+  id: UUID!
+  name: String! @join__field(graph: IDENTITY_SUBGRAPH) 
+  timezone: String! @join__field(graph: IDENTITY_SUBGRAPH) 
+  currency: String! @join__field(graph: IDENTITY_SUBGRAPH) 
+  members: [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH) 
+  createdAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH) 
+  updatedAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH) 
+}
+
+type AICommandResult @join__type(graph: AI_SUBGRAPH)  {
+  ok: Boolean!
+  message: String
+  affectedIds: [UUID!]!
+  preview: JSON
+}
+
+type Mutation @join__type(graph: AI_SUBGRAPH)  @join__type(graph: IDENTITY_SUBGRAPH)  {
+  aiCommand(orgId: UUID!, command: String!, context: JSON) : AICommandResult! @join__field(graph: AI_SUBGRAPH) 
+  createUser(input: CreateUserInput!) : User! @join__field(graph: IDENTITY_SUBGRAPH) 
+  updateUser(id: UUID!, input: CreateUserInput!) : User! @join__field(graph: IDENTITY_SUBGRAPH) 
+  createOrganization(input: CreateOrganizationInput!) : Organization! @join__field(graph: IDENTITY_SUBGRAPH) 
+  updateOrganization(id: UUID!, input: CreateOrganizationInput!) : Organization! @join__field(graph: IDENTITY_SUBGRAPH) 
+  addMember(input: AddMemberInput!) : Membership! @join__field(graph: IDENTITY_SUBGRAPH) 
+  updateMemberRole(input: UpdateMemberRoleInput!) : Membership! @join__field(graph: IDENTITY_SUBGRAPH) 
+  removeMember(membershipId: UUID!) : Boolean! @join__field(graph: IDENTITY_SUBGRAPH) 
+}
+
+type Query @join__type(graph: AI_SUBGRAPH)  @join__type(graph: IDENTITY_SUBGRAPH)  {
+  user(id: UUID!) : User @join__field(graph: IDENTITY_SUBGRAPH) 
+  userByEmail(email: String!) : User @join__field(graph: IDENTITY_SUBGRAPH) 
+  users(first: Int, after: String) : UserConnection! @join__field(graph: IDENTITY_SUBGRAPH) 
+  organization(id: UUID!) : Organization @join__field(graph: IDENTITY_SUBGRAPH) 
+  organizations(first: Int, after: String) : OrganizationConnection! @join__field(graph: IDENTITY_SUBGRAPH) 
+  membership(id: UUID!) : Membership @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id")  @join__field(graph: IDENTITY_SUBGRAPH) 
+  membershipsByOrg(orgId: UUID!) : [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH) 
+  membershipsByUser(userId: UUID!) : [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH) 
+}
+
+type User @join__type(graph: IDENTITY_SUBGRAPH, key: "id")  {
+  id: UUID!
+  email: String!
+  name: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Membership @join__type(graph: IDENTITY_SUBGRAPH, key: "id")  {
+  id: UUID!
+  user: User!
+  role: Role!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PageInfo @join__type(graph: IDENTITY_SUBGRAPH)  {
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+type UserEdge @join__type(graph: IDENTITY_SUBGRAPH)  {
+  node: User!
+  cursor: String!
+}
+
+type UserConnection @join__type(graph: IDENTITY_SUBGRAPH)  {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+}
+
+type OrganizationEdge @join__type(graph: IDENTITY_SUBGRAPH)  {
+  node: Organization!
+  cursor: String!
+}
+
+type OrganizationConnection @join__type(graph: IDENTITY_SUBGRAPH)  {
+  edges: [OrganizationEdge!]!
+  pageInfo: PageInfo!
+}
+
+enum Role @join__type(graph: IDENTITY_SUBGRAPH)  {
+  OWNER @join__enumValue(graph: IDENTITY_SUBGRAPH) 
+  MANAGER @join__enumValue(graph: IDENTITY_SUBGRAPH) 
+  STAFF @join__enumValue(graph: IDENTITY_SUBGRAPH) 
+}
+
+input CreateUserInput @join__type(graph: IDENTITY_SUBGRAPH)  {
+  email: String!
+  name: String
+}
+
+input CreateOrganizationInput @join__type(graph: IDENTITY_SUBGRAPH)  {
+  name: String!
+  timezone: String!
+  currency: String!
+}
+
+input AddMemberInput @join__type(graph: IDENTITY_SUBGRAPH)  {
+  userId: UUID!
+  orgId: UUID!
+  role: Role!
+}
+
+input UpdateMemberRoleInput @join__type(graph: IDENTITY_SUBGRAPH)  {
+  membershipId: UUID!
+  role: Role!
+}

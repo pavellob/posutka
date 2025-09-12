@@ -1,0 +1,198 @@
+type Money {
+  amount: Int!
+  currency: String!
+}
+
+input MoneyInput {
+  amount: Int!
+  currency: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+  totalCount: Int
+}
+
+enum DepositAction {
+  HOLD
+  RELEASE
+  CHARGE
+  CAPTURE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Channel {
+  DIRECT
+  AIRBNB
+  BOOKING_COM
+  AVITO
+  OTHER
+}
+
+
+scalar UUID
+scalar DateTime
+
+type Query {
+  booking(id: UUID!): Booking
+  bookings(
+    orgId: UUID
+    unitId: UUID
+    from: DateTime
+    to: DateTime
+    status: BookingStatus
+    first: Int
+    after: String
+  ): BookingConnection!
+}
+
+type Mutation {
+  createBooking(input: CreateBookingInput!): Booking!
+  cancelBooking(id: UUID!, reason: String): Booking!
+  changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking!
+  generateContract(bookingId: UUID!, template: String): Document!
+  depositAction(bookingId: UUID!, action: String!, amount: MoneyInput): DepositTransaction!
+}
+
+type Organization {
+  id: UUID!
+}
+
+type Property {
+  id: UUID!
+}
+
+type Unit {
+  id: UUID!
+}
+
+type Booking {
+  id: UUID!
+  org: Organization!
+  unit: Unit!
+  guest: Guest!
+  status: BookingStatus!
+  source: BookingSource!
+  checkIn: DateTime!
+  checkOut: DateTime!
+  guestsCount: Int!
+  priceBreakdown: PriceBreakdown!
+  notes: String
+  cancellationReason: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Guest {
+  id: UUID!
+  name: String!
+  email: String!
+  phone: String
+  documentType: String
+  documentNumber: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Document {
+  id: UUID!
+  booking: Booking!
+  type: String!
+  template: String!
+  content: String!
+  signedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type DepositTransaction {
+  id: UUID!
+  booking: Booking!
+  action: DepositAction!
+  amount: Money!
+  status: TransactionStatus!
+  transactionId: String
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PriceBreakdown {
+  basePrice: Money!
+  cleaningFee: Money
+  serviceFee: Money
+  taxes: Money
+  total: Money!
+}
+
+type ServiceFee {
+  type: String!
+  amount: Money!
+  description: String
+}
+
+type BookingConnection {
+  edges: [BookingEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+type BookingEdge {
+  node: Booking!
+  cursor: String!
+}
+
+
+input CreateBookingInput {
+  orgId: UUID!
+  unitId: UUID!
+  guest: GuestInput!
+  checkIn: DateTime!
+  checkOut: DateTime!
+  guestsCount: Int!
+  priceBreakdown: PriceBreakdownInput!
+  notes: String
+  source: BookingSource
+}
+
+input GuestInput {
+  name: String!
+  email: String!
+  phone: String
+  documentType: String
+  documentNumber: String
+}
+
+input PriceBreakdownInput {
+  basePrice: MoneyInput!
+  cleaningFee: MoneyInput
+  serviceFee: MoneyInput
+  taxes: MoneyInput
+  total: MoneyInput!
+}
+
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum BookingSource {
+  DIRECT
+  AIRBNB
+  BOOKING_COM
+  AVITO
+  OTHER
+}

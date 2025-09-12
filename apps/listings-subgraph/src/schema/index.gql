@@ -1,0 +1,116 @@
+# Общие типы
+scalar UUID
+scalar DateTime
+scalar JSON
+
+type Money {
+  amount: Int!
+  currency: String!
+}
+
+input MoneyInput {
+  amount: Int!
+  currency: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+  totalCount: Int
+}
+
+enum DepositAction {
+  HOLD
+  RELEASE
+  CHARGE
+  CAPTURE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Channel {
+  DIRECT
+  AIRBNB
+  BOOKING_COM
+  AVITO
+  OTHER
+}
+
+
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+type Unit {
+  id: UUID!
+}
+
+type Listing {
+  id: UUID!
+  unit: Unit!
+  status: ListingStatus!
+  channel: Channel!
+  basePrice: Money!
+  minNights: Int!
+  maxNights: Int
+  externalId: String
+  lastSyncAt: DateTime
+  discounts: [DiscountRule!]!
+}
+
+type DiscountRule {
+  id: UUID!
+  name: String!
+  percentOff: Int!
+  minNights: Int
+}
+
+
+type ListingEdge {
+  node: Listing!
+  cursor: String!
+}
+
+type ListingConnection {
+  edges: [ListingEdge!]!
+  pageInfo: PageInfo!
+}
+
+type Query {
+  listing(id: UUID!): Listing
+  listings(unitId: UUID!, first: Int, after: String): ListingConnection!
+}
+
+
+input UpsertListingInput {
+  unitId: UUID!
+  status: ListingStatus!
+  channel: Channel!
+  basePrice: MoneyInput!
+  minNights: Int!
+  maxNights: Int
+  externalId: String
+}
+
+input DiscountRuleInput {
+  listingId: UUID!
+  name: String!
+  percentOff: Int!
+  minNights: Int
+}
+
+type Mutation {
+  upsertListing(input: UpsertListingInput!): Listing!
+  setPricing(listingId: UUID!, basePrice: MoneyInput!, minNights: Int!, maxNights: Int): Listing!
+  addDiscountRule(input: DiscountRuleInput!): Listing!
+  removeDiscountRule(id: UUID!): Listing!
+}

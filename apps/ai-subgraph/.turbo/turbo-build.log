@@ -1,0 +1,5 @@
+
+
+> ai-subgraph@0.1.0 build /Users/pavellobachev/dev/posutka-monorepo/apps/ai-subgraph
+> tsc -p tsconfig.json
+

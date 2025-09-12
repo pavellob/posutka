@@ -1,0 +1,135 @@
+export class ListingsDLPrisma {
+    prisma;
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
+    async getListingById(id) {
+        const listing = await this.prisma.listing.findUnique({
+            where: { id },
+            include: { discounts: true }
+        });
+        if (!listing)
+            return null;
+        return {
+            ...this.mapListingFromPrisma(listing),
+            discounts: listing.discounts.map(discount => this.mapDiscountRuleFromPrisma(discount))
+        };
+    }
+    async listListings(unitId, first, after) {
+        const limit = first || 10;
+        const skip = after ? 1 : 0;
+        const cursor = after ? { id: after } : undefined;
+        const listings = await this.prisma.listing.findMany({
+            where: { unitId },
+            take: limit + 1,
+            skip,
+            cursor,
+            orderBy: { createdAt: 'desc' }
+        });
+        const hasNextPage = listings.length > limit;
+        const edges = hasNextPage ? listings.slice(0, -1) : listings;
+        const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
+        return {
+            edges: edges.map(listing => this.mapListingFromPrisma(listing)),
+            endCursor,
+            hasNextPage
+        };
+    }
+    async upsertListing(input) {
+        const data = {
+            unitId: input.unitId,
+            status: input.status,
+            channel: input.channel,
+            basePriceAmount: input.basePrice.amount,
+            basePriceCurrency: input.basePrice.currency,
+            minNights: input.minNights,
+            maxNights: input.maxNights,
+            externalId: input.externalId,
+            updatedAt: new Date().toISOString(),
+        };
+        const listing = input.id
+            ? await this.prisma.listing.update({
+                where: { id: input.id },
+                data
+            })
+            : await this.prisma.listing.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    ...data,
+                    createdAt: new Date().toISOString(),
+                }
+            });
+        return this.mapListingFromPrisma(listing);
+    }
+    async setPricing(listingId, price, minNights, maxNights) {
+        const listing = await this.prisma.listing.update({
+            where: { id: listingId },
+            data: {
+                basePriceAmount: price.amount,
+                basePriceCurrency: price.currency,
+                minNights,
+                maxNights,
+                updatedAt: new Date().toISOString(),
+            }
+        });
+        return this.mapListingFromPrisma(listing);
+    }
+    async addDiscountRule(input) {
+        const discountRule = await this.prisma.discountRule.create({
+            data: {
+                id: crypto.randomUUID(),
+                listingId: input.listingId,
+                name: input.name,
+                percentOff: input.percentOff,
+                minNights: input.minNights,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            }
+        });
+        return this.mapDiscountRuleFromPrisma(discountRule);
+    }
+    async removeDiscountRule(id) {
+        // Сначала получаем listingId для возврата обновленного листинга
+        const discountRule = await this.prisma.discountRule.findUnique({
+            where: { id },
+            select: { listingId: true }
+        });
+        if (!discountRule) {
+            throw new Error('Discount rule not found');
+        }
+        // Удаляем правило скидки
+        await this.prisma.discountRule.delete({
+            where: { id }
+        });
+        // Возвращаем обновленный листинг
+        const listing = await this.prisma.listing.findUnique({
+            where: { id: discountRule.listingId }
+        });
+        if (!listing) {
+            throw new Error('Listing not found');
+        }
+        return this.mapListingFromPrisma(listing);
+    }
+    mapListingFromPrisma(listing) {
+        return {
+            id: listing.id,
+            unitId: listing.unitId,
+            status: listing.status,
+            channel: listing.channel,
+            basePrice: { amount: listing.basePriceAmount, currency: listing.basePriceCurrency },
+            minNights: listing.minNights,
+            maxNights: listing.maxNights,
+            externalId: listing.externalId,
+            lastSyncAt: listing.lastSyncAt
+        };
+    }
+    mapDiscountRuleFromPrisma(discountRule) {
+        return {
+            id: discountRule.id,
+            listingId: discountRule.listingId,
+            name: discountRule.name,
+            percentOff: discountRule.percentOff,
+            minNights: discountRule.minNights
+        };
+    }
+}

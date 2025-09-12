@@ -1,0 +1,28 @@
+{
+  "name": "inventory-subgraph",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm build && node --watch dist/apps/inventory-subgraph/src/server.js",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/apps/inventory-subgraph/src/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "schema:publish": "hive schema:publish --registry.accessToken \"$HIVE_TOKEN\" --target \"$HIVE_TARGET\" --service inventory --url http://localhost:4001/graphql src/schema/index.gql"
+  },
+  "dependencies": {
+    "@apollo/subgraph": "^2.8.0",
+    "@graphql-tools/schema": "^10.0.0",
+    "@repo/datalayer": "workspace:*",
+    "@repo/datalayer-prisma": "workspace:*",
+    "@prisma/client": "^5.18.0",
+    "graphql": "^16.9.0",
+    "graphql-tag": "^2.12.6",
+    "graphql-yoga": "^5.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0",
+    "@types/node": "^22.0.0"
+  }
+}

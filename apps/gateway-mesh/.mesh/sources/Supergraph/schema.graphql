@@ -1,0 +1,219 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+scalar UUID
+
+scalar DateTime
+
+scalar Money
+
+scalar JSON
+
+type Query {
+  property(id: UUID!): Property
+  unit(id: UUID!): Unit
+  booking(id: UUID!): Booking
+  bookings(orgId: UUID, unitId: UUID, from: DateTime, to: DateTime, status: BookingStatus, first: Int, after: String): BookingConnection!
+}
+
+type Mutation {
+  createProperty(orgId: UUID!, title: String!, address: String!, amenities: [String!]): Property!
+  createUnit(propertyId: UUID!, name: String!, capacity: Int!, beds: Int!, bathrooms: Int!, amenities: [String!]): Unit!
+  blockDates(unitId: UUID!, from: DateTime!, to: DateTime!, note: String): [CalendarDay!]!
+  createBooking(input: CreateBookingInput!): Booking!
+  cancelBooking(id: UUID!, reason: String): Booking!
+  changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking!
+  generateContract(bookingId: UUID!, template: String): Document!
+  depositAction(bookingId: UUID!, action: String!, amount: MoneyInput): DepositTransaction!
+  aiCommand(orgId: UUID!, command: String!, context: JSON): AICommandResult!
+}
+
+type Organization @key(fields: "id") {
+  id: UUID!
+}
+
+type Property @key(fields: "id") {
+  id: UUID!
+  org: Organization!
+  title: String!
+  address: String!
+  amenities: [String!]!
+}
+
+type Unit @key(fields: "id") {
+  id: UUID!
+  property: Property!
+  name: String!
+  capacity: Int!
+  beds: Int!
+  bathrooms: Int!
+  amenities: [String!]!
+  calendar(rangeStart: DateTime!, rangeEnd: DateTime!): [CalendarDay!]!
+}
+
+type Booking @key(fields: "id") {
+  id: UUID!
+  org: Organization!
+  unit: Unit!
+  guest: Guest!
+  status: BookingStatus!
+  source: BookingSource!
+  checkIn: DateTime!
+  checkOut: DateTime!
+  guestsCount: Int!
+  priceBreakdown: PriceBreakdown!
+  notes: String
+  cancellationReason: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Guest @key(fields: "id") {
+  id: UUID!
+  name: String!
+  email: String!
+  phone: String
+  documentType: String
+  documentNumber: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Document @key(fields: "id") {
+  id: UUID!
+  booking: Booking!
+  type: String!
+  template: String!
+  content: String!
+  signedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type DepositTransaction @key(fields: "id") {
+  id: UUID!
+  booking: Booking!
+  action: DepositAction!
+  amount: Money!
+  status: TransactionStatus!
+  transactionId: String
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type AICommandResult {
+  ok: Boolean!
+  message: String
+  affectedIds: [UUID!]!
+  preview: JSON
+}
+
+type PriceBreakdown {
+  basePrice: Money!
+  cleaningFee: Money
+  serviceFee: Money
+  taxes: Money
+  total: Money!
+}
+
+type ServiceFee {
+  type: String!
+  amount: Money!
+  description: String
+}
+
+type BookingConnection {
+  edges: [BookingEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type BookingEdge {
+  node: Booking!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type CalendarDay {
+  date: DateTime!
+  status: AvailabilityStatus!
+  bookingId: UUID
+  note: String
+}
+
+input CreateBookingInput {
+  orgId: UUID!
+  unitId: UUID!
+  guest: GuestInput!
+  checkIn: DateTime!
+  checkOut: DateTime!
+  guestsCount: Int!
+  priceBreakdown: PriceBreakdownInput!
+  notes: String
+  source: BookingSource
+}
+
+input GuestInput {
+  name: String!
+  email: String!
+  phone: String
+  documentType: String
+  documentNumber: String
+}
+
+input PriceBreakdownInput {
+  basePrice: MoneyInput!
+  cleaningFee: MoneyInput
+  serviceFee: MoneyInput
+  taxes: MoneyInput
+  total: MoneyInput!
+}
+
+input MoneyInput {
+  amount: Float!
+  currency: String!
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BLOCKED
+  BOOKED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum BookingSource {
+  DIRECT
+  AIRBNB
+  BOOKING_COM
+  AVITO
+  OTHER
+}
+
+enum DepositAction {
+  HOLD
+  RELEASE
+  CHARGE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}

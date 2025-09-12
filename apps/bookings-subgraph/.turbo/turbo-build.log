@@ -1,0 +1,5 @@
+
+
+> bookings-subgraph@0.1.0 build /Users/pavellobachev/dev/posutka-monorepo/apps/bookings-subgraph
+> tsc -p tsconfig.json
+

@@ -1,0 +1,23 @@
+# Общие типы
+scalar UUID
+scalar DateTime
+scalar JSON
+
+type Organization {
+  id: UUID!
+}
+
+type AICommandResult {
+  ok: Boolean!
+  message: String
+  affectedIds: [UUID!]!
+  preview: JSON
+}
+
+type Query {
+  _empty: Boolean
+}
+
+type Mutation {
+  aiCommand(orgId: UUID!, command: String!, context: JSON): AICommandResult!
+}

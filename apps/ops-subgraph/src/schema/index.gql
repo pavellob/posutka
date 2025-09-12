@@ -1,0 +1,179 @@
+type Money {
+  amount: Int!
+  currency: String!
+}
+
+input MoneyInput {
+  amount: Int!
+  currency: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+  totalCount: Int
+}
+
+enum DepositAction {
+  HOLD
+  RELEASE
+  CHARGE
+  CAPTURE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Channel {
+  DIRECT
+  AIRBNB
+  BOOKING_COM
+  AVITO
+  OTHER
+}
+
+
+scalar UUID
+scalar DateTime
+
+type Organization {
+  id: UUID!
+}
+
+type Unit {
+  id: UUID!
+}
+
+type Booking {
+  id: UUID!
+}
+
+type Invoice {
+  id: UUID!
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELED
+}
+
+enum TaskType {
+  CLEANING
+  CHECKIN
+  CHECKOUT
+  MAINTENANCE
+  INVENTORY
+}
+
+type ServiceProvider {
+  id: UUID!
+  name: String!
+  serviceTypes: [TaskType!]!
+  rating: Float
+  contact: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Task {
+  id: UUID!
+  org: Organization!
+  unit: Unit
+  booking: Booking
+  type: TaskType!
+  status: TaskStatus!
+  dueAt: DateTime
+  assignedTo: ServiceProvider
+  checklist: [String!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  note: String
+}
+
+type ServiceOrder {
+  id: UUID!
+  org: Organization!
+  task: Task!
+  provider: ServiceProvider
+  status: String!
+  cost: Money
+  invoice: Invoice
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  notes: String
+}
+
+
+type TaskEdge {
+  node: Task!
+  cursor: String!
+}
+
+type TaskConnection {
+  edges: [TaskEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+type Query {
+  task(id: UUID!): Task
+  tasks(
+    orgId: UUID!
+    status: TaskStatus
+    type: TaskType
+    first: Int
+    after: String
+  ): TaskConnection!
+  serviceOrder(id: UUID!): ServiceOrder
+  serviceProvider(id: UUID!): ServiceProvider
+  serviceProviders(serviceTypes: [TaskType!]): [ServiceProvider!]!
+}
+
+input CreateTaskInput {
+  orgId: UUID!
+  type: TaskType!
+  unitId: UUID
+  bookingId: UUID
+  dueAt: DateTime
+  checklist: [String!]
+  note: String
+}
+
+input AssignTaskInput {
+  taskId: UUID!
+  providerId: UUID
+  status: TaskStatus
+  note: String
+}
+
+input CreateServiceOrderInput {
+  taskId: UUID!
+  providerId: UUID
+  cost: MoneyInput
+  notes: String
+}
+
+input CreateServiceProviderInput {
+  name: String!
+  serviceTypes: [TaskType!]!
+  rating: Float
+  contact: String
+}
+
+
+type Mutation {
+  createTask(input: CreateTaskInput!): Task!
+  assignTask(input: AssignTaskInput!): Task!
+  updateTaskStatus(id: UUID!, status: TaskStatus!): Task!
+  createServiceOrder(input: CreateServiceOrderInput!): ServiceOrder!
+  updateServiceOrderStatus(id: UUID!, status: String!): ServiceOrder!
+  createServiceProvider(input: CreateServiceProviderInput!): ServiceProvider!
+}

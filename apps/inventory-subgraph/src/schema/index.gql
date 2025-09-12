@@ -1,0 +1,92 @@
+type Money {
+  amount: Int!
+  currency: String!
+}
+
+input MoneyInput {
+  amount: Int!
+  currency: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+  totalCount: Int
+}
+
+enum DepositAction {
+  HOLD
+  RELEASE
+  CHARGE
+  CAPTURE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Channel {
+  DIRECT
+  AIRBNB
+  BOOKING_COM
+  AVITO
+  OTHER
+}
+
+
+scalar UUID
+scalar DateTime
+
+type Query {
+  property(id: UUID!): Property
+  unit(id: UUID!): Unit
+  propertiesByOrgId(orgId: UUID!): [Property!]!
+  unitsByPropertyId(propertyId: UUID!): [Unit!]!
+}
+
+type Mutation {
+  createProperty(orgId: UUID!, title: String!, address: String!, amenities: [String!]): Property!
+  createUnit(propertyId: UUID!, name: String!, capacity: Int!, beds: Int!, bathrooms: Int!, amenities: [String!]): Unit!
+  blockDates(unitId: UUID!, from: DateTime!, to: DateTime!, note: String): [CalendarDay!]!
+}
+
+type Organization {
+  id: UUID!
+}
+
+type Property {
+  id: UUID!
+  org: Organization!
+  title: String!
+  address: String!
+  amenities: [String!]!
+}
+
+type Unit {
+  id: UUID!
+  property: Property!
+  name: String!
+  capacity: Int!
+  beds: Int!
+  bathrooms: Int!
+  amenities: [String!]!
+  calendar(rangeStart: DateTime!, rangeEnd: DateTime!): [CalendarDay!]!
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BLOCKED
+  BOOKED
+}
+
+type CalendarDay {
+  date: DateTime!
+  status: AvailabilityStatus!
+  bookingId: UUID
+  note: String
+}

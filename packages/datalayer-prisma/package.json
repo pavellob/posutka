@@ -1,0 +1,22 @@
+{
+  "name": "@repo/datalayer-prisma",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/datalayer-prisma/src/index.js",
+  "types": "dist/datalayer-prisma/src/index.d.ts",
+  "dependencies": {
+    "@prisma/client": "^5.18.0",
+    "@repo/datalayer": "workspace:*"
+  },
+  "devDependencies": {
+    "prisma": "^5.18.0",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prisma": "prisma",
+    "migrate": "prisma migrate dev",
+    "generate": "prisma generate"
+  }
+}

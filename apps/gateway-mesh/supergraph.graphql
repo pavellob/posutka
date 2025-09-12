@@ -1,0 +1,456 @@
+schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION) @link(url: "https://the-guild.dev/graphql/mesh/spec/v1.0", import: ["@merge"]) {
+  query: Query
+  mutation: Mutation
+}
+
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+directive @merge(subgraph: String, argsExpr: String, keyArg: String, keyField: String, key: [String!], additionalArgs: String) repeatable on FIELD_DEFINITION
+
+directive @additionalField on FIELD_DEFINITION
+
+scalar join__FieldSet
+
+scalar link__Import
+
+enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+enum join__Graph {
+  AI_SUBGRAPH @join__graph(name: "ai-subgraph", url: "http://localhost:4008/graphql")
+  BILLING_SUBGRAPH @join__graph(name: "billing-subgraph", url: "http://localhost:4004/graphql")
+  BOOKINGS_SUBGRAPH @join__graph(name: "bookings-subgraph", url: "http://localhost:4002/graphql")
+  IDENTITY_SUBGRAPH @join__graph(name: "identity-subgraph", url: "http://localhost:4005/graphql")
+}
+
+scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH)
+
+scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH)
+
+scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH)
+
+scalar DateTime @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH)
+
+type Organization @join__type(graph: AI_SUBGRAPH, key: "id") @join__type(graph: BILLING_SUBGRAPH, key: "id") @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
+  id: UUID!
+  name: String! @join__field(graph: IDENTITY_SUBGRAPH)
+  timezone: String! @join__field(graph: IDENTITY_SUBGRAPH)
+  currency: String! @join__field(graph: IDENTITY_SUBGRAPH)
+  members: [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  createdAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
+  updatedAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
+  bookings: [Booking!]! @resolveTo(sourceName: "bookings-subgraph", sourceTypeName: "Query", sourceFieldName: "bookings", requiredSelectionSet: "{ id }", sourceArgs: {orgId: "{root.id}"}) @additionalField
+  invoices: [Invoice!]! @resolveTo(sourceName: "billing-subgraph", sourceTypeName: "Query", sourceFieldName: "invoices", requiredSelectionSet: "{ id }", sourceArgs: {orgId: "{root.id}"}) @additionalField
+}
+
+type AICommandResult @join__type(graph: AI_SUBGRAPH) {
+  ok: Boolean!
+  message: String
+  affectedIds: [UUID!]!
+  preview: JSON
+}
+
+type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  aiCommand(orgId: UUID!, command: String!, context: JSON): AICommandResult! @join__field(graph: AI_SUBGRAPH)
+  createInvoice(input: CreateInvoiceInput!): Invoice! @join__field(graph: BILLING_SUBGRAPH)
+  addInvoiceItems(input: AddInvoiceItemsInput!): Invoice! @join__field(graph: BILLING_SUBGRAPH)
+  cancelInvoice(id: UUID!): Invoice! @join__field(graph: BILLING_SUBGRAPH)
+  recordPayment(input: RecordPaymentInput!): Payment! @join__field(graph: BILLING_SUBGRAPH)
+  generatePaymentLink(input: GeneratePaymentLinkInput!): PaymentLink! @join__field(graph: BILLING_SUBGRAPH)
+  issueRefund(input: IssueRefundInput!): Payment! @join__field(graph: BILLING_SUBGRAPH)
+  createBooking(input: CreateBookingInput!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
+  cancelBooking(id: UUID!, reason: String): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
+  changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
+  generateContract(bookingId: UUID!, template: String): Document! @join__field(graph: BOOKINGS_SUBGRAPH)
+  depositAction(bookingId: UUID!, action: String!, amount: MoneyInput): DepositTransaction! @join__field(graph: BOOKINGS_SUBGRAPH)
+  createUser(input: CreateUserInput!): User! @join__field(graph: IDENTITY_SUBGRAPH)
+  updateUser(id: UUID!, input: CreateUserInput!): User! @join__field(graph: IDENTITY_SUBGRAPH)
+  createOrganization(input: CreateOrganizationInput!): Organization! @join__field(graph: IDENTITY_SUBGRAPH)
+  updateOrganization(id: UUID!, input: CreateOrganizationInput!): Organization! @join__field(graph: IDENTITY_SUBGRAPH)
+  addMember(input: AddMemberInput!): Membership! @join__field(graph: IDENTITY_SUBGRAPH)
+  updateMemberRole(input: UpdateMemberRoleInput!): Membership! @join__field(graph: IDENTITY_SUBGRAPH)
+  removeMember(membershipId: UUID!): Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
+}
+
+type Query @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  invoice(id: UUID!): Invoice @join__field(graph: BILLING_SUBGRAPH)
+  invoices(orgId: UUID!, first: Int, after: String, status: InvoiceStatus): InvoiceConnection! @join__field(graph: BILLING_SUBGRAPH)
+  payment(id: UUID!): Payment @join__field(graph: BILLING_SUBGRAPH)
+  booking(id: UUID!): Booking @join__field(graph: BOOKINGS_SUBGRAPH)
+  bookings(orgId: UUID, unitId: UUID, from: DateTime, to: DateTime, status: BookingStatus, first: Int, after: String): BookingConnection! @join__field(graph: BOOKINGS_SUBGRAPH)
+  user(id: UUID!): User @join__field(graph: IDENTITY_SUBGRAPH)
+  userByEmail(email: String!): User @join__field(graph: IDENTITY_SUBGRAPH)
+  users(first: Int, after: String): UserConnection! @join__field(graph: IDENTITY_SUBGRAPH)
+  organization(id: UUID!): Organization @join__field(graph: IDENTITY_SUBGRAPH)
+  organizations(first: Int, after: String): OrganizationConnection! @join__field(graph: IDENTITY_SUBGRAPH)
+  membership(id: UUID!): Membership @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id") @join__field(graph: IDENTITY_SUBGRAPH)
+  membershipsByOrg(orgId: UUID!): [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  membershipsByUser(userId: UUID!): [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  organizationWithDetails(id: UUID!): Organization @additionalField
+  userWithDetails(id: UUID!): User @additionalField
+  bookingWithDetails(id: UUID!): Booking @additionalField
+}
+
+type Money @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  amount: Int!
+  currency: String!
+}
+
+type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+  totalCount: Int
+}
+
+type ServiceOrder @join__type(graph: BILLING_SUBGRAPH, key: "id") {
+  id: UUID!
+}
+
+type InvoiceItem @join__type(graph: BILLING_SUBGRAPH) {
+  name: String!
+  qty: Int!
+  price: Money!
+  sum: Money!
+}
+
+type Invoice @join__type(graph: BILLING_SUBGRAPH, key: "id") {
+  id: UUID!
+  org: Organization!
+  order: ServiceOrder
+  items: [InvoiceItem!]!
+  total: Money!
+  status: InvoiceStatus!
+  issuedAt: DateTime!
+  dueAt: DateTime
+}
+
+type Payment @join__type(graph: BILLING_SUBGRAPH, key: "id") {
+  id: UUID!
+  invoice: Invoice!
+  method: PaymentMethod!
+  amount: Money!
+  status: PaymentStatus!
+  createdAt: DateTime!
+  provider: String
+  providerRef: String
+  receiptUrl: String
+}
+
+type InvoiceEdge @join__type(graph: BILLING_SUBGRAPH) {
+  node: Invoice!
+  cursor: String!
+}
+
+type InvoiceConnection @join__type(graph: BILLING_SUBGRAPH) {
+  edges: [InvoiceEdge!]!
+  pageInfo: PageInfo!
+}
+
+type PaymentLink @join__type(graph: BILLING_SUBGRAPH) {
+  url: String!
+  provider: String!
+  expiresAt: DateTime
+}
+
+type Property @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+  id: UUID!
+}
+
+type Unit @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+  id: UUID!
+}
+
+type Booking @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+  id: UUID!
+  org: Organization!
+  unit: Unit!
+  guest: Guest!
+  status: BookingStatus!
+  source: BookingSource!
+  checkIn: DateTime!
+  checkOut: DateTime!
+  guestsCount: Int!
+  priceBreakdown: PriceBreakdown!
+  notes: String
+  cancellationReason: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  invoices: [Invoice!]! @resolveTo(sourceName: "billing-subgraph", sourceTypeName: "Query", sourceFieldName: "invoices", requiredSelectionSet: "{ id }", sourceArgs: {bookingId: "{root.id}"}) @additionalField
+}
+
+type Guest @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+  id: UUID!
+  name: String!
+  email: String!
+  phone: String
+  documentType: String
+  documentNumber: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Document @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+  id: UUID!
+  booking: Booking!
+  type: String!
+  template: String!
+  content: String!
+  signedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type DepositTransaction @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+  id: UUID!
+  booking: Booking!
+  action: DepositAction!
+  amount: Money!
+  status: TransactionStatus!
+  transactionId: String
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PriceBreakdown @join__type(graph: BOOKINGS_SUBGRAPH) {
+  basePrice: Money!
+  cleaningFee: Money
+  serviceFee: Money
+  taxes: Money
+  total: Money!
+}
+
+type ServiceFee @join__type(graph: BOOKINGS_SUBGRAPH) {
+  type: String!
+  amount: Money!
+  description: String
+}
+
+type BookingConnection @join__type(graph: BOOKINGS_SUBGRAPH) {
+  edges: [BookingEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+type BookingEdge @join__type(graph: BOOKINGS_SUBGRAPH) {
+  node: Booking!
+  cursor: String!
+}
+
+type User @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
+  id: UUID!
+  email: String!
+  name: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  organizations: [Organization!]! @resolveTo(sourceName: "identity-subgraph", sourceTypeName: "Query", sourceFieldName: "organizations", requiredSelectionSet: "{ id }", sourceArgs: {userId: "{root.id}"}) @additionalField
+}
+
+type Membership @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
+  id: UUID!
+  user: User!
+  role: Role!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type UserEdge @join__type(graph: IDENTITY_SUBGRAPH) {
+  node: User!
+  cursor: String!
+}
+
+type UserConnection @join__type(graph: IDENTITY_SUBGRAPH) {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+}
+
+type OrganizationEdge @join__type(graph: IDENTITY_SUBGRAPH) {
+  node: Organization!
+  cursor: String!
+}
+
+type OrganizationConnection @join__type(graph: IDENTITY_SUBGRAPH) {
+  edges: [OrganizationEdge!]!
+  pageInfo: PageInfo!
+}
+
+enum DepositAction @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  HOLD @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  RELEASE @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  CHARGE @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  CAPTURE @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  REFUND @join__enumValue(graph: IDENTITY_SUBGRAPH)
+}
+
+enum TransactionStatus @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  PENDING @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  COMPLETED @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  FAILED @join__enumValue(graph: IDENTITY_SUBGRAPH)
+}
+
+enum Channel @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  DIRECT @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  AIRBNB @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  BOOKING_COM @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  AVITO @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  OTHER @join__enumValue(graph: IDENTITY_SUBGRAPH)
+}
+
+enum InvoiceStatus @join__type(graph: BILLING_SUBGRAPH) {
+  OPEN @join__enumValue(graph: BILLING_SUBGRAPH)
+  PAID @join__enumValue(graph: BILLING_SUBGRAPH)
+  CANCELED @join__enumValue(graph: BILLING_SUBGRAPH)
+}
+
+enum PaymentStatus @join__type(graph: BILLING_SUBGRAPH) {
+  PENDING @join__enumValue(graph: BILLING_SUBGRAPH)
+  SUCCEEDED @join__enumValue(graph: BILLING_SUBGRAPH)
+  FAILED @join__enumValue(graph: BILLING_SUBGRAPH)
+  CANCELED @join__enumValue(graph: BILLING_SUBGRAPH)
+}
+
+enum PaymentMethod @join__type(graph: BILLING_SUBGRAPH) {
+  CARD @join__enumValue(graph: BILLING_SUBGRAPH)
+  CASH @join__enumValue(graph: BILLING_SUBGRAPH)
+  TRANSFER @join__enumValue(graph: BILLING_SUBGRAPH)
+  OTHER @join__enumValue(graph: BILLING_SUBGRAPH)
+}
+
+enum BookingStatus @join__type(graph: BOOKINGS_SUBGRAPH) {
+  PENDING @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  CONFIRMED @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  CANCELLED @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  COMPLETED @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  NO_SHOW @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+}
+
+enum BookingSource @join__type(graph: BOOKINGS_SUBGRAPH) {
+  DIRECT @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  AIRBNB @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  BOOKING_COM @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  AVITO @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+  OTHER @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+}
+
+enum Role @join__type(graph: IDENTITY_SUBGRAPH) {
+  OWNER @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  MANAGER @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  STAFF @join__enumValue(graph: IDENTITY_SUBGRAPH)
+}
+
+input MoneyInput @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  amount: Int!
+  currency: String!
+}
+
+input InvoiceItemInput @join__type(graph: BILLING_SUBGRAPH) {
+  name: String!
+  qty: Int!
+  price: MoneyInput!
+}
+
+input CreateInvoiceInput @join__type(graph: BILLING_SUBGRAPH) {
+  orgId: UUID!
+  orderId: UUID
+  items: [InvoiceItemInput!]!
+  dueAt: DateTime
+}
+
+input AddInvoiceItemsInput @join__type(graph: BILLING_SUBGRAPH) {
+  invoiceId: UUID!
+  items: [InvoiceItemInput!]!
+}
+
+input RecordPaymentInput @join__type(graph: BILLING_SUBGRAPH) {
+  invoiceId: UUID!
+  method: PaymentMethod!
+  amount: MoneyInput!
+  provider: String
+  providerRef: String
+  receiptUrl: String
+}
+
+input GeneratePaymentLinkInput @join__type(graph: BILLING_SUBGRAPH) {
+  invoiceId: UUID!
+  provider: String!
+  successUrl: String!
+  cancelUrl: String
+}
+
+input IssueRefundInput @join__type(graph: BILLING_SUBGRAPH) {
+  paymentId: UUID!
+  amount: MoneyInput!
+  reason: String
+}
+
+input CreateBookingInput @join__type(graph: BOOKINGS_SUBGRAPH) {
+  orgId: UUID!
+  unitId: UUID!
+  guest: GuestInput!
+  checkIn: DateTime!
+  checkOut: DateTime!
+  guestsCount: Int!
+  priceBreakdown: PriceBreakdownInput!
+  notes: String
+  source: BookingSource
+}
+
+input GuestInput @join__type(graph: BOOKINGS_SUBGRAPH) {
+  name: String!
+  email: String!
+  phone: String
+  documentType: String
+  documentNumber: String
+}
+
+input PriceBreakdownInput @join__type(graph: BOOKINGS_SUBGRAPH) {
+  basePrice: MoneyInput!
+  cleaningFee: MoneyInput
+  serviceFee: MoneyInput
+  taxes: MoneyInput
+  total: MoneyInput!
+}
+
+input CreateUserInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  email: String!
+  name: String
+}
+
+input CreateOrganizationInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  name: String!
+  timezone: String!
+  currency: String!
+}
+
+input AddMemberInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  userId: UUID!
+  orgId: UUID!
+  role: Role!
+}
+
+input UpdateMemberRoleInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  membershipId: UUID!
+  role: Role!
+}

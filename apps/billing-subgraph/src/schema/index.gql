@@ -1,0 +1,176 @@
+type Money {
+  amount: Int!
+  currency: String!
+}
+
+input MoneyInput {
+  amount: Int!
+  currency: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+  totalCount: Int
+}
+
+enum DepositAction {
+  HOLD
+  RELEASE
+  CHARGE
+  CAPTURE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Channel {
+  DIRECT
+  AIRBNB
+  BOOKING_COM
+  AVITO
+  OTHER
+}
+
+
+scalar UUID
+scalar DateTime
+
+type Organization {
+  id: UUID!
+}
+
+type ServiceOrder {
+  id: UUID!
+}
+
+enum InvoiceStatus {
+  OPEN
+  PAID
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
+  TRANSFER
+  OTHER
+}
+
+type InvoiceItem {
+  name: String!
+  qty: Int!
+  price: Money!
+  sum: Money!
+}
+
+type Invoice {
+  id: UUID!
+  org: Organization!
+  order: ServiceOrder
+  items: [InvoiceItem!]!
+  total: Money!
+  status: InvoiceStatus!
+  issuedAt: DateTime!
+  dueAt: DateTime
+}
+
+type Payment {
+  id: UUID!
+  invoice: Invoice!
+  method: PaymentMethod!
+  amount: Money!
+  status: PaymentStatus!
+  createdAt: DateTime!
+  provider: String      # STRIPE | YOOKASSA | OFFLINE
+  providerRef: String   # id в платёжном провайдере
+  receiptUrl: String
+}
+
+
+type InvoiceEdge {
+  node: Invoice!
+  cursor: String!
+}
+
+type InvoiceConnection {
+  edges: [InvoiceEdge!]!
+  pageInfo: PageInfo!
+}
+
+type PaymentLink {
+  url: String!
+  provider: String!
+  expiresAt: DateTime
+}
+
+type Query {
+  invoice(id: UUID!): Invoice
+  invoices(orgId: UUID!, first: Int, after: String, status: InvoiceStatus): InvoiceConnection!
+  payment(id: UUID!): Payment
+  invoiceByOrderId(orderId: UUID!): Invoice
+}
+
+input InvoiceItemInput {
+  name: String!
+  qty: Int!
+  price: MoneyInput!
+}
+
+
+input CreateInvoiceInput {
+  orgId: UUID!
+  orderId: UUID
+  items: [InvoiceItemInput!]!
+  dueAt: DateTime
+}
+
+input AddInvoiceItemsInput {
+  invoiceId: UUID!
+  items: [InvoiceItemInput!]!
+}
+
+input RecordPaymentInput {
+  invoiceId: UUID!
+  method: PaymentMethod!
+  amount: MoneyInput!
+  provider: String
+  providerRef: String
+  receiptUrl: String
+}
+
+input GeneratePaymentLinkInput {
+  invoiceId: UUID!
+  provider: String!      # STRIPE|YOOKASSA
+  successUrl: String!
+  cancelUrl: String
+}
+
+input IssueRefundInput {
+  paymentId: UUID!
+  amount: MoneyInput!
+  reason: String
+}
+
+type Mutation {
+  createInvoice(input: CreateInvoiceInput!): Invoice!
+  addInvoiceItems(input: AddInvoiceItemsInput!): Invoice!
+  cancelInvoice(id: UUID!): Invoice!
+
+  recordPayment(input: RecordPaymentInput!): Payment!
+  generatePaymentLink(input: GeneratePaymentLinkInput!): PaymentLink!
+  issueRefund(input: IssueRefundInput!): Payment!   # создаёт запись refund как Payment со знаком минус или отдельный тип
+}

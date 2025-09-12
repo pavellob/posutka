@@ -1,0 +1,30 @@
+{
+  "name": "gateway-mesh",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"(not used)\"",
+    "compose": "hive dev --registry.accessToken \"$HIVE_TOKEN\" --target \"$HIVE_TARGET\" --watch --service inventory --url http://localhost:4001/graphql --service bookings --url http://localhost:4002/graphql --service ops --url http://localhost:4003/graphql --service billing --url http://localhost:4004/graphql --service identity --url http://localhost:4005/graphql --service listings --url http://localhost:4006/graphql --service legal --url http://localhost:4007/graphql --service ai --url http://localhost:4008/graphql",
+    "gateway": "mesh dev",
+    "mesh:dev": "mesh dev",
+    "mesh:build": "mesh build",
+    "mesh:start": "mesh start",
+    "mesh:compose": "npx mesh-compose -o supergraph.graphql",
+    "mesh:subgraph": "npx mesh-compose --subgraph",
+    "hive:publish": "hive schema:publish --service=ai-subgraph --url=http://localhost:4008/graphql --author=\"AI Assistant\" --commit=\"Initial schema\" ../../ai-subgraph/src/schema/index.gql",
+    "hive:check": "hive schema:check --service=ai-subgraph ../../ai-subgraph/src/schema/index.gql",
+    "hive:delete": "hive schema:delete --service=ai-subgraph --author=\"AI Assistant\" --commit=\"Delete schema\"",
+    "hive:list": "hive schema:list --service=ai-subgraph",
+    "gateway:start": "cd ../hive-gateway && node server.js",
+    "gateway:dev": "cd ../hive-gateway && node --watch server.js"
+  },
+  "dependencies": {
+    "@graphql-hive/cli": "^0.50.4",
+    "@graphql-hive/gateway": "^2.1.2",
+    "@graphql-mesh/cli": "^0.100.13",
+    "@graphql-mesh/plugin-hive": "^0.104.14",
+    "@graphql-mesh/supergraph": "^0.10.12",
+    "@graphql-mesh/compose-cli": "^1.4.17"
+  }
+}

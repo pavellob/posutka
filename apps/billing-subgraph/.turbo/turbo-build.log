@@ -1,0 +1,5 @@
+
+
+> billing-subgraph@0.1.0 build /Users/pavellobachev/dev/posutka-monorepo/apps/billing-subgraph
+> tsc -p tsconfig.json
+

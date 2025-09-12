@@ -1,0 +1,12 @@
+{
+  "registry": {
+    "accessToken": "dev-token",
+    "endpoint": "http://localhost:4000/graphql"
+  },
+  "usage": {
+    "endpoint": "http://localhost:4000/usage"
+  },
+  "schema": {
+    "endpoint": "http://localhost:4000/schema"
+  }
+}
