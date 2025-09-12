@@ -21,8 +21,7 @@ export const resolvers = {
             }
             return dl.changeBookingDates(id, checkIn, checkOut);
         },
-        generateContract: (_, { bookingId, template }, { dl }) => dl.generateContract(bookingId, template),
-        depositAction: (_, { bookingId, action, amount }, { dl }) => dl.depositAction(bookingId, action, amount),
+        // generateContract и depositAction перенесены в legal-subgraph
     },
     // Все связи между типами будут решаться на уровне mesh через base-schema.gql
     // Здесь оставляем только прямые запросы к данным

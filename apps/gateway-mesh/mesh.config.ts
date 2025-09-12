@@ -1,4 +1,11 @@
 import { defineConfig, loadGraphQLHTTPSubgraph } from '@graphql-mesh/compose-cli'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+import { fileURLToPath } from 'url'
+
+// Читаем базовую схему
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const baseSchema = readFileSync(join(__dirname, '../../base-schema.gql'), 'utf-8')
 
 export const composeConfig = defineConfig({
   subgraphs: [
@@ -7,117 +14,41 @@ export const composeConfig = defineConfig({
         endpoint: 'http://localhost:4008/graphql'
       })
     },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('identity-subgraph', {
+        endpoint: 'http://localhost:4005/graphql'
+      })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('bookings-subgraph', {
+        endpoint: 'http://localhost:4002/graphql'
+      })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('billing-subgraph', {
+        endpoint: 'http://localhost:4004/graphql'
+      })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('ops-subgraph', {
+        endpoint: 'http://localhost:4003/graphql'
+      })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('inventory-subgraph', {
+        endpoint: 'http://localhost:4001/graphql'
+      })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('legal-subgraph', {
+        endpoint: 'http://localhost:4007/graphql'
+      })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('listings-subgraph', {
+        endpoint: 'http://localhost:4006/graphql'
+      })
+    }
   ],
-  additionalTypeDefs: /* GraphQL */ `
-    # Общие скаляры
-    scalar UUID
-    scalar DateTime
-    scalar JSON
-
-    # Денежные типы
-    type Money {
-      amount: Int!
-      currency: String!
-    }
-
-    input MoneyInput {
-      amount: Int!
-      currency: String!
-    }
-
-    # Пагинация
-    type PageInfo {
-      hasNextPage: Boolean!
-      hasPreviousPage: Boolean!
-      startCursor: String
-      endCursor: String
-      totalCount: Int
-    }
-
-    # Общие енумы
-    enum DepositAction {
-      HOLD
-      RELEASE
-      CHARGE
-      CAPTURE
-      REFUND
-    }
-
-    enum TransactionStatus {
-      PENDING
-      COMPLETED
-      FAILED
-    }
-
-    enum Channel {
-      DIRECT
-      AIRBNB
-      BOOKING_COM
-      AVITO
-      OTHER
-    }
-
-    # Schema Extensions для связывания типов между субграфами
-
-    # Расширения для Organization (из Identity субграфа)
-    extend type Organization {
-      # Связь с Bookings субграфом
-      bookings: [Booking!]!
-        @resolveTo(
-          sourceName: "bookings-subgraph"
-          sourceTypeName: "Query"
-          sourceFieldName: "bookings"
-          requiredSelectionSet: "{ id }"
-          sourceArgs: { orgId: "{root.id}" }
-        )
-      
-      # Связь с Billing субграфом
-      invoices: [Invoice!]!
-        @resolveTo(
-          sourceName: "billing-subgraph"
-          sourceTypeName: "Query"
-          sourceFieldName: "invoices"
-          requiredSelectionSet: "{ id }"
-          sourceArgs: { orgId: "{root.id}" }
-        )
-    }
-
-    # Расширения для User (из Identity субграфа)
-    extend type User {
-      # Связь с Identity субграфом для получения организаций пользователя
-      organizations: [Organization!]!
-        @resolveTo(
-          sourceName: "identity-subgraph"
-          sourceTypeName: "Query"
-          sourceFieldName: "organizations"
-          requiredSelectionSet: "{ id }"
-          sourceArgs: { userId: "{root.id}" }
-        )
-    }
-
-    # Расширения для Booking (из Bookings субграфа)
-    extend type Booking {
-      # Связь с Billing субграфом для счетов
-      invoices: [Invoice!]!
-        @resolveTo(
-          sourceName: "billing-subgraph"
-          sourceTypeName: "Query"
-          sourceFieldName: "invoices"
-          requiredSelectionSet: "{ id }"
-          sourceArgs: { bookingId: "{root.id}" }
-        )
-    }
-
-    # Дополнительные запросы для удобства
-    extend type Query {
-      # Получить все данные организации одним запросом
-      organizationWithDetails(id: UUID!): Organization
-      
-      # Получить все данные пользователя одним запросом
-      userWithDetails(id: UUID!): User
-      
-      # Получить все данные бронирования одним запросом
-      bookingWithDetails(id: UUID!): Booking
-    }
-  `
+  additionalTypeDefs: baseSchema
 })

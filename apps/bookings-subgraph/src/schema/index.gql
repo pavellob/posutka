@@ -59,8 +59,7 @@ type Mutation {
   createBooking(input: CreateBookingInput!): Booking!
   cancelBooking(id: UUID!, reason: String): Booking!
   changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking!
-  generateContract(bookingId: UUID!, template: String): Document!
-  depositAction(bookingId: UUID!, action: String!, amount: MoneyInput): DepositTransaction!
+  # generateContract и depositAction перенесены в legal-subgraph
 }
 
 type Organization {
@@ -103,28 +102,7 @@ type Guest {
   updatedAt: DateTime!
 }
 
-type Document {
-  id: UUID!
-  booking: Booking!
-  type: String!
-  template: String!
-  content: String!
-  signedAt: DateTime
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-type DepositTransaction {
-  id: UUID!
-  booking: Booking!
-  action: DepositAction!
-  amount: Money!
-  status: TransactionStatus!
-  transactionId: String
-  notes: String
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
+# Document и DepositTransaction типы определены в legal-subgraph
 
 type PriceBreakdown {
   basePrice: Money!

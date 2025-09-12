@@ -50,8 +50,12 @@ type Booking {
 type Document {
   id: UUID!
   type: String!
+  template: String!
+  content: String!
   url: String!
+  signedAt: DateTime
   createdAt: DateTime!
+  updatedAt: DateTime!
   meta: JSON
   booking: Booking
 }

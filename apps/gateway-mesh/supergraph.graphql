@@ -19,8 +19,6 @@ directive @link(url: String, as: String, for: link__Purpose, import: [link__Impo
 
 directive @merge(subgraph: String, argsExpr: String, keyArg: String, keyField: String, key: [String!], additionalArgs: String) repeatable on FIELD_DEFINITION
 
-directive @additionalField on FIELD_DEFINITION
-
 scalar join__FieldSet
 
 scalar link__Import
@@ -41,17 +39,21 @@ enum join__Graph {
   BILLING_SUBGRAPH @join__graph(name: "billing-subgraph", url: "http://localhost:4004/graphql")
   BOOKINGS_SUBGRAPH @join__graph(name: "bookings-subgraph", url: "http://localhost:4002/graphql")
   IDENTITY_SUBGRAPH @join__graph(name: "identity-subgraph", url: "http://localhost:4005/graphql")
+  INVENTORY_SUBGRAPH @join__graph(name: "inventory-subgraph", url: "http://localhost:4001/graphql")
+  LEGAL_SUBGRAPH @join__graph(name: "legal-subgraph", url: "http://localhost:4007/graphql")
+  LISTINGS_SUBGRAPH @join__graph(name: "listings-subgraph", url: "http://localhost:4006/graphql")
+  OPS_SUBGRAPH @join__graph(name: "ops-subgraph", url: "http://localhost:4003/graphql")
 }
 
-scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH)
+scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
-scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH)
+scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
-scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH)
+scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH)
 
-scalar DateTime @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH)
+scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
-type Organization @join__type(graph: AI_SUBGRAPH, key: "id") @join__type(graph: BILLING_SUBGRAPH, key: "id") @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
+type Organization @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH, key: "id") @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   id: UUID!
   name: String! @join__field(graph: IDENTITY_SUBGRAPH)
   timezone: String! @join__field(graph: IDENTITY_SUBGRAPH)
@@ -59,8 +61,6 @@ type Organization @join__type(graph: AI_SUBGRAPH, key: "id") @join__type(graph: 
   members: [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
   createdAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
   updatedAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
-  bookings: [Booking!]! @resolveTo(sourceName: "bookings-subgraph", sourceTypeName: "Query", sourceFieldName: "bookings", requiredSelectionSet: "{ id }", sourceArgs: {orgId: "{root.id}"}) @additionalField
-  invoices: [Invoice!]! @resolveTo(sourceName: "billing-subgraph", sourceTypeName: "Query", sourceFieldName: "invoices", requiredSelectionSet: "{ id }", sourceArgs: {orgId: "{root.id}"}) @additionalField
 }
 
 type AICommandResult @join__type(graph: AI_SUBGRAPH) {
@@ -70,7 +70,41 @@ type AICommandResult @join__type(graph: AI_SUBGRAPH) {
   preview: JSON
 }
 
-type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+type Query @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  _empty: Boolean @join__field(graph: AI_SUBGRAPH)
+  invoice(id: UUID!): Invoice @merge(subgraph: "billing-subgraph", keyField: "id", keyArg: "id") @join__field(graph: BILLING_SUBGRAPH)
+  invoices(orgId: UUID!, first: Int, after: String, status: InvoiceStatus): InvoiceConnection! @join__field(graph: BILLING_SUBGRAPH)
+  payment(id: UUID!): Payment @merge(subgraph: "billing-subgraph", keyField: "id", keyArg: "id") @join__field(graph: BILLING_SUBGRAPH)
+  invoiceByOrderId(orderId: UUID!): Invoice @join__field(graph: BILLING_SUBGRAPH)
+  booking(id: UUID!): Booking @merge(subgraph: "bookings-subgraph", keyField: "id", keyArg: "id") @join__field(graph: BOOKINGS_SUBGRAPH)
+  bookings(orgId: UUID, unitId: UUID, from: DateTime, to: DateTime, status: BookingStatus, first: Int, after: String): BookingConnection! @join__field(graph: BOOKINGS_SUBGRAPH)
+  user(id: UUID!): User @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id") @join__field(graph: IDENTITY_SUBGRAPH)
+  userByEmail(email: String!): User @join__field(graph: IDENTITY_SUBGRAPH)
+  users(first: Int, after: String): UserConnection! @join__field(graph: IDENTITY_SUBGRAPH)
+  organization(id: UUID!): Organization @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id") @join__field(graph: IDENTITY_SUBGRAPH)
+  organizations(first: Int, after: String): OrganizationConnection! @join__field(graph: IDENTITY_SUBGRAPH)
+  organizationsByUserId(userId: UUID!): [Organization!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  membership(id: UUID!): Membership @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id") @join__field(graph: IDENTITY_SUBGRAPH)
+  membershipsByOrg(orgId: UUID!): [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  membershipsByUser(userId: UUID!): [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  property(id: UUID!): Property @merge(subgraph: "inventory-subgraph", keyField: "id", keyArg: "id") @join__field(graph: INVENTORY_SUBGRAPH)
+  unit(id: UUID!): Unit @merge(subgraph: "inventory-subgraph", keyField: "id", keyArg: "id") @join__field(graph: INVENTORY_SUBGRAPH)
+  propertiesByOrgId(orgId: UUID!): [Property!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  unitsByPropertyId(propertyId: UUID!): [Unit!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  document(id: UUID!): Document @merge(subgraph: "legal-subgraph", keyField: "id", keyArg: "id") @join__field(graph: LEGAL_SUBGRAPH)
+  depositTx(id: UUID!): DepositTransaction @join__field(graph: LEGAL_SUBGRAPH)
+  documentsByBookingId(bookingId: UUID!): [Document!]! @join__field(graph: LEGAL_SUBGRAPH)
+  depositTransactionsByBookingId(bookingId: UUID!): [DepositTransaction!]! @join__field(graph: LEGAL_SUBGRAPH)
+  listing(id: UUID!): Listing @merge(subgraph: "listings-subgraph", keyField: "id", keyArg: "id") @join__field(graph: LISTINGS_SUBGRAPH)
+  listings(unitId: UUID!, first: Int, after: String): ListingConnection! @join__field(graph: LISTINGS_SUBGRAPH)
+  task(id: UUID!): Task @merge(subgraph: "ops-subgraph", keyField: "id", keyArg: "id") @join__field(graph: OPS_SUBGRAPH)
+  tasks(orgId: UUID!, status: TaskStatus, type: TaskType, first: Int, after: String): TaskConnection! @join__field(graph: OPS_SUBGRAPH)
+  serviceOrder(id: UUID!): ServiceOrder @merge(subgraph: "ops-subgraph", keyField: "id", keyArg: "id") @join__field(graph: OPS_SUBGRAPH)
+  serviceProvider(id: UUID!): ServiceProvider @merge(subgraph: "ops-subgraph", keyField: "id", keyArg: "id") @join__field(graph: OPS_SUBGRAPH)
+  serviceProviders(serviceTypes: [TaskType!]): [ServiceProvider!]! @join__field(graph: OPS_SUBGRAPH)
+}
+
+type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   aiCommand(orgId: UUID!, command: String!, context: JSON): AICommandResult! @join__field(graph: AI_SUBGRAPH)
   createInvoice(input: CreateInvoiceInput!): Invoice! @join__field(graph: BILLING_SUBGRAPH)
   addInvoiceItems(input: AddInvoiceItemsInput!): Invoice! @join__field(graph: BILLING_SUBGRAPH)
@@ -81,8 +115,6 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   createBooking(input: CreateBookingInput!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
   cancelBooking(id: UUID!, reason: String): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
   changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
-  generateContract(bookingId: UUID!, template: String): Document! @join__field(graph: BOOKINGS_SUBGRAPH)
-  depositAction(bookingId: UUID!, action: String!, amount: MoneyInput): DepositTransaction! @join__field(graph: BOOKINGS_SUBGRAPH)
   createUser(input: CreateUserInput!): User! @join__field(graph: IDENTITY_SUBGRAPH)
   updateUser(id: UUID!, input: CreateUserInput!): User! @join__field(graph: IDENTITY_SUBGRAPH)
   createOrganization(input: CreateOrganizationInput!): Organization! @join__field(graph: IDENTITY_SUBGRAPH)
@@ -90,33 +122,29 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   addMember(input: AddMemberInput!): Membership! @join__field(graph: IDENTITY_SUBGRAPH)
   updateMemberRole(input: UpdateMemberRoleInput!): Membership! @join__field(graph: IDENTITY_SUBGRAPH)
   removeMember(membershipId: UUID!): Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
+  createProperty(orgId: UUID!, title: String!, address: String!, amenities: [String!]): Property! @join__field(graph: INVENTORY_SUBGRAPH)
+  createUnit(propertyId: UUID!, name: String!, capacity: Int!, beds: Int!, bathrooms: Int!, amenities: [String!]): Unit! @join__field(graph: INVENTORY_SUBGRAPH)
+  blockDates(unitId: UUID!, from: DateTime!, to: DateTime!, note: String): [CalendarDay!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  generateContract(bookingId: UUID!, template: String): Document! @join__field(graph: LEGAL_SUBGRAPH)
+  depositAction(bookingId: UUID!, action: String!, amount: MoneyInput): DepositTransaction! @join__field(graph: LEGAL_SUBGRAPH)
+  upsertListing(input: UpsertListingInput!): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
+  setPricing(listingId: UUID!, basePrice: MoneyInput!, minNights: Int!, maxNights: Int): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
+  addDiscountRule(input: DiscountRuleInput!): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
+  removeDiscountRule(id: UUID!): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
+  createTask(input: CreateTaskInput!): Task! @join__field(graph: OPS_SUBGRAPH)
+  assignTask(input: AssignTaskInput!): Task! @join__field(graph: OPS_SUBGRAPH)
+  updateTaskStatus(id: UUID!, status: TaskStatus!): Task! @join__field(graph: OPS_SUBGRAPH)
+  createServiceOrder(input: CreateServiceOrderInput!): ServiceOrder! @join__field(graph: OPS_SUBGRAPH)
+  updateServiceOrderStatus(id: UUID!, status: String!): ServiceOrder! @join__field(graph: OPS_SUBGRAPH)
+  createServiceProvider(input: CreateServiceProviderInput!): ServiceProvider! @join__field(graph: OPS_SUBGRAPH)
 }
 
-type Query @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
-  invoice(id: UUID!): Invoice @join__field(graph: BILLING_SUBGRAPH)
-  invoices(orgId: UUID!, first: Int, after: String, status: InvoiceStatus): InvoiceConnection! @join__field(graph: BILLING_SUBGRAPH)
-  payment(id: UUID!): Payment @join__field(graph: BILLING_SUBGRAPH)
-  booking(id: UUID!): Booking @join__field(graph: BOOKINGS_SUBGRAPH)
-  bookings(orgId: UUID, unitId: UUID, from: DateTime, to: DateTime, status: BookingStatus, first: Int, after: String): BookingConnection! @join__field(graph: BOOKINGS_SUBGRAPH)
-  user(id: UUID!): User @join__field(graph: IDENTITY_SUBGRAPH)
-  userByEmail(email: String!): User @join__field(graph: IDENTITY_SUBGRAPH)
-  users(first: Int, after: String): UserConnection! @join__field(graph: IDENTITY_SUBGRAPH)
-  organization(id: UUID!): Organization @join__field(graph: IDENTITY_SUBGRAPH)
-  organizations(first: Int, after: String): OrganizationConnection! @join__field(graph: IDENTITY_SUBGRAPH)
-  membership(id: UUID!): Membership @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id") @join__field(graph: IDENTITY_SUBGRAPH)
-  membershipsByOrg(orgId: UUID!): [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
-  membershipsByUser(userId: UUID!): [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
-  organizationWithDetails(id: UUID!): Organization @additionalField
-  userWithDetails(id: UUID!): User @additionalField
-  bookingWithDetails(id: UUID!): Booking @additionalField
-}
-
-type Money @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+type Money @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   amount: Int!
   currency: String!
 }
 
-type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   hasNextPage: Boolean!
   hasPreviousPage: Boolean!
   startCursor: String
@@ -124,8 +152,17 @@ type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_S
   totalCount: Int
 }
 
-type ServiceOrder @join__type(graph: BILLING_SUBGRAPH, key: "id") {
+type ServiceOrder @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH, key: "id") {
   id: UUID!
+  org: Organization! @join__field(graph: OPS_SUBGRAPH)
+  task: Task! @join__field(graph: OPS_SUBGRAPH)
+  provider: ServiceProvider @join__field(graph: OPS_SUBGRAPH)
+  status: String! @join__field(graph: OPS_SUBGRAPH)
+  cost: Money @join__field(graph: OPS_SUBGRAPH)
+  invoice: Invoice @join__field(graph: OPS_SUBGRAPH)
+  createdAt: DateTime! @join__field(graph: OPS_SUBGRAPH)
+  updatedAt: DateTime! @join__field(graph: OPS_SUBGRAPH)
+  notes: String @join__field(graph: OPS_SUBGRAPH)
 }
 
 type InvoiceItem @join__type(graph: BILLING_SUBGRAPH) {
@@ -135,15 +172,15 @@ type InvoiceItem @join__type(graph: BILLING_SUBGRAPH) {
   sum: Money!
 }
 
-type Invoice @join__type(graph: BILLING_SUBGRAPH, key: "id") {
+type Invoice @join__type(graph: BILLING_SUBGRAPH, key: "id") @join__type(graph: OPS_SUBGRAPH) {
   id: UUID!
-  org: Organization!
-  order: ServiceOrder
-  items: [InvoiceItem!]!
-  total: Money!
-  status: InvoiceStatus!
-  issuedAt: DateTime!
-  dueAt: DateTime
+  org: Organization! @join__field(graph: BILLING_SUBGRAPH)
+  order: ServiceOrder @join__field(graph: BILLING_SUBGRAPH)
+  items: [InvoiceItem!]! @join__field(graph: BILLING_SUBGRAPH)
+  total: Money! @join__field(graph: BILLING_SUBGRAPH)
+  status: InvoiceStatus! @join__field(graph: BILLING_SUBGRAPH)
+  issuedAt: DateTime! @join__field(graph: BILLING_SUBGRAPH)
+  dueAt: DateTime @join__field(graph: BILLING_SUBGRAPH)
 }
 
 type Payment @join__type(graph: BILLING_SUBGRAPH, key: "id") {
@@ -174,62 +211,49 @@ type PaymentLink @join__type(graph: BILLING_SUBGRAPH) {
   expiresAt: DateTime
 }
 
-type Property @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+type Property @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH, key: "id") {
   id: UUID!
+  org: Organization! @join__field(graph: INVENTORY_SUBGRAPH)
+  title: String! @join__field(graph: INVENTORY_SUBGRAPH)
+  address: String! @join__field(graph: INVENTORY_SUBGRAPH)
+  amenities: [String!]! @join__field(graph: INVENTORY_SUBGRAPH)
 }
 
-type Unit @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+type Unit @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH, key: "id") @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   id: UUID!
+  property: Property! @join__field(graph: INVENTORY_SUBGRAPH)
+  name: String! @join__field(graph: INVENTORY_SUBGRAPH)
+  capacity: Int! @join__field(graph: INVENTORY_SUBGRAPH)
+  beds: Int! @join__field(graph: INVENTORY_SUBGRAPH)
+  bathrooms: Int! @join__field(graph: INVENTORY_SUBGRAPH)
+  amenities: [String!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  calendar(rangeStart: DateTime!, rangeEnd: DateTime!): [CalendarDay!]! @join__field(graph: INVENTORY_SUBGRAPH)
 }
 
-type Booking @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+type Booking @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   id: UUID!
-  org: Organization!
-  unit: Unit!
-  guest: Guest!
-  status: BookingStatus!
-  source: BookingSource!
-  checkIn: DateTime!
-  checkOut: DateTime!
-  guestsCount: Int!
-  priceBreakdown: PriceBreakdown!
-  notes: String
-  cancellationReason: String
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  invoices: [Invoice!]! @resolveTo(sourceName: "billing-subgraph", sourceTypeName: "Query", sourceFieldName: "invoices", requiredSelectionSet: "{ id }", sourceArgs: {bookingId: "{root.id}"}) @additionalField
+  org: Organization! @join__field(graph: BOOKINGS_SUBGRAPH)
+  unit: Unit! @join__field(graph: BOOKINGS_SUBGRAPH)
+  guest: Guest! @join__field(graph: BOOKINGS_SUBGRAPH)
+  status: BookingStatus! @join__field(graph: BOOKINGS_SUBGRAPH)
+  source: BookingSource! @join__field(graph: BOOKINGS_SUBGRAPH)
+  checkIn: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
+  checkOut: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
+  guestsCount: Int! @join__field(graph: BOOKINGS_SUBGRAPH)
+  priceBreakdown: PriceBreakdown! @join__field(graph: BOOKINGS_SUBGRAPH)
+  notes: String @join__field(graph: BOOKINGS_SUBGRAPH)
+  cancellationReason: String @join__field(graph: BOOKINGS_SUBGRAPH)
+  createdAt: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
+  updatedAt: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
 }
 
-type Guest @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
+type Guest @join__type(graph: BOOKINGS_SUBGRAPH) {
   id: UUID!
   name: String!
   email: String!
   phone: String
   documentType: String
   documentNumber: String
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-type Document @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
-  id: UUID!
-  booking: Booking!
-  type: String!
-  template: String!
-  content: String!
-  signedAt: DateTime
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-type DepositTransaction @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") {
-  id: UUID!
-  booking: Booking!
-  action: DepositAction!
-  amount: Money!
-  status: TransactionStatus!
-  transactionId: String
-  notes: String
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -265,7 +289,6 @@ type User @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
   name: String
   createdAt: DateTime!
   updatedAt: DateTime!
-  organizations: [Organization!]! @resolveTo(sourceName: "identity-subgraph", sourceTypeName: "Query", sourceFieldName: "organizations", requiredSelectionSet: "{ id }", sourceArgs: {userId: "{root.id}"}) @additionalField
 }
 
 type Membership @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
@@ -296,26 +319,124 @@ type OrganizationConnection @join__type(graph: IDENTITY_SUBGRAPH) {
   pageInfo: PageInfo!
 }
 
-enum DepositAction @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
-  HOLD @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  RELEASE @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  CHARGE @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  CAPTURE @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  REFUND @join__enumValue(graph: IDENTITY_SUBGRAPH)
+type CalendarDay @join__type(graph: INVENTORY_SUBGRAPH) {
+  date: DateTime!
+  status: AvailabilityStatus!
+  bookingId: UUID
+  note: String
 }
 
-enum TransactionStatus @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
-  PENDING @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  COMPLETED @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  FAILED @join__enumValue(graph: IDENTITY_SUBGRAPH)
+type Document @join__type(graph: LEGAL_SUBGRAPH, key: "id") {
+  id: UUID!
+  type: String!
+  template: String!
+  content: String!
+  url: String!
+  signedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  meta: JSON
+  booking: Booking
 }
 
-enum Channel @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
-  DIRECT @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  AIRBNB @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  BOOKING_COM @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  AVITO @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  OTHER @join__enumValue(graph: IDENTITY_SUBGRAPH)
+type DepositTransaction @join__type(graph: LEGAL_SUBGRAPH) {
+  id: UUID!
+  booking: Booking!
+  action: DepositAction!
+  amount: Money!
+  status: TransactionStatus!
+  transactionId: String
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Listing @join__type(graph: LISTINGS_SUBGRAPH, key: "id") {
+  id: UUID!
+  unit: Unit!
+  status: ListingStatus!
+  channel: Channel!
+  basePrice: Money!
+  minNights: Int!
+  maxNights: Int
+  externalId: String
+  lastSyncAt: DateTime
+  discounts: [DiscountRule!]!
+}
+
+type DiscountRule @join__type(graph: LISTINGS_SUBGRAPH) {
+  id: UUID!
+  name: String!
+  percentOff: Int!
+  minNights: Int
+}
+
+type ListingEdge @join__type(graph: LISTINGS_SUBGRAPH) {
+  node: Listing!
+  cursor: String!
+}
+
+type ListingConnection @join__type(graph: LISTINGS_SUBGRAPH) {
+  edges: [ListingEdge!]!
+  pageInfo: PageInfo!
+}
+
+type ServiceProvider @join__type(graph: OPS_SUBGRAPH, key: "id") {
+  id: UUID!
+  name: String!
+  serviceTypes: [TaskType!]!
+  rating: Float
+  contact: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Task @join__type(graph: OPS_SUBGRAPH, key: "id") {
+  id: UUID!
+  org: Organization!
+  unit: Unit
+  booking: Booking
+  type: TaskType!
+  status: TaskStatus!
+  dueAt: DateTime
+  assignedTo: ServiceProvider
+  checklist: [String!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  note: String
+}
+
+type TaskEdge @join__type(graph: OPS_SUBGRAPH) {
+  node: Task!
+  cursor: String!
+}
+
+type TaskConnection @join__type(graph: OPS_SUBGRAPH) {
+  edges: [TaskEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+enum DepositAction @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  HOLD @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  RELEASE @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  CHARGE @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  CAPTURE @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  REFUND @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+}
+
+enum TransactionStatus @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  PENDING @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  COMPLETED @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  FAILED @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+}
+
+enum Channel @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+  DIRECT @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  AIRBNB @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  BOOKING_COM @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  AVITO @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
+  OTHER @join__enumValue(graph: BILLING_SUBGRAPH) @join__enumValue(graph: BOOKINGS_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: LEGAL_SUBGRAPH) @join__enumValue(graph: LISTINGS_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
 }
 
 enum InvoiceStatus @join__type(graph: BILLING_SUBGRAPH) {
@@ -360,7 +481,34 @@ enum Role @join__type(graph: IDENTITY_SUBGRAPH) {
   STAFF @join__enumValue(graph: IDENTITY_SUBGRAPH)
 }
 
-input MoneyInput @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+enum AvailabilityStatus @join__type(graph: INVENTORY_SUBGRAPH) {
+  AVAILABLE @join__enumValue(graph: INVENTORY_SUBGRAPH)
+  BLOCKED @join__enumValue(graph: INVENTORY_SUBGRAPH)
+  BOOKED @join__enumValue(graph: INVENTORY_SUBGRAPH)
+}
+
+enum ListingStatus @join__type(graph: LISTINGS_SUBGRAPH) {
+  DRAFT @join__enumValue(graph: LISTINGS_SUBGRAPH)
+  PUBLISHED @join__enumValue(graph: LISTINGS_SUBGRAPH)
+  ARCHIVED @join__enumValue(graph: LISTINGS_SUBGRAPH)
+}
+
+enum TaskStatus @join__type(graph: OPS_SUBGRAPH) {
+  TODO @join__enumValue(graph: OPS_SUBGRAPH)
+  IN_PROGRESS @join__enumValue(graph: OPS_SUBGRAPH)
+  DONE @join__enumValue(graph: OPS_SUBGRAPH)
+  CANCELED @join__enumValue(graph: OPS_SUBGRAPH)
+}
+
+enum TaskType @join__type(graph: OPS_SUBGRAPH) {
+  CLEANING @join__enumValue(graph: OPS_SUBGRAPH)
+  CHECKIN @join__enumValue(graph: OPS_SUBGRAPH)
+  CHECKOUT @join__enumValue(graph: OPS_SUBGRAPH)
+  MAINTENANCE @join__enumValue(graph: OPS_SUBGRAPH)
+  INVENTORY @join__enumValue(graph: OPS_SUBGRAPH)
+}
+
+input MoneyInput @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   amount: Int!
   currency: String!
 }
@@ -453,4 +601,52 @@ input AddMemberInput @join__type(graph: IDENTITY_SUBGRAPH) {
 input UpdateMemberRoleInput @join__type(graph: IDENTITY_SUBGRAPH) {
   membershipId: UUID!
   role: Role!
+}
+
+input UpsertListingInput @join__type(graph: LISTINGS_SUBGRAPH) {
+  unitId: UUID!
+  status: ListingStatus!
+  channel: Channel!
+  basePrice: MoneyInput!
+  minNights: Int!
+  maxNights: Int
+  externalId: String
+}
+
+input DiscountRuleInput @join__type(graph: LISTINGS_SUBGRAPH) {
+  listingId: UUID!
+  name: String!
+  percentOff: Int!
+  minNights: Int
+}
+
+input CreateTaskInput @join__type(graph: OPS_SUBGRAPH) {
+  orgId: UUID!
+  type: TaskType!
+  unitId: UUID
+  bookingId: UUID
+  dueAt: DateTime
+  checklist: [String!]
+  note: String
+}
+
+input AssignTaskInput @join__type(graph: OPS_SUBGRAPH) {
+  taskId: UUID!
+  providerId: UUID
+  status: TaskStatus
+  note: String
+}
+
+input CreateServiceOrderInput @join__type(graph: OPS_SUBGRAPH) {
+  taskId: UUID!
+  providerId: UUID
+  cost: MoneyInput
+  notes: String
+}
+
+input CreateServiceProviderInput @join__type(graph: OPS_SUBGRAPH) {
+  name: String!
+  serviceTypes: [TaskType!]!
+  rating: Float
+  contact: String
 }
