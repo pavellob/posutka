@@ -37,6 +37,6 @@ services:
            healthCheck:
              path: /graphql
              port: 4000
-             initialDelaySeconds: 120  # Даем время на запуск всех сервисов
-             periodSeconds: 10
-             timeoutSeconds: 30
+             initialDelaySeconds: 180  # Даем время на запуск всех сервисов
+             periodSeconds: 15
+             timeoutSeconds: 60
