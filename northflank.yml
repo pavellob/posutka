@@ -38,5 +38,5 @@ services:
              path: /graphql
              port: 4000
              initialDelaySeconds: 180  # Даем время на запуск всех сервисов
-             periodSeconds: 15
-             timeoutSeconds: 60
+             periodSeconds: 20
+             timeoutSeconds: 120
