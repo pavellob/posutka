@@ -18,6 +18,8 @@
     "typecheck": "tsc --noEmit",
     "prisma": "prisma",
     "migrate": "prisma migrate dev",
-    "generate": "prisma generate"
+    "generate": "prisma generate",
+    "seed": "node prisma-seed.js",
+    "seed:ts": "tsx prisma-seed.ts"
   }
 }
