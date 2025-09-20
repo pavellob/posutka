@@ -103,6 +103,20 @@ type AICommandResult @join__type(graph: AI_SUBGRAPH) {
   preview: JSON
 }
 
+"""Результат генерации GraphQL запроса из естественного языка."""
+type GraphQLQueryResult @join__type(graph: AI_SUBGRAPH) {
+  """Сгенерированный GraphQL запрос"""
+  query: String!
+  """Переменные для запроса"""
+  variables: JSON
+  """Описание того, что делает запрос"""
+  description: String
+  """Успешно ли сгенерирован запрос"""
+  success: Boolean!
+  """Сообщение об ошибке (если есть)"""
+  error: String
+}
+
 """Запросы для работы с AI-функциональностью."""
 type Query @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Пустой запрос (требуется для GraphQL схемы)"""
@@ -206,6 +220,26 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
     """Дополнительный контекст в формате JSON (опционально)"""
     context: JSON
   ): AICommandResult! @join__field(graph: AI_SUBGRAPH)
+  """Сгенерировать GraphQL запрос из естественного языка"""
+  generateGraphQLQuery(
+    """ID организации"""
+    orgId: UUID!
+    """Описание запроса на естественном языке"""
+    description: String!
+    """Настройки AI-адаптера"""
+    adapterConfig: AIAdapterConfig!
+    """Дополнительный контекст схемы (опционально)"""
+    schemaContext: JSON
+  ): GraphQLQueryResult! @join__field(graph: AI_SUBGRAPH)
+  """Выполнить сгенерированный GraphQL запрос"""
+  executeGeneratedQuery(
+    """ID организации"""
+    orgId: UUID!
+    """GraphQL запрос для выполнения"""
+    query: String!
+    """Переменные для запроса"""
+    variables: JSON
+  ): JSON! @join__field(graph: AI_SUBGRAPH)
   """Создать новый счет"""
   createInvoice(input: CreateInvoiceInput!): Invoice! @join__field(graph: BILLING_SUBGRAPH)
   """Добавить позиции в существующий счет"""
@@ -1027,6 +1061,16 @@ enum TaskType @join__type(graph: OPS_SUBGRAPH) {
   MAINTENANCE @join__enumValue(graph: OPS_SUBGRAPH)
   """Инвентаризация"""
   INVENTORY @join__enumValue(graph: OPS_SUBGRAPH)
+}
+
+"""Настройки для AI-адаптера."""
+input AIAdapterConfig @join__type(graph: AI_SUBGRAPH) {
+  """Тип адаптера (openai, anthropic)"""
+  type: String!
+  """API ключ для адаптера"""
+  apiKey: String!
+  """Модель для использования (опционально)"""
+  model: String
 }
 
 """

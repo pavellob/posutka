@@ -31,6 +31,34 @@ type AICommandResult {
 }
 
 """
+Результат генерации GraphQL запроса из естественного языка.
+"""
+type GraphQLQueryResult {
+  """Сгенерированный GraphQL запрос"""
+  query: String!
+  """Переменные для запроса"""
+  variables: JSON
+  """Описание того, что делает запрос"""
+  description: String
+  """Успешно ли сгенерирован запрос"""
+  success: Boolean!
+  """Сообщение об ошибке (если есть)"""
+  error: String
+}
+
+"""
+Настройки для AI-адаптера.
+"""
+input AIAdapterConfig {
+  """Тип адаптера (openai, anthropic)"""
+  type: String!
+  """API ключ для адаптера"""
+  apiKey: String!
+  """Модель для использования (опционально)"""
+  model: String
+}
+
+"""
 Запросы для работы с AI-функциональностью.
 """
 type Query {
@@ -51,4 +79,26 @@ type Mutation {
     """Дополнительный контекст в формате JSON (опционально)"""
     context: JSON
   ): AICommandResult!
+  
+  """Сгенерировать GraphQL запрос из естественного языка"""
+  generateGraphQLQuery(
+    """ID организации"""
+    orgId: UUID!
+    """Описание запроса на естественном языке"""
+    description: String!
+    """Настройки AI-адаптера"""
+    adapterConfig: AIAdapterConfig!
+    """Дополнительный контекст схемы (опционально)"""
+    schemaContext: JSON
+  ): GraphQLQueryResult!
+  
+  """Выполнить сгенерированный GraphQL запрос"""
+  executeGeneratedQuery(
+    """ID организации"""
+    orgId: UUID!
+    """GraphQL запрос для выполнения"""
+    query: String!
+    """Переменные для запроса"""
+    variables: JSON
+  ): JSON!
 }

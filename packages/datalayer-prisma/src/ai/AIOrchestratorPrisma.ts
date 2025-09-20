@@ -2,6 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import type {
   IAIOrchestrator,
   AICommandResult,
+  GraphQLQueryResult,
+  AIAdapterConfig,
   UUID,
 } from '@repo/datalayer';
 
@@ -155,6 +157,38 @@ export class AIOrchestratorPrisma implements IAIOrchestrator {
           ]
         }
       }
+    };
+  }
+
+  async generateGraphQLQuery(
+    orgId: UUID,
+    description: string,
+    adapterConfig: AIAdapterConfig,
+    schemaContext?: Record<string, any>
+  ): Promise<GraphQLQueryResult> {
+    // Заглушка для Prisma реализации
+    // В реальной реализации здесь будет интеграция с GQLPT
+    return {
+      query: `query { _empty }`,
+      variables: {},
+      description: `Prisma реализация для: ${description}`,
+      success: false,
+      error: 'GQLPT не поддерживается в Prisma реализации. Используйте AIOrchestratorService.'
+    };
+  }
+
+  async executeGeneratedQuery(
+    orgId: UUID,
+    query: string,
+    variables?: Record<string, any>
+  ): Promise<any> {
+    // Заглушка для Prisma реализации
+    return {
+      data: null,
+      message: 'GQLPT не поддерживается в Prisma реализации',
+      query,
+      variables,
+      orgId
     };
   }
 }

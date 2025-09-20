@@ -1,0 +1,42 @@
+version: 1
+
+services:
+  # Posutka GraphQL Federation (все сервисы в одном контейнере)
+  posutka-federation:
+    source:
+      type: image
+      dockerfile: Dockerfile
+      context: .
+    resources:
+      memory: 512Mi
+      cpu: 500m
+           ports:
+             - port: 4000  # Gateway (основной порт)
+               protocol: http
+             - port: 4001  # Inventory Subgraph
+               protocol: http
+             - port: 4002  # Bookings Subgraph
+               protocol: http
+             - port: 4003  # Ops Subgraph
+               protocol: http
+             - port: 4004  # Billing Subgraph
+               protocol: http
+             - port: 4005  # Identity Subgraph
+               protocol: http
+             - port: 4006  # Listings Subgraph
+               protocol: http
+             - port: 4007  # Legal Subgraph
+               protocol: http
+             - port: 4008  # AI Subgraph
+               protocol: http
+    environment:
+      - name: NODE_ENV
+        value: production
+      - name: DATABASE_URL
+        fromSecret: database-url
+           healthCheck:
+             path: /graphql
+             port: 4000
+             initialDelaySeconds: 120  # Даем время на запуск всех сервисов
+             periodSeconds: 10
+             timeoutSeconds: 30

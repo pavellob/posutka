@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/schema.gql dist/",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

@@ -12,17 +12,21 @@
   },
   "dependencies": {
     "@apollo/subgraph": "^2.8.0",
+    "@gqlpt/adapter-anthropic": "^0.0.0-alpha.33",
+    "@gqlpt/adapter-openai": "^0.0.0-alpha.33",
     "@graphql-tools/schema": "^10.0.0",
+    "@prisma/client": "^5.18.0",
     "@repo/datalayer": "workspace:*",
     "@repo/datalayer-prisma": "workspace:*",
-    "@prisma/client": "^5.18.0",
+    "gqlpt": "^0.0.0-alpha.33",
     "graphql": "^16.9.0",
     "graphql-tag": "^2.12.6",
     "graphql-yoga": "^5.6.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.20.5",
     "typescript": "^5.5.0",
-    "vitest": "^2.0.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^2.0.0"
   }
 }

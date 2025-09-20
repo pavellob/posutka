@@ -1,5 +1,5 @@
-version: '3.9'
 services:
+  # База данных PostgreSQL
   db:
     image: postgres:16
     environment:
@@ -9,5 +9,35 @@ services:
     ports: ["5432:5432"]
     volumes:
       - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Основное приложение с всеми сервисами
+  app:
+    build: .
+    ports:
+      - "4000:4000"  # Mesh Gateway
+      - "4001:4001"  # Inventory Subgraph
+      - "4002:4002"  # Bookings Subgraph
+      - "4003:4003"  # Ops Subgraph
+      - "4004:4004"  # Billing Subgraph
+      - "4005:4005"  # Identity Subgraph
+      - "4006:4006"  # Listings Subgraph
+      - "4007:4007"  # Legal Subgraph
+      - "4008:4008"  # AI Subgraph
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/posutka
+      - NODE_ENV=development
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: /usr/local/bin/docker-entrypoint.sh
+
 volumes:
   dbdata: {}

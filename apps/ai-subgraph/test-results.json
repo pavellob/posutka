@@ -1,0 +1,182 @@
+{
+  "timestamp": "2025-09-17T17:14:12.900Z",
+  "requestNumber": 1,
+  "command": "Создать новое бронирование для пользователя Иван",
+  "result": {
+    "ok": true,
+    "message": "Команда \"Создать новое бронирование для пользователя Иван\" выполнена успешно",
+    "affectedIds": [
+      "123e4567-e89b-12d3-a456-426614174000"
+    ],
+    "preview": {
+      "action": "create",
+      "command": "Создать новое бронирование для пользователя Иван",
+      "context": {
+        "userId": "user-1",
+        "timestamp": "2025-09-17T17:14:12.900Z",
+        "requestNumber": 1
+      }
+    }
+  },
+  "success": true
+}
+---
+{
+  "timestamp": "2025-09-17T17:14:13.901Z",
+  "requestNumber": 2,
+  "command": "Найти всех пользователей с именем \"Анна\"",
+  "result": {
+    "ok": true,
+    "message": "Поиск по команде \"Найти всех пользователей с именем \"Анна\"\" выполнен",
+    "affectedIds": [],
+    "preview": {
+      "action": "search",
+      "command": "Найти всех пользователей с именем \"Анна\"",
+      "context": {
+        "userId": "user-2",
+        "timestamp": "2025-09-17T17:14:13.901Z",
+        "requestNumber": 2
+      }
+    }
+  },
+  "success": true
+}
+---
+{
+  "timestamp": "2025-09-17T17:14:14.904Z",
+  "requestNumber": 3,
+  "command": "Показать статистику бронирований за месяц",
+  "result": {
+    "ok": true,
+    "message": "Команда \"Показать статистику бронирований за месяц\" обработана",
+    "affectedIds": [
+      "123e4567-e89b-12d3-a456-426614174000"
+    ],
+    "preview": {
+      "action": "process",
+      "command": "Показать статистику бронирований за месяц",
+      "context": {
+        "userId": "user-3",
+        "timestamp": "2025-09-17T17:14:14.904Z",
+        "requestNumber": 3
+      }
+    }
+  },
+  "success": true
+}
+---
+{
+  "timestamp": "2025-09-17T17:14:15.906Z",
+  "requestNumber": 4,
+  "command": "Обновить информацию о пользователе",
+  "result": {
+    "ok": true,
+    "message": "Команда \"Обновить информацию о пользователе\" обработана",
+    "affectedIds": [
+      "123e4567-e89b-12d3-a456-426614174000"
+    ],
+    "preview": {
+      "action": "process",
+      "command": "Обновить информацию о пользователе",
+      "context": {
+        "userId": "user-4",
+        "timestamp": "2025-09-17T17:14:15.906Z",
+        "requestNumber": 4
+      }
+    }
+  },
+  "success": true
+}
+---
+{
+  "timestamp": "2025-09-17T17:14:16.908Z",
+  "requestNumber": 5,
+  "command": "Удалить старые бронирования",
+  "result": {
+    "ok": true,
+    "message": "Команда \"Удалить старые бронирования\" обработана",
+    "affectedIds": [
+      "123e4567-e89b-12d3-a456-426614174000"
+    ],
+    "preview": {
+      "action": "process",
+      "command": "Удалить старые бронирования",
+      "context": {
+        "userId": "user-5",
+        "timestamp": "2025-09-17T17:14:16.908Z",
+        "requestNumber": 5
+      }
+    }
+  },
+  "success": true
+}
+---
+{
+  "timestamp": "2025-09-17T17:14:17.910Z",
+  "requestNumber": 6,
+  "command": "Создать инвойс для бронирования",
+  "result": {
+    "ok": true,
+    "message": "Команда \"Создать инвойс для бронирования\" выполнена успешно",
+    "affectedIds": [
+      "123e4567-e89b-12d3-a456-426614174000"
+    ],
+    "preview": {
+      "action": "create",
+      "command": "Создать инвойс для бронирования",
+      "context": {
+        "userId": "user-6",
+        "timestamp": "2025-09-17T17:14:17.910Z",
+        "requestNumber": 6
+      }
+    }
+  },
+  "success": true
+}
+---
+{
+  "timestamp": "2025-09-17T17:14:18.912Z",
+  "requestNumber": 7,
+  "command": "Показать доступные номера",
+  "result": {
+    "ok": true,
+    "message": "Команда \"Показать доступные номера\" обработана",
+    "affectedIds": [
+      "123e4567-e89b-12d3-a456-426614174000"
+    ],
+    "preview": {
+      "action": "process",
+      "command": "Показать доступные номера",
+      "context": {
+        "userId": "user-7",
+        "timestamp": "2025-09-17T17:14:18.912Z",
+        "requestNumber": 7
+      }
+    }
+  },
+  "success": true
+}
+---
+{
+  "timestamp": "2025-09-17T17:14:19.915Z",
+  "requestNumber": 8,
+  "command": "Забронировать номер на выходные",
+  "result": {
+    "ok": true,
+    "message": "Команда \"Забронировать номер на выходные\" обработана",
+    "affectedIds": [
+      "123e4567-e89b-12d3-a456-426614174000"
+    ],
+    "preview": {
+      "action": "process",
+      "command": "Забронировать номер на выходные",
+      "context": {
+        "userId": "user-8",
+        "timestamp": "2025-09-17T17:14:19.915Z",
+        "requestNumber": 8
+      }
+    }
+  },
+  "success": true
+}
+---

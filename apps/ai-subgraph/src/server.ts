@@ -7,7 +7,7 @@ import { createServer } from 'http';
 
 import { resolvers } from './resolvers/index.js';
 import { AIOrchestratorPrisma } from '@repo/datalayer-prisma';
-import { PrismaClient } from '@prisma/client';
+import { createContext } from './context.js';
 
 const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
 const schema = makeExecutableSchema({
@@ -15,12 +15,13 @@ const schema = makeExecutableSchema({
   resolvers,
 });
 
-const prisma = new PrismaClient();
-const orchestrator = new AIOrchestratorPrisma(prisma);
+// Используем новый контекст с GQLPT поддержкой
+// const prisma = new PrismaClient();
+// const orchestrator = new AIOrchestratorPrisma(prisma);
 
 const yoga = createYoga({
   schema,
-  context: () => ({ orchestrator }), // здесь легко подменить реализацию на другую (e.g. blockchain-orchestrator)
+  context: createContext, // используем новый контекст с GQLPT поддержкой
 });
 
 const server = createServer(yoga);
