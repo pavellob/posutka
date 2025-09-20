@@ -45,6 +45,7 @@ COPY --from=base /app/packages ./packages
 COPY --from=base /app/scripts ./scripts
 COPY --from=base /app/base-schema.gql ./
 COPY --from=base /app/package.json ./
+COPY --from=base /app/pnpm-lock.yaml ./
 COPY --from=base /app/turbo.json ./
 COPY --from=base /app/tsconfig.base.json ./
 COPY --from=base /app/pnpm-workspace.yaml ./
