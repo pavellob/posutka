@@ -34,9 +34,9 @@ services:
         value: production
       - name: DATABASE_URL
         fromSecret: database-url
-           healthCheck:
-             path: /graphql
-             port: 4000
-             initialDelaySeconds: 180  # Даем время на запуск всех сервисов
-             periodSeconds: 20
-             timeoutSeconds: 120
+    healthCheck:
+      path: /graphql
+      port: 4000
+      initialDelaySeconds: 180  # Даем время на запуск всех сервисов
+      periodSeconds: 20
+      timeoutSeconds: 120
