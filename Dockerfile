@@ -50,38 +50,8 @@ COPY --from=base /app/turbo.json ./
 COPY --from=base /app/tsconfig.base.json ./
 COPY --from=base /app/pnpm-workspace.yaml ./
 
-# Создаем скрипт для миграций и сидов
-COPY <<EOF ./migrate-and-seed.sh
-#!/bin/sh
-
-echo "🗄️  Запуск миграций Prisma..."
-
-# Ждем подключения к базе данных
-echo "⏳ Ожидание подключения к базе данных..."
-until pnpm -C packages/datalayer-prisma prisma db push --accept-data-loss; do
-  echo "⏳ База данных недоступна, ждем..."
-  sleep 5
-done
-
-echo "✅ База данных готова!"
-
-# Запускаем сиды с помощью pnpm
-echo "🌱 Запуск сидов с помощью pnpm..."
-if [ -f "packages/datalayer-prisma/prisma-seed.ts" ]; then
-  echo "📦 Найдены TypeScript сиды, запускаем..."
-  pnpm -C packages/datalayer-prisma tsx prisma-seed.ts
-elif [ -f "packages/datalayer-prisma/prisma-seed.js" ]; then
-  echo "📦 Найдены JavaScript сиды, запускаем..."
-  pnpm -C packages/datalayer-prisma seed
-else
-  echo "ℹ️  Сиды не найдены, пропускаем"
-fi
-
-echo "🎉 Миграции и сиды завершены!"
-EOF
-
-# Делаем скрипт исполняемым
-RUN chmod +x ./migrate-and-seed.sh
+# Делаем скрипты исполняемыми
+RUN chmod +x ./scripts/migrate-and-seed.sh
 
 # Создаем простой скрипт запуска
 COPY <<EOF ./start.sh
@@ -91,7 +61,7 @@ echo "🚀 Запуск Posutka GraphQL Federation..."
 
 # Сначала выполняем миграции и сиды
 echo "📊 Подготовка базы данных..."
-./migrate-and-seed.sh
+./scripts/migrate-and-seed.sh
 
 # Запускаем подграфы в фоне
 echo "📦 Запуск подграфов..."
