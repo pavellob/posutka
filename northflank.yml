@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
       context: .
     resources:
-      memory: 512Mi
+      memory: 1Gi
       cpu: 500m
            ports:
              - port: 4000  # Gateway (основной порт)
