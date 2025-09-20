@@ -5,6 +5,7 @@ import type {
   Membership,
   Role,
 } from './types.js';
+import type { UserConnection, OrganizationConnection } from './connection-types.js';
 
 export interface CreateUserInput {
   email: string;
@@ -32,13 +33,13 @@ export interface IIdentityDL {
   // Users
   getUserById(id: UUID): Promise<User | null>;
   getUserByEmail(email: string): Promise<User | null>;
-  listUsers(params: { first?: number; after?: string }): Promise<{ edges: User[]; endCursor?: string; hasNextPage: boolean }>;
+  listUsers(params: { first?: number; after?: string }): Promise<UserConnection>;
   createUser(input: CreateUserInput): Promise<User>;
   updateUser(id: UUID, input: Partial<CreateUserInput>): Promise<User>;
 
   // Organizations
   getOrganizationById(id: UUID): Promise<Organization | null>;
-  listOrganizations(params: { first?: number; after?: string }): Promise<{ edges: Organization[]; endCursor?: string; hasNextPage: boolean }>;
+  listOrganizations(params: { first?: number; after?: string }): Promise<OrganizationConnection>;
   createOrganization(input: CreateOrganizationInput): Promise<Organization>;
   updateOrganization(id: UUID, input: Partial<CreateOrganizationInput>): Promise<Organization>;
 

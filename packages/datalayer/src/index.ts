@@ -8,6 +8,7 @@ export * from './billing/types.js';
 export * from './billing/IBillingDL.js';
 export * from './identity/types.js';
 export * from './identity/IIdentityDL.js';
+export * from './identity/connection-types.js';
 export * from './listings/types.js';
 export * from './listings/IListingsDL.js';
 export * from './legal/types.js';

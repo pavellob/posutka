@@ -10,6 +10,7 @@ import type {
   UpdateMemberRoleInput,
   UUID,
 } from '@repo/datalayer';
+import type { UserConnection, OrganizationConnection } from '@repo/datalayer/src/identity/connection-types.js';
 
 export class IdentityDLPrisma implements IIdentityDL {
   constructor(private readonly prisma: PrismaClient) {}
@@ -34,7 +35,7 @@ export class IdentityDLPrisma implements IIdentityDL {
     return this.mapUserFromPrisma(user);
   }
 
-  async listUsers(params: { first?: number; after?: string }): Promise<{ edges: User[]; endCursor?: string; hasNextPage: boolean }> {
+  async listUsers(params: { first?: number; after?: string }): Promise<UserConnection> {
     const first = params.first || 10;
     const skip = params.after ? 1 : 0;
     const cursor = params.after ? { id: params.after } : undefined;
@@ -51,35 +52,31 @@ export class IdentityDLPrisma implements IIdentityDL {
     const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
 
     return {
-      edges: edges.map(user => this.mapUserFromPrisma(user)),
-      endCursor,
-      hasNextPage
+      edges: edges.map(user => ({
+        node: this.mapUserFromPrisma(user),
+        cursor: user.id
+      })),
+      pageInfo: {
+        hasNextPage,
+        endCursor
+      }
     };
   }
 
   async createUser(input: CreateUserInput): Promise<User> {
     const user = await this.prisma.user.create({
-      data: {
-        id: crypto.randomUUID(),
-        email: input.email,
-        name: input.name,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
+      data: input
     });
-
+    
     return this.mapUserFromPrisma(user);
   }
 
   async updateUser(id: string, input: Partial<CreateUserInput>): Promise<User> {
     const user = await this.prisma.user.update({
       where: { id },
-      data: {
-        ...input,
-        updatedAt: new Date().toISOString(),
-      }
+      data: input
     });
-
+    
     return this.mapUserFromPrisma(user);
   }
 
@@ -93,7 +90,7 @@ export class IdentityDLPrisma implements IIdentityDL {
     return this.mapOrganizationFromPrisma(org);
   }
 
-  async listOrganizations(params: { first?: number; after?: string }): Promise<{ edges: Organization[]; endCursor?: string; hasNextPage: boolean }> {
+  async listOrganizations(params: { first?: number; after?: string }): Promise<OrganizationConnection> {
     const first = params.first || 10;
     const skip = params.after ? 1 : 0;
     const cursor = params.after ? { id: params.after } : undefined;
@@ -110,36 +107,31 @@ export class IdentityDLPrisma implements IIdentityDL {
     const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
 
     return {
-      edges: edges.map(org => this.mapOrganizationFromPrisma(org)),
-      endCursor,
-      hasNextPage
+      edges: edges.map(org => ({
+        node: this.mapOrganizationFromPrisma(org),
+        cursor: org.id
+      })),
+      pageInfo: {
+        hasNextPage,
+        endCursor
+      }
     };
   }
 
   async createOrganization(input: CreateOrganizationInput): Promise<Organization> {
     const org = await this.prisma.organization.create({
-      data: {
-        id: crypto.randomUUID(),
-        name: input.name,
-        timezone: input.timezone,
-        currency: input.currency,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
+      data: input
     });
-
+    
     return this.mapOrganizationFromPrisma(org);
   }
 
   async updateOrganization(id: string, input: Partial<CreateOrganizationInput>): Promise<Organization> {
     const org = await this.prisma.organization.update({
       where: { id },
-      data: {
-        ...input,
-        updatedAt: new Date().toISOString(),
-      }
+      data: input
     });
-
+    
     return this.mapOrganizationFromPrisma(org);
   }
 
@@ -155,46 +147,34 @@ export class IdentityDLPrisma implements IIdentityDL {
 
   async getMembershipsByOrg(orgId: string): Promise<Membership[]> {
     const memberships = await this.prisma.membership.findMany({
-      where: { orgId },
-      orderBy: { createdAt: 'asc' }
+      where: { orgId }
     });
-
+    
     return memberships.map(membership => this.mapMembershipFromPrisma(membership));
   }
 
   async getMembershipsByUser(userId: string): Promise<Membership[]> {
     const memberships = await this.prisma.membership.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'asc' }
+      where: { userId }
     });
-
+    
     return memberships.map(membership => this.mapMembershipFromPrisma(membership));
   }
 
   async addMember(input: AddMemberInput): Promise<Membership> {
     const membership = await this.prisma.membership.create({
-      data: {
-        id: crypto.randomUUID(),
-        userId: input.userId,
-        orgId: input.orgId,
-        role: input.role,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
+      data: input
     });
-
+    
     return this.mapMembershipFromPrisma(membership);
   }
 
   async updateMemberRole(input: UpdateMemberRoleInput): Promise<Membership> {
     const membership = await this.prisma.membership.update({
       where: { id: input.membershipId },
-      data: {
-        role: input.role,
-        updatedAt: new Date().toISOString(),
-      }
+      data: { role: input.role }
     });
-
+    
     return this.mapMembershipFromPrisma(membership);
   }
 
