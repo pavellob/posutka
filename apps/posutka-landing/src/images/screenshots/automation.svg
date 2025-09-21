@@ -1,0 +1,89 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Фон -->
+  <rect width="800" height="600" fill="#F8FAFC"/>
+  
+  <!-- Заголовок -->
+  <rect x="0" y="0" width="800" height="60" fill="#FFFFFF"/>
+  <rect x="0" y="60" width="800" height="1" fill="#E2E8F0"/>
+  
+  <!-- Логотип -->
+  <text x="20" y="35" font-family="system-ui, sans-serif" font-size="18" font-weight="600" fill="#0F172A">KAKDOMA</text>
+  
+  <!-- Навигация -->
+  <rect x="20" y="80" width="200" height="40" rx="8" fill="#F1F5F9"/>
+  <text x="30" y="105" font-family="system-ui, sans-serif" font-size="14" font-weight="500" fill="#64748B">Дашборд</text>
+  
+  <rect x="240" y="80" width="120" height="40" rx="8" fill="#2563EB"/>
+  <text x="250" y="105" font-family="system-ui, sans-serif" font-size="14" font-weight="500" fill="#FFFFFF">Автоматизация</text>
+  
+  <rect x="380" y="80" width="120" height="40" rx="8" fill="#F1F5F9"/>
+  <text x="390" y="105" font-family="system-ui, sans-serif" font-size="14" font-weight="500" fill="#64748B">Настройки</text>
+  
+  <!-- Основной контент -->
+  <rect x="20" y="140" width="760" height="440" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+  
+  <!-- Заголовок секции -->
+  <text x="30" y="170" font-family="system-ui, sans-serif" font-size="20" font-weight="600" fill="#0F172A">Автоматизация процессов</text>
+  <text x="30" y="195" font-family="system-ui, sans-serif" font-size="14" fill="#64748B">Настройте автоматические задачи для ваших объектов</text>
+  
+  <!-- Карточки автоматизации -->
+  <!-- Заселения -->
+  <rect x="30" y="220" width="350" height="120" rx="12" fill="#F0F9FF" stroke="#0EA5E9"/>
+  <text x="40" y="245" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#0F172A">🤖 Автоматические заселения</text>
+  <text x="40" y="265" font-family="system-ui, sans-serif" font-size="13" fill="#64748B">Гости получают код от замка автоматически</text>
+  
+  <!-- Статус -->
+  <rect x="40" y="275" width="60" height="24" rx="12" fill="#10B981"/>
+  <text x="50" y="290" font-family="system-ui, sans-serif" font-size="11" font-weight="500" fill="#FFFFFF">Включено</text>
+  
+  <!-- Настройки -->
+  <rect x="320" y="275" width="50" height="24" rx="12" fill="#F1F5F9"/>
+  <text x="330" y="290" font-family="system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">Настроить</text>
+  
+  <!-- Уборка -->
+  <rect x="400" y="220" width="350" height="120" rx="12" fill="#F0FDF4" stroke="#22C55E"/>
+  <text x="410" y="245" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#0F172A">🧹 Автоматическая уборка</text>
+  <text x="410" y="265" font-family="system-ui, sans-serif" font-size="13" fill="#64748B">Заказ уборки после выезда гостей</text>
+  
+  <!-- Статус -->
+  <rect x="410" y="275" width="60" height="24" rx="12" fill="#10B981"/>
+  <text x="420" y="290" font-family="system-ui, sans-serif" font-size="11" font-weight="500" fill="#FFFFFF">Включено</text>
+  
+  <!-- Настройки -->
+  <rect x="690" y="275" width="50" height="24" rx="12" fill="#F1F5F9"/>
+  <text x="700" y="290" font-family="system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">Настроить</text>
+  
+  <!-- Уведомления -->
+  <rect x="30" y="360" width="350" height="120" rx="12" fill="#FEF3C7" stroke="#F59E0B"/>
+  <text x="40" y="385" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#0F172A">📱 Умные уведомления</text>
+  <text x="40" y="405" font-family="system-ui, sans-serif" font-size="13" fill="#64748B">Уведомления о заселениях, уборке и проблемах</text>
+  
+  <!-- Статус -->
+  <rect x="40" y="415" width="60" height="24" rx="12" fill="#10B981"/>
+  <text x="50" y="430" font-family="system-ui, sans-serif" font-size="11" font-weight="500" fill="#FFFFFF">Включено</text>
+  
+  <!-- Настройки -->
+  <rect x="320" y="415" width="50" height="24" rx="12" fill="#F1F5F9"/>
+  <text x="330" y="430" font-family="system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">Настроить</text>
+  
+  <!-- Бот-помощник -->
+  <rect x="400" y="360" width="350" height="120" rx="12" fill="#F3E8FF" stroke="#A855F7"/>
+  <text x="410" y="385" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#0F172A">💬 Бот-помощник</text>
+  <text x="410" y="405" font-family="system-ui, sans-serif" font-size="13" fill="#64748B">Автоматические ответы на вопросы гостей</text>
+  
+  <!-- Статус -->
+  <rect x="410" y="415" width="60" height="24" rx="12" fill="#10B981"/>
+  <text x="420" y="430" font-family="system-ui, sans-serif" font-size="11" font-weight="500" fill="#FFFFFF">Включено</text>
+  
+  <!-- Настройки -->
+  <rect x="690" y="415" width="50" height="24" rx="12" fill="#F1F5F9"/>
+  <text x="700" y="430" font-family="system-ui, sans-serif" font-size="11" font-weight="500" fill="#64748B">Настроить</text>
+  
+  <!-- Статистика -->
+  <rect x="30" y="500" width="720" height="60" rx="12" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <text x="40" y="520" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#0F172A">Статистика автоматизации</text>
+  
+  <text x="40" y="540" font-family="system-ui, sans-serif" font-size="12" fill="#64748B">Заселений автоматизировано: 156</text>
+  <text x="250" y="540" font-family="system-ui, sans-serif" font-size="12" fill="#64748B">Уборок заказано: 89</text>
+  <text x="450" y="540" font-family="system-ui, sans-serif" font-size="12" fill="#64748B">Вопросов обработано ботом: 1,234</text>
+</svg>
