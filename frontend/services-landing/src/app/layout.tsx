@@ -11,9 +11,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Everything Starts as a Square - Get lost in the world of icon design',
+  title: 'Домен Операции и обслуживание - Автоматизация посуточной аренды',
   description:
-    'A book and video course that teaches you how to design your own icons from scratch.',
+    'Комплексная система автоматизации всех операционных процессов в посуточной аренде. Уборки, инциденты, заселения, выселения - все под контролем.',
 }
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
 }) {
   return (
     <html
-      lang="en"
+      lang="ru"
       className={clsx(
         'h-full scroll-smooth bg-white antialiased',
         inter.variable,
