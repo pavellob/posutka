@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="#F8FAFC" rx="12"/>
+  
+  <!-- Main invoice/bill -->
+  <rect x="60" y="80" width="180" height="140" fill="#3B82F6" rx="8"/>
+  <rect x="70" y="90" width="160" height="120" fill="white" rx="4"/>
+  
+  <!-- Invoice header -->
+  <rect x="75" y="95" width="150" height="15" fill="#3B82F6" rx="2"/>
+  <text x="150" y="106" text-anchor="middle" fill="white" font-family="Arial" font-size="10" font-weight="bold">СЧЁТ #2024-001</text>
+  
+  <!-- Invoice items -->
+  <rect x="80" y="115" width="120" height="8" fill="#E5E7EB" rx="1"/>
+  <rect x="80" y="125" width="100" height="8" fill="#E5E7EB" rx="1"/>
+  <rect x="80" y="135" width="110" height="8" fill="#E5E7EB" rx="1"/>
+  
+  <!-- Amount -->
+  <rect x="80" y="150" width="140" height="20" fill="#10B981" rx="2"/>
+  <text x="150" y="163" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">70,000 ₽</text>
+  
+  <!-- Payment status -->
+  <rect x="80" y="175" width="140" height="15" fill="#F59E0B" rx="2"/>
+  <text x="150" y="185" text-anchor="middle" fill="white" font-family="Arial" font-size="10">ОПЛАЧЕНО</text>
+  
+  <!-- Payment link/QR code -->
+  <rect x="260" y="100" width="80" height="80" fill="#6B7280" rx="8"/>
+  <rect x="270" y="110" width="60" height="60" fill="#F3F4F6" rx="4"/>
+  
+  <!-- QR code pattern -->
+  <rect x="275" y="115" width="8" height="8" fill="#374151"/>
+  <rect x="285" y="115" width="8" height="8" fill="#374151"/>
+  <rect x="295" y="115" width="8" height="8" fill="#374151"/>
+  <rect x="305" y="115" width="8" height="8" fill="#374151"/>
+  <rect x="315" y="115" width="8" height="8" fill="#374151"/>
+  <rect x="325" y="115" width="8" height="8" fill="#374151"/>
+  
+  <rect x="275" y="125" width="8" height="8" fill="#374151"/>
+  <rect x="285" y="125" width="8" height="8" fill="#F3F4F6"/>
+  <rect x="295" y="125" width="8" height="8" fill="#F3F4F6"/>
+  <rect x="305" y="125" width="8" height="8" fill="#374151"/>
+  <rect x="315" y="125" width="8" height="8" fill="#F3F4F6"/>
+  <rect x="325" y="125" width="8" height="8" fill="#374151"/>
+  
+  <rect x="275" y="135" width="8" height="8" fill="#374151"/>
+  <rect x="285" y="135" width="8" height="8" fill="#374151"/>
+  <rect x="295" y="135" width="8" height="8" fill="#F3F4F6"/>
+  <rect x="305" y="135" width="8" height="8" fill="#374151"/>
+  <rect x="315" y="135" width="8" height="8" fill="#F3F4F6"/>
+  <rect x="325" y="135" width="8" height="8" fill="#374151"/>
+  
+  <rect x="275" y="145" width="8" height="8" fill="#374151"/>
+  <rect x="285" y="145" width="8" height="8" fill="#F3F4F6"/>
+  <rect x="295" y="145" width="8" height="8" fill="#374151"/>
+  <rect x="305" y="145" width="8" height="8" fill="#F3F4F6"/>
+  <rect x="315" y="145" width="8" height="8" fill="#374151"/>
+  <rect x="325" y="145" width="8" height="8" fill="#374151"/>
+  
+  <rect x="275" y="155" width="8" height="8" fill="#374151"/>
+  <rect x="285" y="155" width="8" height="8" fill="#374151"/>
+  <rect x="295" y="155" width="8" height="8" fill="#374151"/>
+  <rect x="305" y="155" width="8" height="8" fill="#374151"/>
+  <rect x="315" y="155" width="8" height="8" fill="#374151"/>
+  <rect x="325" y="155" width="8" height="8" fill="#374151"/>
+  
+  <!-- Payment provider logos -->
+  <circle cx="280" y="200" r="15" fill="#635BFF"/>
+  <text x="280" y="205" text-anchor="middle" fill="white" font-family="Arial" font-size="8" font-weight="bold">S</text>
+  
+  <circle cx="310" y="200" r="15" fill="#FF6B35"/>
+  <text x="310" y="205" text-anchor="middle" fill="white" font-family="Arial" font-size="8" font-weight="bold">Y</text>
+  
+  <!-- Refund/return icon -->
+  <rect x="60" y="240" width="40" height="30" fill="#EF4444" rx="4"/>
+  <text x="80" y="258" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">↩</text>
+  <text x="110" y="258" fill="#EF4444" font-family="Arial" font-size="10">Возврат</text>
+  
+  <!-- Deposit icon -->
+  <rect x="180" y="240" width="40" height="30" fill="#8B5CF6" rx="4"/>
+  <text x="200" y="258" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">🔒</text>
+  <text x="230" y="258" fill="#8B5CF6" font-family="Arial" font-size="10">Депозит</text>
+  
+  <!-- Owner payout icon -->
+  <rect x="300" y="240" width="40" height="30" fill="#10B981" rx="4"/>
+  <text x="320" y="258" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">💸</text>
+  <text x="350" y="258" fill="#10B981" font-family="Arial" font-size="10">Выплата</text>
+  
+  <!-- Title -->
+  <text x="200" y="290" text-anchor="middle" fill="#1F2937" font-family="Arial" font-size="16" font-weight="bold">Billing</text>
+  <text x="200" y="305" text-anchor="middle" fill="#6B7280" font-family="Arial" font-size="12">Деньги под контролем</text>
+</svg>

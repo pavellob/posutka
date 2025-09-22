@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="#F8FAFC" rx="12"/>
+  
+  <!-- Building/Organization Structure -->
+  <rect x="50" y="80" width="120" height="140" fill="#3B82F6" rx="8"/>
+  <rect x="60" y="90" width="100" height="120" fill="#EFF6FF" rx="4"/>
+  
+  <!-- Windows/Doors representing different departments -->
+  <rect x="75" y="105" width="25" height="20" fill="#3B82F6" rx="2"/>
+  <rect x="105" y="105" width="25" height="20" fill="#3B82F6" rx="2"/>
+  <rect x="75" y="135" width="25" height="20" fill="#3B82F6" rx="2"/>
+  <rect x="105" y="135" width="25" height="20" fill="#3B82F6" rx="2"/>
+  <rect x="75" y="165" width="25" height="20" fill="#3B82F6" rx="2"/>
+  <rect x="105" y="165" width="25" height="20" fill="#3B82F6" rx="2"/>
+  
+  <!-- People/Icons -->
+  <!-- Admin user -->
+  <circle cx="80" cy="115" r="8" fill="#10B981"/>
+  <circle cx="80" cy="115" r="6" fill="#D1FAE5"/>
+  <circle cx="80" cy="113" r="2" fill="#10B981"/>
+  
+  <!-- Regular user -->
+  <circle cx="110" cy="145" r="6" fill="#F59E0B"/>
+  <circle cx="110" cy="143" r="1.5" fill="#F59E0B"/>
+  
+  <!-- Partner user -->
+  <circle cx="85" cy="175" r="5" fill="#8B5CF6"/>
+  <circle cx="85" cy="173" r="1" fill="#8B5CF6"/>
+  
+  <!-- Security Shield -->
+  <circle cx="230" y="120" r="40" fill="#EF4444" stroke="#DC2626" stroke-width="3"/>
+  <path d="M215 120 L225 130 L245 110" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Key/Access -->
+  <rect x="310" y="100" width="60" height="100" fill="#6B7280" rx="8"/>
+  <rect x="315" y="105" width="50" height="90" fill="#F3F4F6" rx="4"/>
+  
+  <!-- Key teeth -->
+  <rect x="320" y="115" width="15" height="3" fill="#6B7280" rx="1"/>
+  <rect x="325" y="125" width="10" height="3" fill="#6B7280" rx="1"/>
+  <rect x="330" y="135" width="5" height="3" fill="#6B7280" rx="1"/>
+  
+  <!-- API Keys representation -->
+  <rect x="320" y="150" width="40" height="8" fill="#3B82F6" rx="2"/>
+  <rect x="320" y="165" width="35" height="8" fill="#10B981" rx="2"/>
+  <rect x="320" y="180" width="30" height="8" fill="#F59E0B" rx="2"/>
+  
+  <!-- Role badges -->
+  <circle cx="200" cy="60" r="15" fill="#10B981"/>
+  <text x="200" y="65" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">Admin</text>
+  
+  <circle cx="280" cy="60" r="15" fill="#F59E0B"/>
+  <text x="280" y="65" text-anchor="middle" fill="white" font-family="Arial" font-size="10" font-weight="bold">Manager</text>
+  
+  <circle cx="360" cy="60" r="15" fill="#8B5CF6"/>
+  <text x="360" y="65" text-anchor="middle" fill="white" font-family="Arial" font-size="10" font-weight="bold">Partner</text>
+  
+  <!-- Connection lines -->
+  <path d="M170 120 Q190 100 210 120" stroke="#6B7280" stroke-width="2" fill="none" stroke-dasharray="5,5"/>
+  <path d="M270 120 Q290 100 310 130" stroke="#6B7280" stroke-width="2" fill="none" stroke-dasharray="5,5"/>
+  
+  <!-- Title -->
+  <text x="200" y="250" text-anchor="middle" fill="#1F2937" font-family="Arial" font-size="18" font-weight="bold">Кто есть кто</text>
+  <text x="200" y="270" text-anchor="middle" fill="#6B7280" font-family="Arial" font-size="14">IAM система управления</text>
+</svg>

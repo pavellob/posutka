@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="#F8FAFC" rx="12"/>
+  
+  <!-- Building/House representing Property -->
+  <rect x="50" y="120" width="120" height="100" fill="#3B82F6" rx="8"/>
+  <rect x="60" y="130" width="100" height="80" fill="#EFF6FF" rx="4"/>
+  
+  <!-- Windows representing Units/Rooms -->
+  <rect x="75" y="145" width="20" height="15" fill="#3B82F6" rx="2"/>
+  <rect x="105" y="145" width="20" height="15" fill="#3B82F6" rx="2"/>
+  <rect x="75" y="170" width="20" height="15" fill="#3B82F6" rx="2"/>
+  <rect x="105" y="170" width="20" height="15" fill="#3B82F6" rx="2"/>
+  
+  <!-- Door -->
+  <rect x="90" y="180" width="20" height="25" fill="#1F2937" rx="2"/>
+  <circle cx="105" cy="190" r="2" fill="#F59E0B"/>
+  
+  <!-- Roof -->
+  <path d="M40 120 L110 80 L180 120 Z" fill="#EF4444"/>
+  
+  <!-- Address/Location pin -->
+  <circle cx="200" y="100" r="25" fill="#10B981" stroke="#059669" stroke-width="3"/>
+  <path d="M190 100 L210 100 M200 90 L200 110" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Amenities icons around the house -->
+  <!-- WiFi -->
+  <rect x="220" y="150" width="30" height="20" fill="#8B5CF6" rx="4"/>
+  <path d="M225 155 L235 155 M225 160 L235 160 M225 165 L235 165" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="240" cy="160" r="2" fill="white"/>
+  
+  <!-- Parking -->
+  <rect x="270" y="150" width="30" height="20" fill="#F59E0B" rx="4"/>
+  <path d="M275 155 L295 155 M275 160 L295 160 M275 165 L295 165" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Kitchen -->
+  <rect x="220" y="180" width="30" height="20" fill="#EF4444" rx="4"/>
+  <rect x="225" y="185" width="8" height="6" fill="white" rx="1"/>
+  <rect x="237" y="185" width="8" height="6" fill="white" rx="1"/>
+  
+  <!-- Pool -->
+  <rect x="270" y="180" width="30" height="20" fill="#06B6D4" rx="4"/>
+  <path d="M275 185 Q285 190 295 185" stroke="white" stroke-width="2" fill="none"/>
+  
+  <!-- Calendar/Availability -->
+  <rect x="320" y="100" width="60" height="80" fill="#6B7280" rx="8"/>
+  <rect x="325" y="105" width="50" height="70" fill="#F3F4F6" rx="4"/>
+  
+  <!-- Calendar grid -->
+  <rect x="330" y="115" width="40" height="8" fill="#3B82F6" rx="2"/>
+  <rect x="330" y="130" width="8" height="8" fill="#10B981" rx="1"/>
+  <rect x="342" y="130" width="8" height="8" fill="#F59E0B" rx="1"/>
+  <rect x="354" y="130" width="8" height="8" fill="#EF4444" rx="1"/>
+  <rect x="330" y="142" width="8" height="8" fill="#10B981" rx="1"/>
+  <rect x="342" y="142" width="8" height="8" fill="#EF4444" rx="1"/>
+  <rect x="354" y="142" width="8" height="8" fill="#10B981" rx="1"/>
+  <rect x="330" y="154" width="8" height="8" fill="#F59E0B" rx="1"/>
+  <rect x="342" y="154" width="8" height="8" fill="#10B981" rx="1"/>
+  <rect x="354" y="154" width="8" height="8" fill="#EF4444" rx="1"/>
+  
+  <!-- Capacity indicator -->
+  <circle cx="350" y="200" r="20" fill="#8B5CF6" stroke="#7C3AED" stroke-width="2"/>
+  <text x="350" y="205" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">4</text>
+  
+  <!-- Owner/User icon -->
+  <circle cx="320" y="240" r="15" fill="#10B981"/>
+  <circle cx="320" y="235" r="5" fill="#D1FAE5"/>
+  <circle cx="320" y="233" r="2" fill="#10B981"/>
+  
+  <!-- Property details badge -->
+  <rect x="50" y="240" width="100" height="30" fill="#1F2937" rx="6"/>
+  <text x="100" y="255" text-anchor="middle" fill="white" font-family="Arial" font-size="10" font-weight="bold">Property</text>
+  
+  <!-- Unit details badge -->
+  <rect x="160" y="240" width="80" height="30" fill="#3B82F6" rx="6"/>
+  <text x="200" y="255" text-anchor="middle" fill="white" font-family="Arial" font-size="10" font-weight="bold">Unit</text>
+  
+  <!-- Title -->
+  <text x="200" y="285" text-anchor="middle" fill="#1F2937" font-family="Arial" font-size="16" font-weight="bold">Инвентарь</text>
+  <text x="200" y="300" text-anchor="middle" fill="#6B7280" font-family="Arial" font-size="12">Каталог недвижимости</text>
+</svg>

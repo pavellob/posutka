@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="#F8FAFC" rx="12"/>
+  
+  <!-- Main building/apartment -->
+  <rect x="50" y="120" width="140" height="100" fill="#3B82F6" rx="8"/>
+  <rect x="60" y="130" width="120" height="80" fill="#EFF6FF" rx="4"/>
+  
+  <!-- Windows representing booked rooms -->
+  <rect x="75" y="145" width="25" height="18" fill="#10B981" rx="2"/>
+  <rect x="105" y="145" width="25" height="18" fill="#EF4444" rx="2"/>
+  <rect x="135" y="145" width="25" height="18" fill="#10B981" rx="2"/>
+  <rect x="75" y="170" width="25" height="18" fill="#EF4444" rx="2"/>
+  <rect x="105" y="170" width="25" height="18" fill="#10B981" rx="2"/>
+  <rect x="135" y="170" width="25" height="18" fill="#EF4444" rx="2"/>
+  <rect x="75" y="195" width="25" height="18" fill="#10B981" rx="2"/>
+  <rect x="105" y="195" width="25" height="18" fill="#10B981" rx="2"/>
+  <rect x="135" y="195" width="25" height="18" fill="#EF4444" rx="2"/>
+  
+  <!-- Booking calendar -->
+  <rect x="220" y="100" width="120" height="80" fill="#6B7280" rx="8"/>
+  <rect x="225" y="105" width="110" height="70" fill="#F3F4F6" rx="4"/>
+  
+  <!-- Calendar header -->
+  <rect x="230" y="110" width="100" height="15" fill="#3B82F6" rx="2"/>
+  <text x="280" y="122" text-anchor="middle" fill="white" font-family="Arial" font-size="10" font-weight="bold">Декабрь 2024</text>
+  
+  <!-- Calendar grid -->
+  <rect x="230" y="130" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="246" y="130" width="14" height="12" fill="#EF4444" rx="1"/>
+  <rect x="262" y="130" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="278" y="130" width="14" height="12" fill="#EF4444" rx="1"/>
+  <rect x="294" y="130" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="310" y="130" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="326" y="130" width="14" height="12" fill="#EF4444" rx="1"/>
+  
+  <rect x="230" y="144" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="246" y="144" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="262" y="144" width="14" height="12" fill="#EF4444" rx="1"/>
+  <rect x="278" y="144" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="294" y="144" width="14" height="12" fill="#EF4444" rx="1"/>
+  <rect x="310" y="144" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="326" y="144" width="14" height="12" fill="#10B981" rx="1"/>
+  
+  <rect x="230" y="158" width="14" height="12" fill="#EF4444" rx="1"/>
+  <rect x="246" y="158" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="262" y="158" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="278" y="158" width="14" height="12" fill="#EF4444" rx="1"/>
+  <rect x="294" y="158" width="14" height="12" fill="#10B981" rx="1"/>
+  <rect x="310" y="158" width="14" height="12" fill="#EF4444" rx="1"/>
+  <rect x="326" y="158" width="14" height="12" fill="#10B981" rx="1"/>
+  
+  <!-- Guest icon -->
+  <circle cx="280" y="200" r="20" fill="#10B981" stroke="#059669" stroke-width="2"/>
+  <circle cx="275" cy="195" r="6" fill="#D1FAE5"/>
+  <circle cx="275" cy="193" r="2" fill="#10B981"/>
+  <rect x="270" y="205" width="10" height="15" fill="#10B981" rx="2"/>
+  
+  <!-- Payment/Invoice icon -->
+  <rect x="220" y="220" width="40" height="50" fill="#F59E0B" rx="4"/>
+  <rect x="225" y="225" width="30" height="40" fill="white" rx="2"/>
+  <rect x="230" y="235" width="20" height="2" fill="#F59E0B" rx="1"/>
+  <rect x="230" y="240" width="15" height="2" fill="#F59E0B" rx="1"/>
+  <rect x="230" y="245" width="18" height="2" fill="#F59E0B" rx="1"/>
+  <rect x="230" y="250" width="12" height="2" fill="#F59E0B" rx="1"/>
+  
+  <!-- Check-in/Check-out arrows -->
+  <path d="M320 220 L340 220" stroke="#3B82F6" stroke-width="3" stroke-linecap="round"/>
+  <path d="M335 215 L340 220 L335 225" stroke="#3B82F6" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <text x="350" y="225" fill="#3B82F6" font-family="Arial" font-size="8">Check-in</text>
+  
+  <path d="M320 240 L340 240" stroke="#EF4444" stroke-width="3" stroke-linecap="round"/>
+  <path d="M325 235 L320 240 L325 245" stroke="#EF4444" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <text x="350" y="245" fill="#EF4444" font-family="Arial" font-size="8">Check-out</text>
+  
+  <!-- Booking status indicators -->
+  <circle cx="280" y="280" r="8" fill="#10B981"/>
+  <text x="280" y="285" text-anchor="middle" fill="white" font-family="Arial" font-size="8" font-weight="bold">✓</text>
+  <text x="295" y="285" fill="#10B981" font-family="Arial" font-size="10">Подтверждено</text>
+  
+  <!-- Revenue/transparency icon -->
+  <circle cx="50" y="240" r="15" fill="#8B5CF6" stroke="#7C3AED" stroke-width="2"/>
+  <text x="50" y="245" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">₽</text>
+  
+  <!-- Title -->
+  <text x="200" y="290" text-anchor="middle" fill="#1F2937" font-family="Arial" font-size="16" font-weight="bold">Бронирования</text>
+  <text x="200" y="305" text-anchor="middle" fill="#6B7280" font-family="Arial" font-size="12">Ядро операций и доходов</text>
+</svg>
