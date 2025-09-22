@@ -1,5 +1,0 @@
-
-
-> legal-subgraph@0.1.0 build /Users/pavellobachev/dev/posutka-monorepo/apps/legal-subgraph
-> tsc -p tsconfig.json
-

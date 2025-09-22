@@ -1,5 +1,0 @@
-
-
-> inventory-subgraph@0.1.0 build /Users/pavellobachev/dev/posutka-monorepo/apps/inventory-subgraph
-> tsc -p tsconfig.json
-

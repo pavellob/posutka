@@ -32,15 +32,15 @@ echo "✅ pnpm установлен"
 echo "📁 Проверка структуры проекта..."
 
 required_dirs=(
-    "apps/ai-subgraph"
-    "apps/billing-subgraph"
-    "apps/bookings-subgraph"
-    "apps/gateway-mesh"
-    "apps/identity-subgraph"
-    "apps/inventory-subgraph"
-    "apps/legal-subgraph"
-    "apps/listings-subgraph"
-    "apps/ops-subgraph"
+    "backend/ai-subgraph"
+    "backend/billing-subgraph"
+    "backend/bookings-subgraph"
+    "backend/gateway-mesh"
+    "backend/identity-subgraph"
+    "backend/inventory-subgraph"
+    "backend/legal-subgraph"
+    "backend/listings-subgraph"
+    "backend/ops-subgraph"
 )
 
 for dir in "${required_dirs[@]}"; do
@@ -65,7 +65,7 @@ done
 echo "✅ Все package.json файлы найдены"
 
 # Проверка конфигурации Mesh
-if [ ! -f "apps/gateway-mesh/.meshrc.yaml" ]; then
+if [ ! -f "backend/gateway-mesh/.meshrc.yaml" ]; then
     echo "❌ Конфигурация Mesh не найдена"
     exit 1
 fi

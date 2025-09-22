@@ -1,5 +1,0 @@
-
-
-> ops-subgraph@0.1.0 build /Users/pavellobachev/dev/posutka-monorepo/apps/ops-subgraph
-> tsc -p tsconfig.json
-

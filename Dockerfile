@@ -15,7 +15,7 @@ COPY base-schema.gql ./
 
 # Копируем все пакеты, приложения и скрипты
 COPY packages/ ./packages/
-COPY apps/ ./apps/
+COPY backend/ ./backend/
 COPY scripts/ ./scripts/
 
 # Устанавливаем зависимости
@@ -40,7 +40,7 @@ RUN npm install -g pnpm
 
 # Копируем только необходимые файлы
 COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/apps ./apps
+COPY --from=base /app/backend ./backend
 COPY --from=base /app/packages ./packages
 COPY --from=base /app/scripts ./scripts
 COPY --from=base /app/base-schema.gql ./

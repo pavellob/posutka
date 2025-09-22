@@ -27,7 +27,7 @@ done
 # Собираем образ для gateway
 echo "🌐 Сборка образа для gateway..."
 docker build \
-  -f apps/gateway-mesh/Dockerfile \
+  -f backend/gateway-mesh/Dockerfile \
   -t posutka-gateway:latest \
   .
 

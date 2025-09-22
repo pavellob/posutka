@@ -28,12 +28,12 @@ echo "🎯 Запуск всех сервисов..."
 
 # Запускаем все сабграфы и Mesh Gateway параллельно
 npm-run-all --parallel \
-  "pnpm -C apps/inventory-subgraph start" \
-  "pnpm -C apps/bookings-subgraph start" \
-  "pnpm -C apps/ops-subgraph start" \
-  "pnpm -C apps/billing-subgraph start" \
-  "pnpm -C apps/identity-subgraph start" \
-  "pnpm -C apps/listings-subgraph start" \
-  "pnpm -C apps/legal-subgraph start" \
-  "pnpm -C apps/ai-subgraph start" \
-  "pnpm -C apps/gateway-mesh mesh:dev"
+  "pnpm -C backend/inventory-subgraph start" \
+  "pnpm -C backend/bookings-subgraph start" \
+  "pnpm -C backend/ops-subgraph start" \
+  "pnpm -C backend/billing-subgraph start" \
+  "pnpm -C backend/identity-subgraph start" \
+  "pnpm -C backend/listings-subgraph start" \
+  "pnpm -C backend/legal-subgraph start" \
+  "pnpm -C backend/ai-subgraph start" \
+  "pnpm -C backend/gateway-mesh mesh:dev"
