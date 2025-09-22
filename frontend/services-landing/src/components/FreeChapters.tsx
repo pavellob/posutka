@@ -40,8 +40,7 @@ export function FreeChapters() {
               <Button
                 href="/login"
                 variant="outline"
-                color="white"
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto border-white text-white hover:bg-white hover:text-blue-600"
               >
                 Войти
               </Button>

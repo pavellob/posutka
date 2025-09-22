@@ -13,7 +13,7 @@ function Testimonial() {
       </div>
       <blockquote className="mt-2">
         <p className="font-display text-xl font-medium text-slate-900">
-          "Я не ебу себе голову, все контролирую, а гости всегда получают идеально чистые квартиры, где все работает и вкусно пахнет."
+          &ldquo;Я не ебу себе голову, все контролирую, а гости всегда получают идеально чистые квартиры, где все работает и вкусно пахнет.&rdquo;
         </p>
       </blockquote>
       <figcaption className="mt-2 text-sm text-slate-500">
