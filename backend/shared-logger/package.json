@@ -2,9 +2,12 @@
   "name": "@repo/shared-logger",
   "version": "1.0.0",
   "type": "module",
-  "main": "src/logger.ts",
+  "main": "dist/logger.js",
   "exports": {
-    ".": "./src/logger.ts"
+    ".": "./dist/logger.js"
+  },
+  "scripts": {
+    "build": "tsc"
   },
   "dependencies": {
     "pino": "^8.17.2",
