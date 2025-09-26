@@ -1,0 +1,143 @@
+# Запросы для управления юридическими документами
+
+query GetDocumentsByBooking($bookingId: UUID!) {
+  documentsByBookingId(bookingId: $bookingId) {
+    id
+    type
+    template
+    content
+    url
+    signedAt
+    createdAt
+    updatedAt
+    meta
+    booking {
+      id
+      checkIn
+      checkOut
+      guest {
+        name
+        email
+      }
+    }
+  }
+}
+
+query GetDocumentById($id: UUID!) {
+  document(id: $id) {
+    id
+    type
+    template
+    content
+    url
+    signedAt
+    createdAt
+    updatedAt
+    meta
+    booking {
+      id
+      checkIn
+      checkOut
+      guest {
+        name
+        email
+      }
+    }
+  }
+}
+
+query GetDepositTransactionsByBooking($bookingId: UUID!) {
+  depositTransactionsByBookingId(bookingId: $bookingId) {
+    id
+    action
+    amount {
+      amount
+      currency
+    }
+    status
+    transactionId
+    notes
+    createdAt
+    updatedAt
+    booking {
+      id
+      checkIn
+      checkOut
+      guest {
+        name
+        email
+      }
+    }
+  }
+}
+
+query GetDepositTxById($id: UUID!) {
+  depositTx(id: $id) {
+    id
+    action
+    amount {
+      amount
+      currency
+    }
+    status
+    transactionId
+    notes
+    createdAt
+    updatedAt
+    booking {
+      id
+      checkIn
+      checkOut
+      guest {
+        name
+        email
+      }
+    }
+  }
+}
+
+# Мутации для управления документами
+
+mutation GenerateContract($bookingId: UUID!, $template: String) {
+  generateContract(bookingId: $bookingId, template: $template) {
+    id
+    type
+    template
+    content
+    url
+    createdAt
+    booking {
+      id
+      checkIn
+      checkOut
+      guest {
+        name
+        email
+      }
+    }
+  }
+}
+
+mutation DepositAction($bookingId: UUID!, $action: String!, $amount: MoneyInput) {
+  depositAction(bookingId: $bookingId, action: $action, amount: $amount) {
+    id
+    action
+    amount {
+      amount
+      currency
+    }
+    status
+    transactionId
+    notes
+    createdAt
+    booking {
+      id
+      checkIn
+      checkOut
+      guest {
+        name
+        email
+      }
+    }
+  }
+}

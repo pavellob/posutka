@@ -1,0 +1,105 @@
+# Запросы для управления объектами недвижимости
+
+query GetPropertiesByOrg($orgId: UUID!) {
+  propertiesByOrgId(orgId: $orgId) {
+    id
+    title
+    address
+    amenities
+    org {
+      id
+      name
+    }
+  }
+}
+
+query GetAllOrganizations {
+  organizations(first: 100) {
+    edges {
+      node {
+        id
+        name
+      }
+    }
+  }
+}
+
+query GetPropertyById($id: UUID!) {
+  property(id: $id) {
+    id
+    title
+    address
+    amenities
+    org {
+      id
+      name
+      currency
+    }
+  }
+}
+
+query GetUnitsByProperty($propertyId: UUID!) {
+  unitsByPropertyId(propertyId: $propertyId) {
+    id
+    name
+    capacity
+    beds
+    bathrooms
+    amenities
+    property {
+      id
+      title
+      address
+    }
+  }
+}
+
+query GetUnitById($id: UUID!) {
+  unit(id: $id) {
+    id
+    name
+    capacity
+    beds
+    bathrooms
+    amenities
+    property {
+      id
+      title
+      address
+      org {
+        id
+        name
+      }
+    }
+  }
+}
+
+# Мутации для создания объектов
+
+mutation CreateProperty($orgId: UUID!, $title: String!, $address: String!, $amenities: [String!]) {
+  createProperty(orgId: $orgId, title: $title, address: $address, amenities: $amenities) {
+    id
+    title
+    address
+    amenities
+    org {
+      id
+      name
+    }
+  }
+}
+
+mutation CreateUnit($propertyId: UUID!, $name: String!, $capacity: Int!, $beds: Int!, $bathrooms: Int!, $amenities: [String!]) {
+  createUnit(propertyId: $propertyId, name: $name, capacity: $capacity, beds: $beds, bathrooms: $bathrooms, amenities: $amenities) {
+    id
+    name
+    capacity
+    beds
+    bathrooms
+    amenities
+    property {
+      id
+      title
+    }
+  }
+}

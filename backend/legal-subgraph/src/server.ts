@@ -7,7 +7,10 @@ import { createServer } from 'http';
 import { resolvers } from './resolvers/index.js';
 import { LegalDLPrisma } from '@repo/datalayer-prisma';
 import { PrismaClient } from '@prisma/client';
+import { createGraphQLLogger } from '@repo/shared-logger';
 import { createFullSchema } from '@repo/shared';
+
+const logger = createGraphQLLogger('legal-subgraph');
 
 const typeDefs = createFullSchema(path.join(process.cwd(), 'src/schema/index.gql'));
 const schema = makeExecutableSchema({
@@ -24,4 +27,4 @@ const yoga = createYoga({
 });
 
 const server = createServer(yoga);
-server.listen(4007, () => console.log('legal-subgraph on :4007'));
+server.listen(4007, () => logger.info('legal-subgraph on :4007'));

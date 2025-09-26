@@ -6,13 +6,16 @@ import type {
   AIAdapterConfig 
 } from '@repo/datalayer';
 import { GQLPTService } from './gqlpt.service.js';
+import { createServiceLogger } from '@repo/shared-logger';
 
 export class AIOrchestratorService implements IAIOrchestrator {
   private gqlptService: GQLPTService;
   private initializedAdapters: Map<string, AIAdapterConfig> = new Map();
+  private logger = createServiceLogger('ai-orchestrator');
 
   constructor() {
     this.gqlptService = new GQLPTService();
+    this.logger.info('AI Orchestrator Service initialized');
   }
 
   async run(orgId: UUID, command: string, context?: unknown): Promise<AICommandResult> {
@@ -48,7 +51,7 @@ export class AIOrchestratorService implements IAIOrchestrator {
         preview: { action: 'process', command, context }
       };
     } catch (error) {
-      console.error('Ошибка выполнения AI команды:', error);
+      this.logger.error('Ошибка выполнения AI команды', error, { orgId, command });
       return {
         ok: false,
         message: `Ошибка выполнения команды: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`,
@@ -77,7 +80,7 @@ export class AIOrchestratorService implements IAIOrchestrator {
       
       return result;
     } catch (error) {
-      console.error('Ошибка генерации GraphQL запроса:', error);
+      this.logger.error('Ошибка генерации GraphQL запроса', error, { orgId, description });
       return {
         query: '',
         success: false,
@@ -108,7 +111,7 @@ export class AIOrchestratorService implements IAIOrchestrator {
         success: true,
       };
     } catch (error) {
-      console.error('Ошибка выполнения GraphQL запроса:', error);
+      this.logger.error('Ошибка выполнения GraphQL запроса', error, { orgId, query, variables });
       throw new Error(`Ошибка выполнения запроса: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     }
   }

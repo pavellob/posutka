@@ -8,12 +8,17 @@ import { createServer } from 'http';
 import { resolvers } from './resolvers/index.js';
 import { AIOrchestratorPrisma } from '@repo/datalayer-prisma';
 import { createContext } from './context.js';
+import { createGraphQLLogger } from '@repo/shared-logger';
+
+const logger = createGraphQLLogger('ai-subgraph');
 
 const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
 const schema = makeExecutableSchema({
   typeDefs,
   resolvers,
 });
+
+logger.info('AI Subgraph schema loaded successfully');
 
 // Используем новый контекст с GQLPT поддержкой
 // const prisma = new PrismaClient();
@@ -25,4 +30,4 @@ const yoga = createYoga({
 });
 
 const server = createServer(yoga);
-server.listen(4008, () => console.log('ai-subgraph on :4008'));
+server.listen(4008, () => logger.info('AI Subgraph server started on port 4008'));

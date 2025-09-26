@@ -1,0 +1,221 @@
+# Запросы для управления пользователями и организациями
+
+query GetUsers($first: Int, $after: String) {
+  users(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+        name
+        createdAt
+        updatedAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+      totalCount
+    }
+  }
+}
+
+query GetUserById($id: UUID!) {
+  user(id: $id) {
+    id
+    email
+    name
+    createdAt
+    updatedAt
+  }
+}
+
+query GetUserByEmail($email: String!) {
+  userByEmail(email: $email) {
+    id
+    email
+    name
+    createdAt
+    updatedAt
+  }
+}
+
+query GetOrganizations($first: Int, $after: String) {
+  organizations(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+        timezone
+        currency
+        createdAt
+        updatedAt
+        members {
+          id
+          role
+          createdAt
+          user {
+            id
+            email
+            name
+          }
+        }
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+      totalCount
+    }
+  }
+}
+
+query GetOrganizationById($id: UUID!) {
+  organization(id: $id) {
+    id
+    name
+    timezone
+    currency
+    createdAt
+    updatedAt
+    members {
+      id
+      role
+      createdAt
+      user {
+        id
+        email
+        name
+      }
+    }
+  }
+}
+
+query GetOrganizationsByUserId($userId: UUID!) {
+  organizationsByUserId(userId: $userId) {
+    id
+    name
+    timezone
+    currency
+    createdAt
+    updatedAt
+  }
+}
+
+query GetMembershipsByOrg($orgId: UUID!) {
+  membershipsByOrg(orgId: $orgId) {
+    id
+    role
+    createdAt
+    updatedAt
+    user {
+      id
+      email
+      name
+      createdAt
+    }
+  }
+}
+
+query GetMembershipsByUser($userId: UUID!) {
+  membershipsByUser(userId: $userId) {
+    id
+    role
+    createdAt
+    updatedAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+query GetMembershipById($id: UUID!) {
+  membership(id: $id) {
+    id
+    role
+    createdAt
+    updatedAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Мутации для управления пользователями и организациями
+
+mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    id
+    email
+    name
+    createdAt
+  }
+}
+
+mutation UpdateUser($id: UUID!, $input: CreateUserInput!) {
+  updateUser(id: $id, input: $input) {
+    id
+    email
+    name
+    updatedAt
+  }
+}
+
+mutation CreateOrganization($input: CreateOrganizationInput!) {
+  createOrganization(input: $input) {
+    id
+    name
+    timezone
+    currency
+    createdAt
+  }
+}
+
+mutation UpdateOrganization($id: UUID!, $input: CreateOrganizationInput!) {
+  updateOrganization(id: $id, input: $input) {
+    id
+    name
+    timezone
+    currency
+    updatedAt
+  }
+}
+
+mutation AddMember($input: AddMemberInput!) {
+  addMember(input: $input) {
+    id
+    role
+    createdAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+mutation UpdateMemberRole($input: UpdateMemberRoleInput!) {
+  updateMemberRole(input: $input) {
+    id
+    role
+    updatedAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+mutation RemoveMember($membershipId: UUID!) {
+  removeMember(membershipId: $membershipId)
+}

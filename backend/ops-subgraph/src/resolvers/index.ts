@@ -1,5 +1,8 @@
 import type { Context } from '../context.js';
 
+import { createGraphQLLogger } from '@repo/shared-logger';
+
+const logger = createGraphQLLogger('ops-subgraph-resolvers');
 export const resolvers = {
   Query: {
     task: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getTaskById(id),

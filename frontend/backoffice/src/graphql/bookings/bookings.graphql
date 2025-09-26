@@ -1,0 +1,199 @@
+# Запросы для управления бронированиями
+
+query GetBookings(
+  $orgId: UUID
+  $unitId: UUID
+  $from: DateTime
+  $to: DateTime
+  $status: BookingStatus
+  $first: Int
+  $after: String
+) {
+  bookings(
+    orgId: $orgId
+    unitId: $unitId
+    from: $from
+    to: $to
+    status: $status
+    first: $first
+    after: $after
+  ) {
+    edges {
+      node {
+        id
+        status
+        source
+        checkIn
+        checkOut
+        guestsCount
+        notes
+        cancellationReason
+        createdAt
+        updatedAt
+        unit {
+          id
+          name
+          property {
+            id
+            title
+          }
+        }
+        guest {
+          id
+          name
+          email
+          phone
+        }
+        priceBreakdown {
+          basePrice {
+            amount
+            currency
+          }
+          cleaningFee {
+            amount
+            currency
+          }
+          serviceFee {
+            amount
+            currency
+          }
+          taxes {
+            amount
+            currency
+          }
+          total {
+            amount
+            currency
+          }
+        }
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+      totalCount
+    }
+  }
+}
+
+query GetBookingById($id: UUID!) {
+  booking(id: $id) {
+    id
+    status
+    source
+    checkIn
+    checkOut
+    guestsCount
+    notes
+    cancellationReason
+    createdAt
+    updatedAt
+    org {
+      id
+      name
+    }
+    unit {
+      id
+      name
+      capacity
+      beds
+      bathrooms
+      amenities
+      property {
+        id
+        title
+        address
+      }
+    }
+    guest {
+      id
+      name
+      email
+      phone
+      documentType
+      documentNumber
+    }
+    priceBreakdown {
+      basePrice {
+        amount
+        currency
+      }
+      cleaningFee {
+        amount
+        currency
+      }
+      serviceFee {
+        amount
+        currency
+      }
+      taxes {
+        amount
+        currency
+      }
+      total {
+        amount
+        currency
+      }
+    }
+  }
+}
+
+# Мутации для управления бронированиями
+
+mutation CreateBooking($input: CreateBookingInput!) {
+  createBooking(input: $input) {
+    id
+    status
+    source
+    checkIn
+    checkOut
+    guestsCount
+    notes
+    createdAt
+    unit {
+      id
+      name
+      property {
+        id
+        title
+      }
+    }
+    guest {
+      id
+      name
+      email
+      phone
+    }
+    priceBreakdown {
+      basePrice {
+        amount
+        currency
+      }
+      total {
+        amount
+        currency
+      }
+    }
+  }
+}
+
+mutation CancelBooking($id: UUID!, $reason: String) {
+  cancelBooking(id: $id, reason: $reason) {
+    id
+    status
+    cancellationReason
+    updatedAt
+  }
+}
+
+mutation ChangeBookingDates($id: UUID!, $checkIn: DateTime!, $checkOut: DateTime!) {
+  changeBookingDates(id: $id, checkIn: $checkIn, checkOut: $checkOut) {
+    id
+    checkIn
+    checkOut
+    updatedAt
+  }
+}

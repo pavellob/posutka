@@ -1,5 +1,8 @@
 import type { Context } from '../context.js';
 
+import { createGraphQLLogger } from '@repo/shared-logger';
+
+const logger = createGraphQLLogger('bookings-subgraph-resolvers');
 export const resolvers = {
   Query: {
     booking: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getBookingById(id),

@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, appendFileSync } from 'fs';
 import path from 'path';
 import { buildSchema } from 'graphql';
 import { makeExecutableSchema } from '@graphql-tools/schema';
@@ -6,8 +6,20 @@ import { createYoga } from 'graphql-yoga';
 import { createServer } from 'http';
 
 import { resolvers } from './resolvers/index.js';
-import { DataLayerInventoryPrisma } from '@repo/datalayer-prisma';
+import { InventoryDLPrisma } from '@repo/datalayer-prisma';
 import { PrismaClient } from '@prisma/client';
+import { createGraphQLLogger } from '@repo/shared-logger';
+
+const logger = createGraphQLLogger('inventory-subgraph');
+
+logger.info('Inventory Subgraph server starting');
+logger.debug('Resolvers imported', { 
+  resolversImported: !!resolvers,
+  queryExists: !!resolvers.Query,
+  propertiesByOrgIdExists: !!resolvers.Query?.propertiesByOrgId,
+  resolverKeys: Object.keys(resolvers),
+  queryKeys: Object.keys(resolvers.Query || {})
+});
 
 const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
 const schema = makeExecutableSchema({
@@ -15,13 +27,22 @@ const schema = makeExecutableSchema({
   resolvers,
 });
 
+logger.info('Initializing Prisma client');
 const prisma = new PrismaClient();
-const dl = new DataLayerInventoryPrisma(prisma);
+logger.info('Initializing DataLayer');
+const dl = new InventoryDLPrisma(prisma);
+logger.info('DataLayer initialized', { 
+  dataLayerInitialized: !!dl,
+  getPropertiesByOrgIdType: typeof dl.getPropertiesByOrgId
+});
 
 const yoga = createYoga({
   schema,
-  context: () => ({ dl }), // здесь легко подменить реализацию на другую (e.g. blockchain-DL)
+  context: () => {
+    logger.debug('Context function called', { dataLayerAvailable: !!dl });
+    return { dl };
+  }, // здесь легко подменить реализацию на другую (e.g. blockchain-DL)
 });
 
 const server = createServer(yoga);
-server.listen(4001, () => console.log('inventory-subgraph on :4001'));
+server.listen(4001, () => logger.info('Inventory Subgraph server started on port 4001'));

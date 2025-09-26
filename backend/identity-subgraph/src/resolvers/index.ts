@@ -1,4 +1,7 @@
 import type { Context } from '../context.js';
+import { createGraphQLLogger } from '@repo/shared-logger';
+
+const logger = createGraphQLLogger('identity-resolvers');
 
 export const resolvers: any = {
   Query: {
@@ -7,7 +10,16 @@ export const resolvers: any = {
     users: (_: unknown, params: any, { dl }: Context) => dl.listUsers(params),
     
     organization: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getOrganizationById(id),
-    organizations: (_: unknown, params: any, { dl }: Context) => dl.listOrganizations(params),
+    organizations: async (_: unknown, params: any, { dl }: Context) => {
+      logger.resolverStart('organizations', params);
+      const result = await dl.listOrganizations(params);
+      logger.resolverEnd('organizations', result);
+      logger.info('GraphQL resolver organizations completed', { 
+        params, 
+        resultCount: Array.isArray(result) ? result.length : result ? 1 : 0 
+      });
+      return result;
+    },
     
     membership: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getMembershipById(id),
     membershipsByOrg: (_: unknown, { orgId }: { orgId: string }, { dl }: Context) => dl.getMembershipsByOrg(orgId),

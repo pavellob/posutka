@@ -8,6 +8,9 @@ import { createServer } from 'http';
 import { resolvers } from './resolvers/index.js';
 import { IdentityDLPrisma } from '@repo/datalayer-prisma';
 import { PrismaClient } from '@prisma/client';
+import { createGraphQLLogger } from '@repo/shared-logger';
+
+const logger = createGraphQLLogger('identity-subgraph');
 
 const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
 const schema = makeExecutableSchema({
@@ -15,8 +18,12 @@ const schema = makeExecutableSchema({
   resolvers,
 });
 
+logger.info('Identity Subgraph schema loaded successfully');
+
 const prisma = new PrismaClient();
 const dl = new IdentityDLPrisma(prisma);
+
+logger.info('Identity Subgraph data layer initialized');
 
 const yoga = createYoga({
   schema,
@@ -24,4 +31,4 @@ const yoga = createYoga({
 });
 
 const server = createServer(yoga);
-server.listen(4005, () => console.log('identity-subgraph on :4005'));
+server.listen(4005, () => logger.info('Identity Subgraph server started on port 4005'));

@@ -1,0 +1,239 @@
+# Запросы для управления счетами и платежами
+
+query GetInvoices($orgId: UUID!, $first: Int, $after: String, $status: InvoiceStatus) {
+  invoices(orgId: $orgId, first: $first, after: $after, status: $status) {
+    edges {
+      node {
+        id
+        status
+        issuedAt
+        dueAt
+        total {
+          amount
+          currency
+        }
+        items {
+          name
+          qty
+          price {
+            amount
+            currency
+          }
+          sum {
+            amount
+            currency
+          }
+        }
+        org {
+          id
+          name
+        }
+        order {
+          id
+          status
+          cost {
+            amount
+            currency
+          }
+        }
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+      totalCount
+    }
+  }
+}
+
+query GetInvoiceById($id: UUID!) {
+  invoice(id: $id) {
+    id
+    status
+    issuedAt
+    dueAt
+    total {
+      amount
+      currency
+    }
+    items {
+      name
+      qty
+      price {
+        amount
+        currency
+      }
+      sum {
+        amount
+        currency
+      }
+    }
+    org {
+      id
+      name
+      currency
+    }
+    order {
+      id
+      status
+      cost {
+        amount
+        currency
+      }
+      task {
+        id
+        type
+        status
+      }
+    }
+  }
+}
+
+query GetInvoiceByOrderId($orderId: UUID!) {
+  invoiceByOrderId(orderId: $orderId) {
+    id
+    status
+    issuedAt
+    dueAt
+    total {
+      amount
+      currency
+    }
+    items {
+      name
+      qty
+      price {
+        amount
+        currency
+      }
+      sum {
+        amount
+        currency
+      }
+    }
+  }
+}
+
+query GetPaymentById($id: UUID!) {
+  payment(id: $id) {
+    id
+    method
+    amount {
+      amount
+      currency
+    }
+    status
+    createdAt
+    provider
+    providerRef
+    receiptUrl
+    invoice {
+      id
+      status
+      total {
+        amount
+        currency
+      }
+    }
+  }
+}
+
+# Мутации для управления счетами и платежами
+
+mutation CreateInvoice($input: CreateInvoiceInput!) {
+  createInvoice(input: $input) {
+    id
+    status
+    issuedAt
+    total {
+      amount
+      currency
+    }
+    items {
+      name
+      qty
+      price {
+        amount
+        currency
+      }
+      sum {
+        amount
+        currency
+      }
+    }
+  }
+}
+
+mutation AddInvoiceItems($input: AddInvoiceItemsInput!) {
+  addInvoiceItems(input: $input) {
+    id
+    status
+    total {
+      amount
+      currency
+    }
+    items {
+      name
+      qty
+      price {
+        amount
+        currency
+      }
+      sum {
+        amount
+        currency
+      }
+    }
+  }
+}
+
+mutation CancelInvoice($id: UUID!) {
+  cancelInvoice(id: $id) {
+    id
+    status
+  }
+}
+
+mutation RecordPayment($input: RecordPaymentInput!) {
+  recordPayment(input: $input) {
+    id
+    method
+    amount {
+      amount
+      currency
+    }
+    status
+    createdAt
+    invoice {
+      id
+      status
+    }
+  }
+}
+
+mutation GeneratePaymentLink($input: GeneratePaymentLinkInput!) {
+  generatePaymentLink(input: $input) {
+    url
+    provider
+    expiresAt
+  }
+}
+
+mutation IssueRefund($input: IssueRefundInput!) {
+  issueRefund(input: $input) {
+    id
+    method
+    amount {
+      amount
+      currency
+    }
+    status
+    createdAt
+    invoice {
+      id
+    }
+  }
+}

@@ -9,6 +9,9 @@ import { resolvers } from './resolvers/index.js';
 import { OpsDLPrisma } from '@repo/datalayer-prisma';
 import { PrismaClient } from '@prisma/client';
 
+import { createGraphQLLogger } from '@repo/shared-logger';  
+const logger = createGraphQLLogger('ops-subgraph');
+
 const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
 const schema = makeExecutableSchema({
   typeDefs,
@@ -24,4 +27,4 @@ const yoga = createYoga({
 });
 
 const server = createServer(yoga);
-server.listen(4003, () => console.log('ops-subgraph on :4003'));
+server.listen(4003, () => logger.info('Ops Subgraph server started on port 4003'));

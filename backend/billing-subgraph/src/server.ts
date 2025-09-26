@@ -7,7 +7,10 @@ import { createServer } from 'http';
 import { resolvers } from './resolvers/index.js';
 import { BillingDLPrisma } from '@repo/datalayer-prisma';
 import { PrismaClient } from '@prisma/client';
+import { createGraphQLLogger } from '@repo/shared-logger';
 import { createFullSchema } from '@repo/shared';
+
+const logger = createGraphQLLogger('billing-subgraph');
 
 const typeDefs = createFullSchema(path.join(process.cwd(), 'src/schema/index.gql'));
 const schema = makeExecutableSchema({
@@ -24,4 +27,4 @@ const yoga = createYoga({
 });
 
 const server = createServer(yoga);
-server.listen(4004, () => console.log('billing-subgraph on :4004'));
+server.listen(4004, () => logger.info('billing-subgraph on :4004'));

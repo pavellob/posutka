@@ -1,4 +1,15 @@
 packages:
-  - "backend/*"
-  - "frontend/*"
-  - "packages/*"
+  - backend/*
+  - frontend/*
+  - packages/*
+
+ignoredBuiltDependencies:
+  - '@apollo/protobufjs'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - '@tailwindcss/oxide'
+  - esbuild
+  - prisma
+  - protobufjs
+  - sharp
+  - unrs-resolver

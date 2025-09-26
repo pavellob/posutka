@@ -1,0 +1,252 @@
+# Запросы для управления операционными задачами
+
+query GetTasks(
+  $orgId: UUID!
+  $status: TaskStatus
+  $type: TaskType
+  $first: Int
+  $after: String
+) {
+  tasks(orgId: $orgId, status: $status, type: $type, first: $first, after: $after) {
+    edges {
+      node {
+        id
+        type
+        status
+        dueAt
+        note
+        createdAt
+        updatedAt
+        org {
+          id
+          name
+        }
+        unit {
+          id
+          name
+          property {
+            id
+            title
+          }
+        }
+        booking {
+          id
+          checkIn
+          checkOut
+          guest {
+            name
+            email
+          }
+        }
+        assignedTo {
+          id
+          name
+          rating
+          contact
+        }
+        checklist
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+      totalCount
+    }
+  }
+}
+
+query GetTaskById($id: UUID!) {
+  task(id: $id) {
+    id
+    type
+    status
+    dueAt
+    note
+    createdAt
+    updatedAt
+    org {
+      id
+      name
+    }
+    unit {
+      id
+      name
+      property {
+        id
+        title
+        address
+      }
+    }
+    booking {
+      id
+      checkIn
+      checkOut
+      guest {
+        name
+        email
+        phone
+      }
+    }
+    assignedTo {
+      id
+      name
+      rating
+      contact
+      serviceTypes
+    }
+    checklist
+  }
+}
+
+query GetServiceProviders($serviceTypes: [TaskType!]) {
+  serviceProviders(serviceTypes: $serviceTypes) {
+    id
+    name
+    serviceTypes
+    rating
+    contact
+    createdAt
+    updatedAt
+  }
+}
+
+query GetServiceProviderById($id: UUID!) {
+  serviceProvider(id: $id) {
+    id
+    name
+    serviceTypes
+    rating
+    contact
+    createdAt
+    updatedAt
+  }
+}
+
+query GetServiceOrderById($id: UUID!) {
+  serviceOrder(id: $id) {
+    id
+    status
+    cost {
+      amount
+      currency
+    }
+    notes
+    createdAt
+    updatedAt
+    org {
+      id
+      name
+    }
+    task {
+      id
+      type
+      status
+    }
+    provider {
+      id
+      name
+      contact
+    }
+    invoice {
+      id
+      status
+      total {
+        amount
+        currency
+      }
+    }
+  }
+}
+
+# Мутации для управления задачами
+
+mutation CreateTask($input: CreateTaskInput!) {
+  createTask(input: $input) {
+    id
+    type
+    status
+    dueAt
+    note
+    createdAt
+    org {
+      id
+      name
+    }
+    unit {
+      id
+      name
+      property {
+        id
+        title
+      }
+    }
+    checklist
+  }
+}
+
+mutation AssignTask($input: AssignTaskInput!) {
+  assignTask(input: $input) {
+    id
+    status
+    dueAt
+    note
+    updatedAt
+    assignedTo {
+      id
+      name
+      contact
+    }
+  }
+}
+
+mutation UpdateTaskStatus($id: UUID!, $status: TaskStatus!) {
+  updateTaskStatus(id: $id, status: $status) {
+    id
+    status
+    updatedAt
+  }
+}
+
+mutation CreateServiceOrder($input: CreateServiceOrderInput!) {
+  createServiceOrder(input: $input) {
+    id
+    status
+    cost {
+      amount
+      currency
+    }
+    notes
+    createdAt
+    task {
+      id
+      type
+      status
+    }
+    provider {
+      id
+      name
+    }
+  }
+}
+
+mutation UpdateServiceOrderStatus($id: UUID!, $status: String!) {
+  updateServiceOrderStatus(id: $id, status: $status) {
+    id
+    status
+    updatedAt
+  }
+}
+
+mutation CreateServiceProvider($input: CreateServiceProviderInput!) {
+  createServiceProvider(input: $input) {
+    id
+    name
+    serviceTypes
+    rating
+    contact
+    createdAt
+  }
+}

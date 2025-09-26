@@ -1,0 +1,42 @@
+# Запросы для AI функциональности
+
+mutation AICommand($orgId: UUID!, $command: String!, $context: JSON) {
+  aiCommand(orgId: $orgId, command: $command, context: $context) {
+    ok
+    message
+    affectedIds
+    preview
+  }
+}
+
+mutation GenerateGraphQLQuery(
+  $orgId: UUID!
+  $description: String!
+  $adapterConfig: AIAdapterConfig!
+  $schemaContext: JSON
+) {
+  generateGraphQLQuery(
+    orgId: $orgId
+    description: $description
+    adapterConfig: $adapterConfig
+    schemaContext: $schemaContext
+  ) {
+    query
+    variables
+    description
+    success
+    error
+  }
+}
+
+mutation ExecuteGeneratedQuery(
+  $orgId: UUID!
+  $query: String!
+  $variables: JSON
+) {
+  executeGeneratedQuery(
+    orgId: $orgId
+    query: $query
+    variables: $variables
+  )
+}

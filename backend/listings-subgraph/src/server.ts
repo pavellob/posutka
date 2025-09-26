@@ -7,7 +7,10 @@ import { createServer } from 'http';
 import { resolvers } from './resolvers/index.js';
 import { ListingsDLPrisma } from '@repo/datalayer-prisma';
 import { PrismaClient } from '@prisma/client';
+import { createGraphQLLogger } from '@repo/shared-logger';
 import { createFullSchema } from '@repo/shared';
+
+const logger = createGraphQLLogger('listings-subgraph');
 
 const typeDefs = createFullSchema(path.join(process.cwd(), 'src/schema/index.gql'));
 const schema = makeExecutableSchema({
@@ -24,4 +27,4 @@ const yoga = createYoga({
 });
 
 const server = createServer(yoga);
-server.listen(4006, () => console.log('listings-subgraph on :4006'));
+server.listen(4006, () => logger.info('listings-subgraph on :4006'));

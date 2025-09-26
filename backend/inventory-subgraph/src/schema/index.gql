@@ -100,7 +100,7 @@ type Query {
   """Получить единицу недвижимости по ID"""
   unit(id: UUID!): Unit
   """Получить все объекты недвижимости организации"""
-  propertiesByOrgId(orgId: UUID!): [Property!]!
+  propertiesByOrgId(orgId: UUID!): [Property]!
   """Получить все единицы недвижимости в объекте"""
   unitsByPropertyId(propertyId: UUID!): [Unit!]!
 }
@@ -141,6 +141,8 @@ type Property {
   address: String!
   """Список удобств объекта (WiFi, парковка, бассейн и т.д.)"""
   amenities: [String!]!
+  """Список единиц недвижимости в объекте"""
+  units: [Unit]!
 }
 
 """

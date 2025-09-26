@@ -12,6 +12,8 @@ export interface Property {
   title: string;
   address: string;
   amenities: string[];
+  org: OrganizationRef;
+  units: Unit[];
 }
 
 export interface Unit {

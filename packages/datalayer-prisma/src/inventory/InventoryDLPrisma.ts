@@ -4,8 +4,6 @@ import type {
   Property,
   Unit,
   CalendarDay,
-  UUID,
-  DateTime,
 } from '@repo/datalayer';
 
 export class InventoryDLPrisma implements IDataLayerInventory {
@@ -19,6 +17,25 @@ export class InventoryDLPrisma implements IDataLayerInventory {
     if (!property) return null;
     
     return this.mapPropertyFromPrisma(property);
+  }
+
+  async getPropertiesByOrgId(orgId: string): Promise<Property[]> {
+    console.log('🔍 InventoryDLPrisma.getPropertiesByOrgId called with orgId:', orgId);
+    
+    const properties = await this.prisma.property.findMany({
+      where: { orgId },
+      include: {
+        org: true,
+        units: true,
+      }
+    });
+    
+    console.log('📊 Found properties:', properties.length, properties);
+    
+    const mappedProperties = properties.map(p => this.mapPropertyFromPrisma(p));
+    console.log('🔄 Mapped properties:', mappedProperties);
+    
+    return mappedProperties;
   }
 
   async createProperty(input: Pick<Property, 'orgId' | 'title' | 'address' | 'amenities'>): Promise<Property> {
@@ -42,6 +59,14 @@ export class InventoryDLPrisma implements IDataLayerInventory {
     if (!unit) return null;
     
     return this.mapUnitFromPrisma(unit);
+  }
+
+  async getUnitsByPropertyId(propertyId: string): Promise<Unit[]> {
+    const units = await this.prisma.unit.findMany({
+      where: { propertyId }
+    });
+    
+    return units.map(u => this.mapUnitFromPrisma(u));
   }
 
   async createUnit(input: Pick<Unit, 'propertyId' | 'name' | 'capacity' | 'beds' | 'bathrooms' | 'amenities'>): Promise<Unit> {
@@ -161,6 +186,8 @@ export class InventoryDLPrisma implements IDataLayerInventory {
       title: property.title,
       address: property.address,
       amenities: property.amenities,
+      org: property.org,
+      units: property.units,
     };
   }
 

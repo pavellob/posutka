@@ -1,0 +1,139 @@
+# Запросы для управления объявлениями
+
+query GetListings($unitId: UUID!, $first: Int, $after: String) {
+  listings(unitId: $unitId, first: $first, after: $after) {
+    edges {
+      node {
+        id
+        status
+        channel
+        basePrice {
+          amount
+          currency
+        }
+        minNights
+        maxNights
+        externalId
+        lastSyncAt
+        unit {
+          id
+          name
+          property {
+            id
+            title
+          }
+        }
+        discounts {
+          id
+          name
+          percentOff
+          minNights
+        }
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+      totalCount
+    }
+  }
+}
+
+query GetListingById($id: UUID!) {
+  listing(id: $id) {
+    id
+    status
+    channel
+    basePrice {
+      amount
+      currency
+    }
+    minNights
+    maxNights
+    externalId
+    lastSyncAt
+    unit {
+      id
+      name
+      capacity
+      beds
+      bathrooms
+      amenities
+      property {
+        id
+        title
+        address
+      }
+    }
+    discounts {
+      id
+      name
+      percentOff
+      minNights
+    }
+  }
+}
+
+# Мутации для управления объявлениями
+
+mutation UpsertListing($input: UpsertListingInput!) {
+  upsertListing(input: $input) {
+    id
+    status
+    channel
+    basePrice {
+      amount
+      currency
+    }
+    minNights
+    maxNights
+    externalId
+    unit {
+      id
+      name
+      property {
+        id
+        title
+      }
+    }
+  }
+}
+
+mutation SetPricing($listingId: UUID!, $basePrice: MoneyInput!, $minNights: Int!, $maxNights: Int) {
+  setPricing(listingId: $listingId, basePrice: $basePrice, minNights: $minNights, maxNights: $maxNights) {
+    id
+    basePrice {
+      amount
+      currency
+    }
+    minNights
+    maxNights
+  }
+}
+
+mutation AddDiscountRule($input: DiscountRuleInput!) {
+  addDiscountRule(input: $input) {
+    id
+    discounts {
+      id
+      name
+      percentOff
+      minNights
+    }
+  }
+}
+
+mutation RemoveDiscountRule($id: UUID!) {
+  removeDiscountRule(id: $id) {
+    id
+    discounts {
+      id
+      name
+      percentOff
+      minNights
+    }
+  }
+}

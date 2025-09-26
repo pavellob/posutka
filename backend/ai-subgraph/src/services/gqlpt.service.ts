@@ -4,6 +4,7 @@ import { AdapterAnthropic } from '@gqlpt/adapter-anthropic';
 import { buildSchema, printSchema } from 'graphql';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { createServiceLogger } from '@repo/shared-logger';
 
 export interface AIAdapterConfig {
   type: 'openai' | 'anthropic';
@@ -22,10 +23,12 @@ export interface GraphQLQueryResult {
 export class GQLPTService {
   private client: GQLPTClient | null = null;
   private schema: string;
+  private logger = createServiceLogger('gqlpt-service');
 
   constructor() {
     // Загружаем схему из supergraph
     this.schema = this.loadSupergraphSchema();
+    this.logger.info('GQLPT Service initialized');
   }
 
   private loadSupergraphSchema(): string {
@@ -33,7 +36,7 @@ export class GQLPTService {
       const schemaPath = join(process.cwd(), '../../gateway-mesh/supergraph.graphql');
       return readFileSync(schemaPath, 'utf-8');
     } catch (error) {
-      console.warn('Не удалось загрузить supergraph схему, используем базовую схему');
+      this.logger.warn('Не удалось загрузить supergraph схему, используем базовую схему', { error });
       return `
         type Query {
           _empty: Boolean
@@ -95,7 +98,7 @@ export class GQLPTService {
         success: true,
       };
     } catch (error) {
-      console.error('Ошибка генерации GraphQL запроса:', error);
+      this.logger.error('Ошибка генерации GraphQL запроса', error, { description, schemaContext });
       return {
         query: '',
         success: false,
@@ -123,7 +126,7 @@ export class GQLPTService {
         variables,
       };
     } catch (error) {
-      console.error('Ошибка выполнения GraphQL запроса:', error);
+      this.logger.error('Ошибка выполнения GraphQL запроса', error, { query, variables });
       throw error;
     }
   }

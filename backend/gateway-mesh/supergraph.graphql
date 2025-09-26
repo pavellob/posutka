@@ -171,7 +171,7 @@ type Query @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) 
   """Получить единицу недвижимости по ID"""
   unit(id: UUID!): Unit @merge(subgraph: "inventory-subgraph", keyField: "id", keyArg: "id") @join__field(graph: INVENTORY_SUBGRAPH)
   """Получить все объекты недвижимости организации"""
-  propertiesByOrgId(orgId: UUID!): [Property!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  propertiesByOrgId(orgId: UUID!): [Property]! @join__field(graph: INVENTORY_SUBGRAPH)
   """Получить все единицы недвижимости в объекте"""
   unitsByPropertyId(propertyId: UUID!): [Unit!]! @join__field(graph: INVENTORY_SUBGRAPH)
   """Получить документ по ID"""
@@ -479,6 +479,8 @@ type Property @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: INVENTORY
   address: String! @join__field(graph: INVENTORY_SUBGRAPH)
   """Список удобств объекта (WiFi, парковка, бассейн и т.д.)"""
   amenities: [String!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Список единиц недвижимости в объекте"""
+  units: [Unit]! @join__field(graph: INVENTORY_SUBGRAPH)
 }
 
 """

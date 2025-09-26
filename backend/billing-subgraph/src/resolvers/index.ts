@@ -1,5 +1,8 @@
 import type { Context } from '../context.js';
 
+import { createGraphQLLogger } from '@repo/shared-logger';
+
+const logger = createGraphQLLogger('billing-subgraph-resolvers');
 export const resolvers: any = {
   Query: {
     invoice: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getInvoiceById(id),

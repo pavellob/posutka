@@ -9,11 +9,14 @@ import { resolvers } from './resolvers/index.js';
 import { BookingsDLPrisma, IdentityDLPrisma, InventoryDLPrisma } from '@repo/datalayer-prisma';
 import { PrismaClient } from '@prisma/client';
 
+import { createGraphQLLogger } from '@repo/shared-logger';
 const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
 const schema = makeExecutableSchema({
   typeDefs,
   resolvers,
 });
+
+const logger = createGraphQLLogger('bookings-subgraph');
 
 const prisma = new PrismaClient();
 const dl = new BookingsDLPrisma(prisma);
@@ -26,4 +29,4 @@ const yoga = createYoga({
 });
 
 const server = createServer(yoga);
-server.listen(4002, () => console.log('bookings-subgraph on :4002'));
+server.listen(4002, () => logger.info('bookings-subgraph on :4002'));
