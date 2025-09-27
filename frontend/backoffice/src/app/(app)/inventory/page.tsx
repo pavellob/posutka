@@ -13,7 +13,15 @@ export default function InventoryPage() {
   
   // Получаем все организации
   const { data: organizationsData, isLoading: organizationsLoading, error: organizationsError } = useGetAllOrganizationsQuery(
-    graphqlClient
+    { 
+      endpoint: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql',
+      fetchParams: {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    },
+    {}
   )
   
   // Получаем объекты для всех организаций
@@ -69,7 +77,14 @@ export default function InventoryPage() {
   }, [organizationsData])
   
   const { data: unitsData, isLoading: unitsLoading } = useGetUnitsByPropertyQuery(
-    graphqlClient,
+    { 
+      endpoint: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql',
+      fetchParams: {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    },
     {
       propertyId: selectedPropertyId || ''
     },

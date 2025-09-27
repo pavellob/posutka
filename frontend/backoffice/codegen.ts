@@ -12,7 +12,8 @@ const config: CodegenConfig = {
         'typescript-react-query',
       ],
       config: {
-        fetcher: 'graphql-request',
+        fetcher: 'fetch',
+        skipTypeCheck: true,
         legacyMode: false, // Используем @tanstack/react-query
         exposeDocument: true,
         exposeQueryKeys: true,
