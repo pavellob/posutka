@@ -56,17 +56,13 @@ RUN npm install -g pnpm
 # Копируем только необходимые файлы
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/backend ./backend
-# Копируем собранные workspace пакеты явно
-COPY --from=base /app/packages/datalayer-prisma/dist ./packages/datalayer-prisma/dist/
-COPY --from=base /app/packages/datalayer-prisma/package.json ./packages/datalayer-prisma/
-COPY --from=base /app/packages/datalayer-prisma/node_modules ./packages/datalayer-prisma/node_modules/
-COPY --from=base /app/packages/datalayer-prisma/prisma ./packages/datalayer-prisma/prisma/
-COPY --from=base /app/packages/datalayer/dist ./packages/datalayer/dist/
-COPY --from=base /app/packages/datalayer/package.json ./packages/datalayer/
-COPY --from=base /app/packages/datalayer/node_modules ./packages/datalayer/node_modules/
-COPY --from=base /app/packages/shared/dist ./packages/shared/dist/
-COPY --from=base /app/packages/shared/package.json ./packages/shared/
-COPY --from=base /app/packages/shared/node_modules ./packages/shared/node_modules/
+# Копируем workspace пакеты целиком
+COPY --from=base /app/packages/datalayer-prisma ./packages/datalayer-prisma/
+COPY --from=base /app/packages/datalayer ./packages/datalayer/
+COPY --from=base /app/packages/shared ./packages/shared/
+
+# Устанавливаем зависимости для создания симлинков workspace пакетов
+RUN pnpm install --frozen-lockfile --filter='*-subgraph'...
 COPY --from=base /app/scripts ./scripts
 COPY --from=base /app/docker-entrypoint.sh ./
 COPY --from=base /app/base-schema.gql ./
