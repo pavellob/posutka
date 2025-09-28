@@ -29,7 +29,7 @@ echo "✅ База данных готова!"
 
 # Выполняем миграции
 echo "🔄 Выполнение миграций базы данных..."
-cd packages/datalayer-prisma && pnpm prisma db push --force-reset || echo "Migration failed, continuing..."
+cd packages/datalayer-prisma && pnpm prisma db push --accept-data-loss || echo "Migration failed, continuing..."
 
 # Генерируем Prisma клиент
 echo "🔧 Генерация Prisma клиента..."
