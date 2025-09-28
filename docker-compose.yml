@@ -35,9 +35,10 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - .:/app
+      # Закомментируем volume mount, чтобы использовать файлы из Docker образа
+      # - .:/app
       - /app/node_modules
-    command: /usr/local/bin/docker-entrypoint.sh
+    command: ./docker-entrypoint.sh
 
 volumes:
   dbdata: {}

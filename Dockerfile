@@ -22,6 +22,17 @@ COPY docker-entrypoint.sh ./
 # Добавляем cache-busting для скриптов
 RUN echo "Scripts updated: $(date)" > /tmp/scripts-version
 
+# Отладочная информация о структуре директорий
+RUN echo "=== Docker Build Debug Info ===" && \
+    echo "Current directory: $(pwd)" && \
+    echo "Directory contents:" && \
+    ls -la && \
+    echo "Packages directory:" && \
+    ls -la packages/ && \
+    echo "Datalayer-prisma directory:" && \
+    ls -la packages/datalayer-prisma/ && \
+    echo "=== End Debug Info ==="
+
 # Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
 
@@ -57,6 +68,17 @@ COPY --from=base /app/pnpm-workspace.yaml ./
 
 # Добавляем cache-busting для продакшн стадии
 RUN echo "Production scripts updated: $(date)" > /tmp/prod-scripts-version
+
+# Отладочная информация для продакшн стадии
+RUN echo "=== Production Build Debug Info ===" && \
+    echo "Current directory: $(pwd)" && \
+    echo "Directory contents:" && \
+    ls -la && \
+    echo "Packages directory:" && \
+    ls -la packages/ && \
+    echo "Datalayer-prisma directory:" && \
+    ls -la packages/datalayer-prisma/ && \
+    echo "=== End Production Debug Info ==="
 
 # Делаем скрипты исполняемыми
 RUN chmod +x ./scripts/migrate-and-seed.sh
