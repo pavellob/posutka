@@ -19,6 +19,9 @@ COPY backend/ ./backend/
 COPY scripts/ ./scripts/
 COPY docker-entrypoint.sh ./
 
+# Добавляем cache-busting для скриптов
+RUN echo "Scripts updated: $(date)" > /tmp/scripts-version
+
 # Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
 
@@ -51,6 +54,9 @@ COPY --from=base /app/pnpm-lock.yaml ./
 COPY --from=base /app/turbo.json ./
 COPY --from=base /app/tsconfig.base.json ./
 COPY --from=base /app/pnpm-workspace.yaml ./
+
+# Добавляем cache-busting для продакшн стадии
+RUN echo "Production scripts updated: $(date)" > /tmp/prod-scripts-version
 
 # Делаем скрипты исполняемыми
 RUN chmod +x ./scripts/migrate-and-seed.sh
