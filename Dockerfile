@@ -56,7 +56,13 @@ RUN npm install -g pnpm
 # Копируем только необходимые файлы
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/backend ./backend
-COPY --from=base /app/packages ./packages
+# Копируем собранные workspace пакеты явно
+COPY --from=base /app/packages/datalayer-prisma/dist ./packages/datalayer-prisma/dist/
+COPY --from=base /app/packages/datalayer-prisma/package.json ./packages/datalayer-prisma/
+COPY --from=base /app/packages/datalayer/dist ./packages/datalayer/dist/
+COPY --from=base /app/packages/datalayer/package.json ./packages/datalayer/
+COPY --from=base /app/packages/shared-logger/dist ./packages/shared-logger/dist/
+COPY --from=base /app/packages/shared-logger/package.json ./packages/shared-logger/
 COPY --from=base /app/scripts ./scripts
 COPY --from=base /app/docker-entrypoint.sh ./
 COPY --from=base /app/base-schema.gql ./
