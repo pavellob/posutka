@@ -50,7 +50,7 @@ echo "🔍 Содержимое datalayer-prisma:"
 ls -la
 
 # Теперь выполняем команды Prisma
-until pnpm prisma db push --accept-data-loss; do
+until pnpm prisma db push --force-reset; do
   echo "⏳ База данных недоступна, ждем..."
   sleep 5
 done
