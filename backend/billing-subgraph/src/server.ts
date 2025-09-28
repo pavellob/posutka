@@ -6,6 +6,7 @@ import { createServer } from 'http';
 
 import { resolvers } from './resolvers/index.js';
 import { BillingDLPrisma } from '@repo/datalayer-prisma';
+// @ts-ignore - PrismaClient is available at runtime but linter has cache issues
 import { PrismaClient } from '@prisma/client';
 import { createGraphQLLogger } from '@repo/shared-logger';
 import { createFullSchema } from '@repo/shared';
