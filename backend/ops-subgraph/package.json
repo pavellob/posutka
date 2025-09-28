@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx --watch src/server.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/backend/ops-subgraph/src/server.js",
+    "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "schema:publish": "hive schema:publish --registry.accessToken \"$HIVE_TOKEN\" --target \"$HIVE_TARGET\" --service ops --url http://localhost:4003/graphql src/schema/index.gql",

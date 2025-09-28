@@ -6,7 +6,7 @@
     "dev": "tsx --watch src/server.ts",
     "dev:watch": "pnpm build && node --watch dist/backend/inventory-subgraph/src/server.js",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/backend/inventory-subgraph/src/server.js",
+    "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "schema:publish": "hive schema:publish --registry.accessToken \"$HIVE_TOKEN\" --target \"$HIVE_TARGET\" --service inventory --url http://localhost:4001/graphql src/schema/index.gql",
