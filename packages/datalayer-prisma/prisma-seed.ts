@@ -27,13 +27,11 @@ function daysFromNow(days: number) {
   return d
 }
 
-async function upsertUser(email: string, name: string) {
-  // Примечание: в текущей модели User не видно поля пароля,
-  // поэтому сохраняем только email и name, оставляя password/пароли на вашу auth-логику.
+async function upsertUser(email: string, name: string, password: string) {
   return prisma.user.upsert({
     where: { email },
-    update: { name },
-    create: { email, name },
+    update: { name, password },
+    create: { email, name, password },
   })
 }
 
@@ -42,9 +40,9 @@ async function main() {
 
   // 1) Пользователи
   const [owner, manager, staff] = await Promise.all([
-    upsertUser('pavellob@gmail.com', 'Павел'), // Owner (пароль 123456 — добавить в вашей auth-системе)
-    upsertUser('manager@example.com', 'Мария Менеджер'),
-    upsertUser('staff@example.com', 'Саша Сотрудник'),
+    upsertUser('pavellob@gmail.com', 'Павел', '123456'),
+    upsertUser('manager@example.com', 'Мария Менеджер', 'manager123'),
+    upsertUser('staff@example.com', 'Саша Сотрудник', 'staff123'),
   ])
 
   // 2) Организация с Объектами/Юнитами

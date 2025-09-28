@@ -1,8 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist"
+    "outDir": "dist",
+    "lib": ["ES2020", "DOM"],
+    "types": ["node"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "*.ts"],
   "exclude": ["dist", "node_modules"]
 }
