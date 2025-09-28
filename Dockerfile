@@ -34,7 +34,7 @@ RUN echo "=== Docker Build Debug Info ===" && \
     echo "=== End Debug Info ==="
 
 # Устанавливаем зависимости
-RUN pnpm install --frozen-lockfile --shamefully-hoist
+RUN pnpm install --frozen-lockfile
 
 # Генерируем Prisma клиент
 RUN pnpm generate
