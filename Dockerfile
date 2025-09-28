@@ -53,24 +53,8 @@ RUN apk add --no-cache curl openssl
 # Устанавливаем pnpm в продакшн образе
 RUN npm install -g pnpm
 
-# Копируем только необходимые файлы
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/backend ./backend
-# Копируем workspace пакеты целиком
-COPY --from=base /app/packages/datalayer-prisma ./packages/datalayer-prisma/
-COPY --from=base /app/packages/datalayer ./packages/datalayer/
-COPY --from=base /app/packages/shared ./packages/shared/
-
-# Устанавливаем зависимости для создания симлинков workspace пакетов
-RUN pnpm install --frozen-lockfile --filter='*-subgraph'...
-COPY --from=base /app/scripts ./scripts
-COPY --from=base /app/docker-entrypoint.sh ./
-COPY --from=base /app/base-schema.gql ./
-COPY --from=base /app/package.json ./
-COPY --from=base /app/pnpm-lock.yaml ./
-COPY --from=base /app/turbo.json ./
-COPY --from=base /app/tsconfig.base.json ./
-COPY --from=base /app/pnpm-workspace.yaml ./
+# Копируем весь app из базовой стадии
+COPY --from=base /app ./
 
 # Добавляем cache-busting для продакшн стадии
 RUN echo "Production scripts updated: $(date)" > /tmp/prod-scripts-version
