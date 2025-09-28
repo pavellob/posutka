@@ -3,12 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "dist/server.js",
-  "types": "dist/server.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/server.ts",
-    "start": "node distr/backend/iam-subgraph/src/server.js",
+    "start": "node dist/backend/iam-subgraph/src/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:watch": "vitest --watch"
