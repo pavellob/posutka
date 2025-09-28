@@ -1,8 +1,8 @@
-# Multi-stage build для всего приложения
-FROM node:18-alpine AS base
+FROM node:18-alpine
 
-# Устанавливаем pnpm
+# Устанавливаем pnpm и необходимые пакеты
 RUN npm install -g pnpm
+RUN apk add --no-cache curl openssl
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -19,20 +19,6 @@ COPY backend/ ./backend/
 COPY scripts/ ./scripts/
 COPY docker-entrypoint.sh ./
 
-# Добавляем cache-busting для скриптов
-RUN echo "Scripts updated: $(date)" > /tmp/scripts-version
-
-# Отладочная информация о структуре директорий
-RUN echo "=== Docker Build Debug Info ===" && \
-    echo "Current directory: $(pwd)" && \
-    echo "Directory contents:" && \
-    ls -la && \
-    echo "Packages directory:" && \
-    ls -la packages/ && \
-    echo "Datalayer-prisma directory:" && \
-    ls -la packages/datalayer-prisma/ && \
-    echo "=== End Debug Info ==="
-
 # Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
 
@@ -42,43 +28,13 @@ RUN pnpm generate
 # Собираем все приложения
 RUN pnpm build
 
-# Продакшн стадия
-FROM node:18-alpine AS production
-
-WORKDIR /app
-
-# Устанавливаем необходимые пакеты
-RUN apk add --no-cache curl openssl
-
-# Устанавливаем pnpm в продакшн образе
-RUN npm install -g pnpm
-
-# Копируем весь app из базовой стадии
-COPY --from=base /app ./
-
-# Устанавливаем зависимости для создания симлинков workspace пакетов
-RUN pnpm install --frozen-lockfile --shamefully-hoist --link-workspace-packages
-
-# Добавляем cache-busting для продакшн стадии
-RUN echo "Production scripts updated: $(date)" > /tmp/prod-scripts-version
-
-# Отладочная информация для продакшн стадии
-RUN echo "=== Production Build Debug Info ===" && \
-    echo "Current directory: $(pwd)" && \
-    echo "Directory contents:" && \
-    ls -la && \
-    echo "Packages directory:" && \
-    ls -la packages/ && \
-    echo "Datalayer-prisma directory:" && \
-    ls -la packages/datalayer-prisma/ && \
-    echo "=== End Production Debug Info ==="
-
 # Делаем скрипты исполняемыми
 RUN chmod +x ./scripts/migrate-and-seed.sh
 RUN chmod +x ./docker-entrypoint.sh
+RUN chmod +x ./scripts/wait-for-subgraphs.sh
 
 # Создаем простой скрипт запуска
-COPY <<EOF ./start.sh
+RUN cat > ./start.sh << 'EOF'
 #!/bin/sh
 
 echo "🚀 Запуск Posutka GraphQL Federation..."
@@ -95,14 +51,14 @@ pnpm start:subgraphs &
 echo "⏳ Ожидание готовности подграфов..."
 ./scripts/wait-for-subgraphs.sh
 
-if [ \$? -eq 0 ]; then
+if [ $? -eq 0 ]; then
     echo "✅ Подграфы готовы!"
     
     # Собираем суперграф
     echo "🔧 Сборка суперграфа..."
     pnpm mesh:compose
     
-    if [ \$? -eq 0 ]; then
+    if [ $? -eq 0 ]; then
         echo "✅ Суперграф собран!"
         
         # Запускаем gateway
@@ -118,9 +74,8 @@ else
 fi
 EOF
 
-# Делаем скрипты исполняемыми
+# Делаем скрипт запуска исполняемым
 RUN chmod +x ./start.sh
-RUN chmod +x ./scripts/wait-for-subgraphs.sh
 
 # Открываем порты
 EXPOSE 4001 4002 4003 4004 4005 4006 4007 4008 4000
