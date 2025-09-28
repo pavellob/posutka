@@ -2,8 +2,8 @@
   "name": "@repo/datalayer-prisma",
   "version": "0.1.0",
   "type": "module",
-  "main": "dist/datalayer-prisma/src/index.js",
-  "types": "dist/datalayer-prisma/src/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "dependencies": {
     "@prisma/client": "^5.18.0",
     "@repo/datalayer": "workspace:*",
