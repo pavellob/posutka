@@ -38,7 +38,7 @@ services:
       # Закомментируем volume mount, чтобы использовать файлы из Docker образа
       # - .:/app
       - /app/node_modules
-    command: ./docker-entrypoint.sh
+    command: /app/docker-entrypoint.sh
 
 volumes:
   dbdata: {}
