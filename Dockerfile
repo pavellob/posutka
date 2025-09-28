@@ -60,6 +60,7 @@ COPY --from=base /app/backend ./backend
 COPY --from=base /app/packages/datalayer-prisma/dist ./packages/datalayer-prisma/dist/
 COPY --from=base /app/packages/datalayer-prisma/package.json ./packages/datalayer-prisma/
 COPY --from=base /app/packages/datalayer-prisma/node_modules ./packages/datalayer-prisma/node_modules/
+COPY --from=base /app/packages/datalayer-prisma/prisma ./packages/datalayer-prisma/prisma/
 COPY --from=base /app/packages/datalayer/dist ./packages/datalayer/dist/
 COPY --from=base /app/packages/datalayer/package.json ./packages/datalayer/
 COPY --from=base /app/packages/datalayer/node_modules ./packages/datalayer/node_modules/
