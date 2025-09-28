@@ -1,0 +1,324 @@
+# IAM Subgraph - Расширенное управление пользователями и доступом
+# Отдельная система управления пользователями с расширенными возможностями
+
+# Базовые типы
+scalar UUID
+scalar DateTime
+scalar JSON
+
+"""Пользователь IAM с расширенными возможностями"""
+type IAMUser {
+  """Идентификатор пользователя"""
+  id: UUID!
+  """Email адрес"""
+  email: String!
+  """Имя пользователя"""
+  name: String
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+  """Статус аккаунта пользователя"""
+  status: UserStatus!
+  """Последний вход в систему"""
+  lastLoginAt: DateTime
+  """Количество неудачных попыток входа"""
+  failedLoginAttempts: Int!
+  """Заблокирован ли аккаунт"""
+  isLocked: Boolean!
+  """Дата блокировки аккаунта"""
+  lockedAt: DateTime
+  """Причина блокировки"""
+  lockReason: String
+  """Двухфакторная аутентификация включена"""
+  twoFactorEnabled: Boolean!
+  """Роли пользователя в системе"""
+  systemRoles: [SystemRole!]!
+  """Разрешения пользователя"""
+  permissions: [Permission!]!
+  """Активные сессии"""
+  activeSessions: [UserSession!]!
+  """История активности"""
+  activityLog: [ActivityLog!]!
+}
+
+"""Статус пользователя"""
+enum UserStatus {
+  """Активный пользователь"""
+  ACTIVE
+  """Неактивный пользователь"""
+  INACTIVE
+  """Заблокированный пользователь"""
+  SUSPENDED
+  """Удаленный пользователь"""
+  DELETED
+}
+
+"""Системные роли"""
+enum SystemRole {
+  """Супер администратор"""
+  SUPER_ADMIN
+  """Администратор"""
+  ADMIN
+  """Менеджер"""
+  MANAGER
+  """Оператор"""
+  OPERATOR
+  """Пользователь"""
+  USER
+  """Гость"""
+  GUEST
+}
+
+"""Разрешения в системе"""
+type Permission {
+  """Идентификатор разрешения"""
+  id: UUID!
+  """Название разрешения"""
+  name: String!
+  """Описание разрешения"""
+  description: String
+  """Категория разрешения"""
+  category: String!
+  """Действие"""
+  action: String!
+  """Ресурс"""
+  resource: String!
+}
+
+"""Сессия пользователя"""
+type UserSession {
+  """Идентификатор сессии"""
+  id: UUID!
+  """IP адрес"""
+  ipAddress: String
+  """User Agent"""
+  userAgent: String
+  """Дата создания сессии"""
+  createdAt: DateTime!
+  """Дата последней активности"""
+  lastActivityAt: DateTime!
+  """Активна ли сессия"""
+  isActive: Boolean!
+  """Тип устройства"""
+  deviceType: String
+  """Местоположение"""
+  location: String
+}
+
+"""Лог активности пользователя"""
+type ActivityLog {
+  """Идентификатор записи"""
+  id: UUID!
+  """Тип действия"""
+  action: String!
+  """Описание действия"""
+  description: String!
+  """IP адрес"""
+  ipAddress: String
+  """User Agent"""
+  userAgent: String
+  """Метаданные действия"""
+  metadata: JSON
+  """Дата действия"""
+  createdAt: DateTime!
+}
+
+"""Статистика пользователей"""
+type UserStats {
+  """Общее количество пользователей"""
+  totalUsers: Int!
+  """Активные пользователи"""
+  activeUsers: Int!
+  """Заблокированные пользователи"""
+  lockedUsers: Int!
+  """Пользователи онлайн"""
+  onlineUsers: Int!
+  """Новые пользователи за период"""
+  newUsers: Int!
+  """Пользователи по ролям"""
+  usersByRole: [RoleStats!]!
+}
+
+"""Статистика по ролям"""
+type RoleStats {
+  """Роль"""
+  role: SystemRole!
+  """Количество пользователей"""
+  count: Int!
+}
+
+"""Соединение пользователей"""
+type IAMUserConnection {
+  """Список пользователей"""
+  edges: [IAMUserEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""Граница пользователя"""
+type IAMUserEdge {
+  """Пользователь"""
+  node: IAMUser!
+  """Курсор"""
+  cursor: String!
+}
+
+"""Информация о пагинации"""
+type PageInfo {
+  """Есть ли следующая страница"""
+  hasNextPage: Boolean!
+  """Есть ли предыдущая страница"""
+  hasPreviousPage: Boolean!
+  """Курсор начала"""
+  startCursor: String
+  """Курсор конца"""
+  endCursor: String
+  """Общее количество элементов (опционально)"""
+  totalCount: Int
+}
+
+"""Фильтры для поиска пользователей"""
+input UserFilters {
+  """Поиск по имени или email"""
+  search: String
+  """Статус пользователя"""
+  status: UserStatus
+  """Роль пользователя"""
+  role: SystemRole
+  """Дата создания от"""
+  createdAtFrom: DateTime
+  """Дата создания до"""
+  createdAtTo: DateTime
+  """Последний вход от"""
+  lastLoginFrom: DateTime
+  """Последний вход до"""
+  lastLoginTo: DateTime
+}
+
+"""Сортировка пользователей"""
+input UserSort {
+  """Поле для сортировки"""
+  field: UserSortField!
+  """Направление сортировки"""
+  direction: SortDirection!
+}
+
+"""Поля для сортировки пользователей"""
+enum UserSortField {
+  """По имени"""
+  NAME
+  """По email"""
+  EMAIL
+  """По дате создания"""
+  CREATED_AT
+  """По последнему входу"""
+  LAST_LOGIN
+  """По статусу"""
+  STATUS
+}
+
+"""Направление сортировки"""
+enum SortDirection {
+  """По возрастанию"""
+  ASC
+  """По убыванию"""
+  DESC
+}
+
+"""Входные данные для создания пользователя"""
+input CreateIAMUserInput {
+  """Email адрес"""
+  email: String!
+  """Имя пользователя"""
+  name: String
+  """Пароль"""
+  password: String!
+  """Роли в системе"""
+  systemRoles: [SystemRole!]
+}
+
+"""Входные данные для обновления пользователя"""
+input UpdateIAMUserInput {
+  """Имя пользователя"""
+  name: String
+  """Статус пользователя"""
+  status: UserStatus
+  """Роли в системе"""
+  systemRoles: [SystemRole!]
+  """Заблокировать аккаунт"""
+  lockUser: Boolean
+  """Причина блокировки"""
+  lockReason: String
+}
+
+"""Входные данные для смены пароля"""
+input ChangePasswordInput {
+  """Текущий пароль"""
+  currentPassword: String!
+  """Новый пароль"""
+  newPassword: String!
+}
+
+"""Входные данные для сброса пароля администратором"""
+input ResetPasswordInput {
+  """Токен сброса"""
+  token: String!
+  """Новый пароль"""
+  newPassword: String!
+  """Принудительная смена при следующем входе"""
+  forceChange: Boolean
+}
+
+"""Запросы IAM"""
+type Query {
+  """Получить статистику пользователей"""
+  userStats: UserStats!
+  """Получить список пользователей с расширенными фильтрами"""
+  usersAdvanced(
+    first: Int
+    after: String
+    filters: UserFilters
+    sort: UserSort
+  ): IAMUserConnection!
+  """Получить пользователя с полной информацией"""
+  userProfile(id: UUID!): IAMUser
+  """Получить активные сессии пользователя"""
+  userSessions(userId: UUID!): [UserSession!]!
+  """Получить историю активности пользователя"""
+  userActivity(userId: UUID!, limit: Int): [ActivityLog!]!
+  """Получить все разрешения"""
+  permissions: [Permission!]!
+  """Получить разрешения пользователя"""
+  userPermissions(userId: UUID!): [Permission!]!
+}
+
+"""Мутации IAM"""
+type Mutation {
+  """Создать пользователя IAM (только для админов)"""
+  createIAMUser(input: CreateIAMUserInput!): IAMUser!
+  """Обновить пользователя IAM"""
+  updateIAMUser(id: UUID!, input: UpdateIAMUserInput!): IAMUser!
+  """Удалить пользователя IAM"""
+  deleteIAMUser(id: UUID!): Boolean!
+  """Сменить пароль"""
+  changePassword(input: ChangePasswordInput!): Boolean!
+  """Сбросить пароль (админ)"""
+  resetUserPassword(userId: UUID!, input: ResetPasswordInput!): Boolean!
+  """Заблокировать пользователя"""
+  lockUser(userId: UUID!, reason: String!): Boolean!
+  """Разблокировать пользователя"""
+  unlockUser(userId: UUID!): Boolean!
+  """Завершить сессию пользователя"""
+  terminateSession(sessionId: UUID!): Boolean!
+  """Завершить все сессии пользователя"""
+  terminateAllUserSessions(userId: UUID!): Boolean!
+  """Назначить роли пользователю"""
+  assignRoles(userId: UUID!, roles: [SystemRole!]!): IAMUser!
+  """Отозвать роли у пользователя"""
+  revokeRoles(userId: UUID!, roles: [SystemRole!]!): IAMUser!
+  """Назначить разрешения пользователю"""
+  assignPermissions(userId: UUID!, permissionIds: [UUID!]!): IAMUser!
+  """Отозвать разрешения у пользователя"""
+  revokePermissions(userId: UUID!, permissionIds: [UUID!]!): IAMUser!
+}

@@ -1,48 +1,109 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Logo } from '@/app/logo'
 import { Button } from '@/components/button'
-import { Checkbox, CheckboxField } from '@/components/checkbox'
 import { Field, Label } from '@/components/fieldset'
 import { Heading } from '@/components/heading'
 import { Input } from '@/components/input'
-import { Select } from '@/components/select'
 import { Strong, Text, TextLink } from '@/components/text'
-import type { Metadata } from 'next'
+import { graphqlClient } from '@/lib/graphql-client'
+import { gql } from 'graphql-request'
 
-export const metadata: Metadata = {
-  title: 'Register',
-}
+const REGISTER_MUTATION = gql`
+  mutation Register($input: RegisterInput!) {
+    register(input: $input) {
+      user {
+        id
+        email
+        name
+      }
+      accessToken
+      refreshToken
+      expiresIn
+    }
+  }
+`;
 
-export default function Login() {
+export default function Register() {
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    email: '',
+    name: '',
+    password: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await graphqlClient.request(REGISTER_MUTATION, {
+        input: {
+          email: formData.email,
+          name: formData.name,
+          password: formData.password
+        }
+      }) as any;
+
+      // Сохраняем токены
+      localStorage.setItem('accessToken', result.register.accessToken);
+      localStorage.setItem('refreshToken', result.register.refreshToken);
+      
+      // Перенаправляем в приложение
+      router.push('/');
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <form action="" method="POST" className="grid w-full max-w-sm grid-cols-1 gap-8">
+    <form onSubmit={handleSubmit} className="grid w-full max-w-sm grid-cols-1 gap-8">
       <Logo className="h-6 text-zinc-950 dark:text-white forced-colors:text-[CanvasText]" />
       <Heading>Create your account</Heading>
+      
+      {error && (
+        <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+        </div>
+      )}
+      
       <Field>
         <Label>Email</Label>
-        <Input type="email" name="email" />
+        <Input 
+          type="email" 
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          required 
+        />
       </Field>
       <Field>
         <Label>Full name</Label>
-        <Input name="name" />
+        <Input 
+          name="name" 
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        />
       </Field>
       <Field>
         <Label>Password</Label>
-        <Input type="password" name="password" autoComplete="new-password" />
+        <Input 
+          type="password" 
+          value={formData.password}
+          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          autoComplete="new-password" 
+          required 
+        />
       </Field>
-      <Field>
-        <Label>Country</Label>
-        <Select name="country">
-          <option>Canada</option>
-          <option>Mexico</option>
-          <option>United States</option>
-        </Select>
-      </Field>
-      <CheckboxField>
-        <Checkbox name="remember" />
-        <Label>Get emails about product updates and news.</Label>
-      </CheckboxField>
-      <Button type="submit" className="w-full">
-        Create account
+      
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? 'Creating account...' : 'Create account'}
       </Button>
       <Text>
         Already have an account?{' '}

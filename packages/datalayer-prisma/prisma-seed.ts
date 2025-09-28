@@ -2,7 +2,22 @@
 // ESM/TypeScript seed script to populate your Prisma schema with a rich mock dataset.
 // Run with: `pnpm tsx prisma-seed-mock.ts` (after `pnpm prisma db push`)
 
-import { PrismaClient, BookingStatus, BookingSource, DepositAction, TransactionStatus, TaskStatus, TaskType, ServiceOrderStatus, InvoiceStatus, PaymentMethod, PaymentStatus, ListingStatus, Channel, Role } from '@prisma/client'
+import {
+  PrismaClient,
+  BookingStatus,
+  BookingSource,
+  DepositAction,
+  TransactionStatus,
+  TaskStatus,
+  TaskType,
+  ServiceOrderStatus,
+  InvoiceStatus,
+  PaymentMethod,
+  PaymentStatus,
+  ListingStatus,
+  Channel,
+  Role,
+} from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -13,6 +28,8 @@ function daysFromNow(days: number) {
 }
 
 async function upsertUser(email: string, name: string) {
+  // Примечание: в текущей модели User не видно поля пароля,
+  // поэтому сохраняем только email и name, оставляя password/пароли на вашу auth-логику.
   return prisma.user.upsert({
     where: { email },
     update: { name },
@@ -23,63 +40,68 @@ async function upsertUser(email: string, name: string) {
 async function main() {
   console.log('Seeding mock data...')
 
-  // 1) Users
+  // 1) Пользователи
   const [owner, manager, staff] = await Promise.all([
-    upsertUser('owner@example.com', 'Olga Owner'),
-    upsertUser('manager@example.com', 'Max Manager'),
-    upsertUser('staff@example.com', 'Sasha Staff'),
+    upsertUser('pavellob@gmail.com', 'Павел'), // Owner (пароль 123456 — добавить в вашей auth-системе)
+    upsertUser('manager@example.com', 'Мария Менеджер'),
+    upsertUser('staff@example.com', 'Саша Сотрудник'),
   ])
 
-  // 2) Organization with Properties/Units
+  // 2) Организация с Объектами/Юнитами
   const org = await prisma.organization.create({
     data: {
-      name: 'Sunrise Stays B.V.',
+      name: 'Посутка СПб',
       timezone: 'Europe/Amsterdam',
-      currency: 'EUR',
+      currency: 'RUB',
       properties: {
         create: [
           {
-            title: 'Canal View Apartments',
-            address: 'Keizersgracht 123, Amsterdam',
-            amenities: ['wifi', 'elevator', 'heating'],
+            title: '3‑комнатная квартира — Большая Зеленина, 28, кв. 48',
+            address: 'Россия, Санкт-Петербург, ул. Большая Зеленина, д. 28, кв. 48',
+            amenities: [
+              'wifi',
+              'исторический_дом',
+              '1_этаж',
+              'санузлы:2',
+              'спальных_мест:10',
+            ],
             units: {
               create: [
                 {
-                  name: 'Apt 1A',
-                  capacity: 4,
-                  beds: 2,
-                  bathrooms: 1,
-                  amenities: ['wifi', 'kitchen', 'washer'],
+                  name: 'Квартира 48 — Основной юнит',
+                  capacity: 10,
+                  beds: 6,
+                  bathrooms: 2,
+                  amenities: ['wifi', 'кухня', 'стиральная_машина'],
                 },
                 {
-                  name: 'Apt 2B',
+                  name: 'Квартира 48 — Доп. пространство',
                   capacity: 2,
                   beds: 1,
                   bathrooms: 1,
-                  amenities: ['wifi', 'balcony'],
+                  amenities: ['wifi', 'диван-кровать'],
                 },
               ],
             },
           },
           {
-            title: 'Harbor Loft Studios',
-            address: 'Piet Heinkade 80, Amsterdam',
-            amenities: ['wifi', 'self_checkin', 'air_conditioning'],
+            title: '1‑комнатная студия со вторым этажом — Большая Зеленина, 28, кв. 88',
+            address: 'Россия, Санкт-Петербург, ул. Большая Зеленина, д. 28, кв. 88',
+            amenities: [
+              'wifi',
+              'отдельный_вход',
+              'студия',
+              'гостей:6',
+              'второй_этаж_внутри',
+            ],
             units: {
               create: [
                 {
-                  name: 'Studio 301',
-                  capacity: 2,
-                  beds: 1,
+                  name: 'Квартира 88 — Студия-лофт',
+                  capacity: 6,
+                  beds: 3,
                   bathrooms: 1,
-                  amenities: ['wifi', 'coffee_machine'],
-                },
-                {
-                  name: 'Studio 305',
-                  capacity: 3,
-                  beds: 2,
-                  bathrooms: 1,
-                  amenities: ['wifi', 'crib', 'tv'],
+                  amenities: ['wifi', 'душ', 'отдельный_вход'],
                 },
               ],
             },
@@ -103,37 +125,37 @@ async function main() {
   const allUnits = org.properties.flatMap((p) => p.units)
   const unitA = allUnits[0]
   const unitB = allUnits[1]
-  const unitC = allUnits[2]
+  const unitC = allUnits[2] || allUnits[0] // если юнитов всего 3, оставим ссылку безопасной
 
-  // 3) Calendar blocks
+  // 3) Блокировки календаря
   await prisma.calendarBlock.createMany({
     data: [
-      { unitId: unitA.id, from: daysFromNow(1), to: daysFromNow(3), note: 'Owner stay' },
-      { unitId: unitB.id, from: daysFromNow(14), to: daysFromNow(16), note: 'Maintenance' },
+      { unitId: unitA.id, from: daysFromNow(1), to: daysFromNow(3), note: 'Проживание владельца' },
+      { unitId: unitB.id, from: daysFromNow(14), to: daysFromNow(16), note: 'Техническое обслуживание' },
     ],
   })
 
-  // 4) Service Providers
+  // 4) Подрядчики услуг
   const [cleanCo, repairPro] = await Promise.all([
     prisma.serviceProvider.create({
       data: {
-        name: 'CleanCo NL',
+        name: 'Чисто&Чётко СПб',
         serviceTypes: ['CLEANING'],
         rating: 4.7,
-        contact: '+31 6 1111 2222',
+        contact: '+7 921 000-00-00',
       },
     }),
     prisma.serviceProvider.create({
       data: {
-        name: 'RepairPro Amsterdam',
+        name: 'РемонтПро СПб',
         serviceTypes: ['MAINTENANCE'],
         rating: 4.5,
-        contact: 'repairs@example.com',
+        contact: 'remont@example.com',
       },
     }),
   ])
 
-  // 5) Listings + Discounts
+  // 5) Объявления + скидки
   const listings = await Promise.all(
     [unitA, unitB, unitC].map((u, idx) =>
       prisma.listing.create({
@@ -142,13 +164,13 @@ async function main() {
           status: idx === 2 ? ListingStatus.DRAFT : ListingStatus.PUBLISHED,
           channel: idx === 1 ? Channel.AIRBNB : Channel.DIRECT,
           basePriceAmount: 12000,
-          basePriceCurrency: 'EUR',
+          basePriceCurrency: 'RUB',
           minNights: 2,
           maxNights: 14,
           discounts: {
             create: [
-              { name: 'Weekly', percentOff: 10, minNights: 7 },
-              { name: 'Last Minute', percentOff: 5 },
+              { name: 'Недельная', percentOff: 10, minNights: 7 },
+              { name: 'Горящее предложение', percentOff: 5 },
             ],
           },
         },
@@ -157,19 +179,19 @@ async function main() {
     )
   )
 
-  // 6) Guests
+  // 6) Гости
   const guests = await prisma.$transaction([
     prisma.guest.create({
-      data: { name: 'Alice Traveller', email: 'alice@example.com', phone: '+44 7700 900000' },
+      data: { name: 'Алиса Путешественница', email: 'alice@example.com', phone: '+44 7700 900000' },
     }),
     prisma.guest.create({
-      data: { name: 'Bob Nomad', email: 'bob@example.com' },
+      data: { name: 'Боб Номад', email: 'bob@example.com' },
     }),
     prisma.guest.create({
       data: {
-        name: 'Chen Li',
+        name: 'Чен Ли',
         email: 'chen@example.com',
-        documentType: 'Passport',
+        documentType: 'Паспорт',
         documentNumber: 'E12345678',
       },
     }),
@@ -177,7 +199,7 @@ async function main() {
 
   const [alice, bob, chen] = guests
 
-  // 7) Bookings with documents & deposit transactions
+  // 7) Бронирования с документами и транзакциями депозита
   const booking1 = await prisma.booking.create({
     data: {
       orgId: org.id,
@@ -189,22 +211,22 @@ async function main() {
       checkOut: daysFromNow(8),
       guestsCount: 2,
       basePriceAmount: 36000,
-      basePriceCurrency: 'EUR',
+      basePriceCurrency: 'RUB',
       cleaningFeeAmount: 4000,
-      cleaningFeeCurrency: 'EUR',
+      cleaningFeeCurrency: 'RUB',
       serviceFeeAmount: 2000,
-      serviceFeeCurrency: 'EUR',
+      serviceFeeCurrency: 'RUB',
       taxesAmount: 3000,
-      taxesCurrency: 'EUR',
+      taxesCurrency: 'RUB',
       totalAmount: 45000,
-      totalCurrency: 'EUR',
-      notes: 'Late arrival ~22:00',
+      totalCurrency: 'RUB',
+      notes: 'Позднее прибытие ~22:00',
       documents: {
         create: [
           {
             type: 'RENTAL_AGREEMENT',
             template: 'default_agreement_v1',
-            content: 'Terms and conditions... (mock)',
+            content: 'Условия и положения... (мок)'
           },
         ],
       },
@@ -213,7 +235,7 @@ async function main() {
           {
             action: DepositAction.HOLD,
             amount: 20000,
-            currency: 'EUR',
+            currency: 'RUB',
             status: TransactionStatus.COMPLETED,
             transactionId: 'psp_tx_001',
           },
@@ -234,16 +256,16 @@ async function main() {
       checkOut: daysFromNow(12),
       guestsCount: 1,
       basePriceAmount: 24000,
-      basePriceCurrency: 'EUR',
+      basePriceCurrency: 'RUB',
       totalAmount: 24000,
-      totalCurrency: 'EUR',
-      notes: 'Ask for early check-in if possible',
+      totalCurrency: 'RUB',
+      notes: 'Попросить ранний заезд, если возможно',
       depositTransactions: {
         create: [
           {
             action: DepositAction.HOLD,
             amount: 15000,
-            currency: 'EUR',
+            currency: 'RUB',
             status: TransactionStatus.PENDING,
           },
         ],
@@ -263,14 +285,14 @@ async function main() {
       checkOut: daysFromNow(-18),
       guestsCount: 2,
       basePriceAmount: 22000,
-      basePriceCurrency: 'EUR',
+      basePriceCurrency: 'RUB',
       totalAmount: 22000,
-      totalCurrency: 'EUR',
-      cancellationReason: 'Guest illness',
+      totalCurrency: 'RUB',
+      cancellationReason: 'Болезнь гостя',
     },
   })
 
-  // 8) Service Tasks + Service Orders
+  // 8) Задачи по обслуживанию + Заказы на услуги
   const [taskClean, taskFix] = await prisma.$transaction([
     prisma.task.create({
       data: {
@@ -281,8 +303,8 @@ async function main() {
         status: TaskStatus.TODO,
         dueAt: daysFromNow(9),
         assignedProviderId: cleanCo.id,
-        checklist: ['Change linens', 'Vacuum', 'Restock amenities'],
-        note: 'VIP guest – extra towels',
+        checklist: ['Сменить бельё', 'Пропылесосить', 'Пополнить расходники'],
+        note: 'VIP-гость — дополнительные полотенца',
         serviceOrders: {
           create: [
             {
@@ -290,8 +312,8 @@ async function main() {
               status: ServiceOrderStatus.ACCEPTED,
               providerId: cleanCo.id,
               costAmount: 6000,
-              costCurrency: 'EUR',
-              notes: 'Standard turnover cleaning',
+              costCurrency: 'RUB',
+              notes: 'Стандартная уборка после выезда',
             },
           ],
         },
@@ -306,14 +328,14 @@ async function main() {
         status: TaskStatus.IN_PROGRESS,
         dueAt: daysFromNow(15),
         assignedProviderId: repairPro.id,
-        checklist: ['Fix dripping faucet', 'Test water pressure'],
+        checklist: ['Исправить текущий кран', 'Проверить напор воды'],
         serviceOrders: {
           create: [
             {
               orgId: org.id,
               status: ServiceOrderStatus.CREATED,
               providerId: repairPro.id,
-              notes: 'Estimate pending',
+              notes: 'Ожидается смета',
             },
           ],
         },
@@ -325,25 +347,25 @@ async function main() {
   const orderClean = taskClean.serviceOrders[0]
   const orderFix = taskFix.serviceOrders[0]
 
-  // 9) Invoices + Items + Payments (link cleaning order)
+  // 9) Счета + Позиции + Платежи (линк на уборку)
   const invoice1 = await prisma.invoice.create({
     data: {
       orgId: org.id,
       orderId: orderClean.id,
       totalAmount: 6000,
-      totalCurrency: 'EUR',
+      totalCurrency: 'RUB',
       status: InvoiceStatus.OPEN,
       issuedAt: daysFromNow(9),
       dueAt: daysFromNow(16),
       items: {
         create: [
           {
-            name: 'Turnover Cleaning',
+            name: 'Уборка после выезда',
             qty: 1,
             priceAmount: 6000,
-            priceCurrency: 'EUR',
+            priceCurrency: 'RUB',
             sumAmount: 6000,
-            sumCurrency: 'EUR',
+            sumCurrency: 'RUB',
           },
         ],
       },
@@ -352,9 +374,9 @@ async function main() {
           {
             method: PaymentMethod.TRANSFER,
             amountAmount: 6000,
-            amountCurrency: 'EUR',
+            amountCurrency: 'RUB',
             status: PaymentStatus.PENDING,
-            provider: 'Stripe',
+            provider: 'ЮKassa',
           },
         ],
       },
@@ -362,7 +384,7 @@ async function main() {
     include: { items: true, payments: true },
   })
 
-  // 10) Legal docs (examples)
+  // 10) Юридические документы (примеры)
   await prisma.legalDocument.createMany({
     data: [
       { type: 'HOUSE_RULES', url: 'https://example.com/house-rules.pdf', bookingId: booking1.id },
@@ -374,7 +396,7 @@ async function main() {
     data: {
       bookingId: booking1.id,
       holdAmount: 20000,
-      holdCurrency: 'EUR',
+      holdCurrency: 'RUB',
       capturedAmount: null,
       method: 'CARD',
       status: 'HELD',

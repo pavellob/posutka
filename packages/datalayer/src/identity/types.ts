@@ -8,6 +8,7 @@ export interface User {
   id: UUID;
   email: string;
   name?: string;
+  password?: string;
   createdAt: DateTime;
   updatedAt: DateTime;
 }

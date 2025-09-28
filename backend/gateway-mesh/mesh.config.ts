@@ -16,7 +16,10 @@ export const composeConfig = defineConfig({
     },
     {
       sourceHandler: loadGraphQLHTTPSubgraph('identity-subgraph', {
-        endpoint: 'http://localhost:4005/graphql'
+        endpoint: 'http://localhost:4005/graphql',
+        operationHeaders: {
+          Authorization: '{context.headers.authorization}'
+        }
       })
     },
     {
@@ -36,7 +39,10 @@ export const composeConfig = defineConfig({
     },
     {
       sourceHandler: loadGraphQLHTTPSubgraph('inventory-subgraph', {
-        endpoint: 'http://localhost:4001/graphql'
+        endpoint: 'http://localhost:4001/graphql',
+        operationHeaders: {
+          Authorization: '{context.headers.authorization}'
+        }
       })
     },
     {
@@ -47,6 +53,14 @@ export const composeConfig = defineConfig({
     {
       sourceHandler: loadGraphQLHTTPSubgraph('listings-subgraph', {
         endpoint: 'http://localhost:4006/graphql'
+      })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('iam-subgraph', {
+        endpoint: 'http://localhost:4009/graphql',
+        operationHeaders: {
+          Authorization: '{context.headers.authorization}'
+        }
       })
     }
   ],

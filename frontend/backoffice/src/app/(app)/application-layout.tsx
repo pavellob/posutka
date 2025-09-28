@@ -40,25 +40,29 @@ import {
   TicketIcon,
 } from '@heroicons/react/20/solid'
 import { usePathname } from 'next/navigation'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 function AccountDropdownMenu({ anchor }: { anchor: 'top start' | 'bottom end' }) {
+  const { user, loading } = useCurrentUser()
+
   return (
     <DropdownMenu className="min-w-64" anchor={anchor}>
       <DropdownItem href="#">
         <UserCircleIcon />
         <DropdownLabel>My account</DropdownLabel>
       </DropdownItem>
-      <DropdownDivider />
       <DropdownItem href="#">
         <ShieldCheckIcon />
-        <DropdownLabel>Privacy policy</DropdownLabel>
+        <DropdownLabel>Security</DropdownLabel>
       </DropdownItem>
       <DropdownItem href="#">
         <LightBulbIcon />
         <DropdownLabel>Share feedback</DropdownLabel>
       </DropdownItem>
       <DropdownDivider />
-      <DropdownItem href="/login">
+      <DropdownItem onClick={() => {
+        import('@/lib/graphql-client').then(({ logout }) => logout());
+      }}>
         <ArrowRightStartOnRectangleIcon />
         <DropdownLabel>Sign out</DropdownLabel>
       </DropdownItem>
@@ -74,6 +78,7 @@ export function ApplicationLayout({
   children: React.ReactNode
 }) {
   let pathname = usePathname()
+  const { user, loading } = useCurrentUser()
 
   return (
     <SidebarLayout
@@ -98,23 +103,27 @@ export function ApplicationLayout({
 
           <SidebarBody>
             <SidebarSection>
-              <SidebarItem href="/" current={pathname === '/'}>
+              <SidebarItem href="/" aria-current={pathname === '/' ? 'page' : undefined}>
                 <HomeIcon />
-                <SidebarLabel>Главная</SidebarLabel>
+                <SidebarLabel>Dashboard</SidebarLabel>
               </SidebarItem>
-              {pathname.startsWith('/posutka') || pathname === '/' ? (
-                <>
-                  <SidebarItem href="/events" current={pathname.startsWith('/events')}>
-                    <Square2StackIcon />
-                    <SidebarLabel>События</SidebarLabel>
-                  </SidebarItem>
-                  <SidebarItem href="/orders" current={pathname.startsWith('/orders')}>
-                    <TicketIcon />
-                    <SidebarLabel>Заказы</SidebarLabel>
-                  </SidebarItem>
-                </>
-              ) : null}
-              <SidebarItem href="/settings" current={pathname.startsWith('/settings')}>
+              <SidebarItem href="/inventory" aria-current={pathname === '/inventory' ? 'page' : undefined}>
+                <Square2StackIcon />
+                <SidebarLabel>Inventory</SidebarLabel>
+              </SidebarItem>
+              <SidebarItem href="/bookings" aria-current={pathname === '/bookings' ? 'page' : undefined}>
+                <TicketIcon />
+                <SidebarLabel>Bookings</SidebarLabel>
+              </SidebarItem>
+            </SidebarSection>
+
+            <SidebarSection>
+              <SidebarHeading>Управление</SidebarHeading>
+              <SidebarItem href="/operations" aria-current={pathname === '/operations' ? 'page' : undefined}>
+                <Cog6ToothIcon />
+                <SidebarLabel>Операции</SidebarLabel>
+              </SidebarItem>
+              <SidebarItem href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
                 <Cog6ToothIcon />
                 <SidebarLabel>Настройки</SidebarLabel>
               </SidebarItem>
@@ -149,9 +158,11 @@ export function ApplicationLayout({
                 <span className="flex min-w-0 items-center gap-3">
                   <Avatar src="/users/erica.jpg" className="size-10" square alt="" />
                   <span className="min-w-0">
-                    <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">Erica</span>
+                    <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">
+                      {loading ? 'Loading...' : user?.name || 'User'}
+                    </span>
                     <span className="block truncate text-xs/5 font-normal text-zinc-500 dark:text-zinc-400">
-                      erica@example.com
+                      {loading ? 'Loading...' : user?.email || 'user@example.com'}
                     </span>
                   </span>
                 </span>

@@ -206,6 +206,8 @@ type OrganizationConnection {
 Запросы для работы с пользователями, организациями и членством.
 """
 type Query {
+  """Получить текущего авторизованного пользователя"""
+  me: User
   """Получить пользователя по ID"""
   user(id: UUID!): User
   """Получить пользователя по email адресу"""
@@ -273,6 +275,61 @@ input UpdateMemberRoleInput {
 }
 
 """
+Результат аутентификации.
+Содержит пользователя и токены доступа.
+"""
+type AuthPayload {
+  """Пользователь"""
+  user: User!
+  """JWT токен доступа"""
+  accessToken: String!
+  """JWT токен обновления"""
+  refreshToken: String!
+  """Время жизни токена в секундах"""
+  expiresIn: Int!
+}
+
+"""
+Входные данные для регистрации.
+"""
+input RegisterInput {
+  """Email адрес пользователя (обязательно)"""
+  email: String!
+  """Пароль пользователя (обязательно)"""
+  password: String!
+  """Полное имя пользователя (опционально)"""
+  name: String
+}
+
+"""
+Входные данные для входа в систему.
+"""
+input LoginInput {
+  """Email адрес пользователя"""
+  email: String!
+  """Пароль пользователя"""
+  password: String!
+}
+
+"""
+Входные данные для обновления токена.
+"""
+input RefreshTokenInput {
+  """JWT токен обновления"""
+  refreshToken: String!
+}
+
+"""
+Входные данные для сброса пароля.
+"""
+input ResetPasswordInput {
+  """Токен сброса пароля"""
+  token: String!
+  """Новый пароль"""
+  newPassword: String!
+}
+
+"""
 Мутации для управления пользователями, организациями и членством.
 """
 type Mutation {
@@ -280,6 +337,19 @@ type Mutation {
   createUser(input: CreateUserInput!): User!
   """Обновить данные пользователя"""
   updateUser(id: UUID!, input: CreateUserInput!): User!
+  
+  """Зарегистрировать нового пользователя"""
+  register(input: RegisterInput!): AuthPayload!
+  """Войти в систему"""
+  login(input: LoginInput!): AuthPayload!
+  """Обновить токен доступа"""
+  refreshToken(input: RefreshTokenInput!): AuthPayload!
+  """Выйти из системы"""
+  logout: Boolean!
+  """Запросить сброс пароля"""
+  forgotPassword(email: String!): Boolean!
+  """Сбросить пароль"""
+  resetPassword(input: ResetPasswordInput!): Boolean!
   
   """Создать новую организацию"""
   createOrganization(input: CreateOrganizationInput!): Organization!

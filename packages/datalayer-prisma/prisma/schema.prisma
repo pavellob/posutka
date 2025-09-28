@@ -285,9 +285,11 @@ model User {
   id          String       @id @default(cuid())
   email       String       @unique
   name        String?
+  password    String
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   memberships Membership[]
+  refreshTokens RefreshToken[]
 }
 
 model Membership {
@@ -301,6 +303,15 @@ model Membership {
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([userId, orgId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Role {

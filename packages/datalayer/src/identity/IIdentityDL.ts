@@ -10,6 +10,7 @@ import type { UserConnection, OrganizationConnection } from './connection-types.
 export interface CreateUserInput {
   email: string;
   name?: string;
+  password?: string;
 }
 
 export interface CreateOrganizationInput {

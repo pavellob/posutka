@@ -1,4 +1,4 @@
-schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION) @link(url: "https://the-guild.dev/graphql/mesh/spec/v1.0", import: ["@merge"]) {
+schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION) @link(url: "https://the-guild.dev/graphql/mesh/spec/v1.0", import: ["@merge", "@transport", "@extraSchemaDefinitionDirective"]) {
   query: Query
   mutation: Mutation
 }
@@ -19,6 +19,10 @@ directive @link(url: String, as: String, for: link__Purpose, import: [link__Impo
 
 directive @merge(subgraph: String, argsExpr: String, keyArg: String, keyField: String, key: [String!], additionalArgs: String) repeatable on FIELD_DEFINITION
 
+directive @transport(kind: String!, subgraph: String!, location: String!, headers: [[String]], options: TransportOptions) repeatable on SCHEMA
+
+directive @extraSchemaDefinitionDirective(directives: _DirectiveExtensions) repeatable on OBJECT
+
 scalar join__FieldSet
 
 scalar link__Import
@@ -38,6 +42,7 @@ enum join__Graph {
   AI_SUBGRAPH @join__graph(name: "ai-subgraph", url: "http://localhost:4008/graphql")
   BILLING_SUBGRAPH @join__graph(name: "billing-subgraph", url: "http://localhost:4004/graphql")
   BOOKINGS_SUBGRAPH @join__graph(name: "bookings-subgraph", url: "http://localhost:4002/graphql")
+  IAM_SUBGRAPH @join__graph(name: "iam-subgraph", url: "http://localhost:4009/graphql")
   IDENTITY_SUBGRAPH @join__graph(name: "identity-subgraph", url: "http://localhost:4005/graphql")
   INVENTORY_SUBGRAPH @join__graph(name: "inventory-subgraph", url: "http://localhost:4001/graphql")
   LEGAL_SUBGRAPH @join__graph(name: "legal-subgraph", url: "http://localhost:4007/graphql")
@@ -50,22 +55,24 @@ enum join__Graph {
 Используется для всех сущностей в системе.
 Пример: "550e8400-e29b-41d4-a716-446655440000"
 """
-scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
 """
 Дата и время в формате ISO 8601 с часовым поясом.
 Пример: "2024-01-15T14:30:00Z" или "2024-01-15T14:30:00+03:00"
 """
-scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
 """
 Произвольный JSON объект для хранения метаданных и дополнительной информации.
 Может содержать любую валидную JSON структуру.
 Пример: {"key": "value", "nested": {"array": [1, 2, 3]}}
 """
-scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH)
+scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH)
 
-scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+
+scalar _DirectiveExtensions @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH)
 
 """
 Организация (компания, отель, хостел и т.д.).
@@ -118,7 +125,7 @@ type GraphQLQueryResult @join__type(graph: AI_SUBGRAPH) {
 }
 
 """Запросы для работы с AI-функциональностью."""
-type Query @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Пустой запрос (требуется для GraphQL схемы)"""
   _empty: Boolean @join__field(graph: AI_SUBGRAPH)
   """Получить счет по ID"""
@@ -148,6 +155,22 @@ type Query @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) 
     """Курсор для пагинации"""
     after: String
   ): BookingConnection! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Получить статистику пользователей"""
+  userStats: UserStats! @join__field(graph: IAM_SUBGRAPH)
+  """Получить список пользователей с расширенными фильтрами"""
+  usersAdvanced(first: Int, after: String, filters: UserFilters, sort: UserSort): IAMUserConnection! @join__field(graph: IAM_SUBGRAPH)
+  """Получить пользователя с полной информацией"""
+  userProfile(id: UUID!): IAMUser @join__field(graph: IAM_SUBGRAPH)
+  """Получить активные сессии пользователя"""
+  userSessions(userId: UUID!): [UserSession!]! @merge(subgraph: "iam-subgraph", keyField: "id", keyArg: "userId") @join__field(graph: IAM_SUBGRAPH)
+  """Получить историю активности пользователя"""
+  userActivity(userId: UUID!, limit: Int): [ActivityLog!]! @join__field(graph: IAM_SUBGRAPH)
+  """Получить все разрешения"""
+  permissions: [Permission!]! @join__field(graph: IAM_SUBGRAPH)
+  """Получить разрешения пользователя"""
+  userPermissions(userId: UUID!): [Permission!]! @join__field(graph: IAM_SUBGRAPH)
+  """Получить текущего авторизованного пользователя"""
+  me: User @join__field(graph: IDENTITY_SUBGRAPH)
   """Получить пользователя по ID"""
   user(id: UUID!): User @merge(subgraph: "identity-subgraph", keyField: "id", keyArg: "id") @join__field(graph: IDENTITY_SUBGRAPH)
   """Получить пользователя по email адресу"""
@@ -210,7 +233,7 @@ type Query @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) 
 }
 
 """Мутации для выполнения AI-команд."""
-type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Выполнить AI-команду на естественном языке"""
   aiCommand(
     """ID организации, для которой выполняется команда"""
@@ -258,10 +281,48 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   cancelBooking(id: UUID!, reason: String): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
   """Изменить даты заезда и выезда в бронировании"""
   changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Создать пользователя IAM (только для админов)"""
+  createIAMUser(input: CreateIAMUserInput!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
+  """Обновить пользователя IAM"""
+  updateIAMUser(id: UUID!, input: UpdateIAMUserInput!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
+  """Удалить пользователя IAM"""
+  deleteIAMUser(id: UUID!): Boolean! @join__field(graph: IAM_SUBGRAPH)
+  """Сменить пароль"""
+  changePassword(input: ChangePasswordInput!): Boolean! @join__field(graph: IAM_SUBGRAPH)
+  """Сбросить пароль (админ)"""
+  resetUserPassword(userId: UUID!, input: ResetPasswordInput!): Boolean! @join__field(graph: IAM_SUBGRAPH)
+  """Заблокировать пользователя"""
+  lockUser(userId: UUID!, reason: String!): Boolean! @join__field(graph: IAM_SUBGRAPH)
+  """Разблокировать пользователя"""
+  unlockUser(userId: UUID!): Boolean! @join__field(graph: IAM_SUBGRAPH)
+  """Завершить сессию пользователя"""
+  terminateSession(sessionId: UUID!): Boolean! @join__field(graph: IAM_SUBGRAPH)
+  """Завершить все сессии пользователя"""
+  terminateAllUserSessions(userId: UUID!): Boolean! @join__field(graph: IAM_SUBGRAPH)
+  """Назначить роли пользователю"""
+  assignRoles(userId: UUID!, roles: [SystemRole!]!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
+  """Отозвать роли у пользователя"""
+  revokeRoles(userId: UUID!, roles: [SystemRole!]!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
+  """Назначить разрешения пользователю"""
+  assignPermissions(userId: UUID!, permissionIds: [UUID!]!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
+  """Отозвать разрешения у пользователя"""
+  revokePermissions(userId: UUID!, permissionIds: [UUID!]!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
   """Создать нового пользователя"""
   createUser(input: CreateUserInput!): User! @join__field(graph: IDENTITY_SUBGRAPH)
   """Обновить данные пользователя"""
   updateUser(id: UUID!, input: CreateUserInput!): User! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Зарегистрировать нового пользователя"""
+  register(input: RegisterInput!): AuthPayload! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Войти в систему"""
+  login(input: LoginInput!): AuthPayload! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Обновить токен доступа"""
+  refreshToken(input: RefreshTokenInput!): AuthPayload! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Выйти из системы"""
+  logout: Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Запросить сброс пароля"""
+  forgotPassword(email: String!): Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Сбросить пароль"""
+  resetPassword(input: ResetPasswordInput!): Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
   """Создать новую организацию"""
   createOrganization(input: CreateOrganizationInput!): Organization! @join__field(graph: IDENTITY_SUBGRAPH)
   """Обновить данные организации"""
@@ -332,7 +393,7 @@ type Money @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBG
 Информация о пагинации для соединений (connections).
 Используется в GraphQL для реализации cursor-based пагинации.
 """
-type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Есть ли следующая страница результатов"""
   hasNextPage: Boolean!
   """Есть ли предыдущая страница результатов"""
@@ -612,6 +673,136 @@ type BookingEdge @join__type(graph: BOOKINGS_SUBGRAPH) {
   cursor: String!
 }
 
+"""Пользователь IAM с расширенными возможностями"""
+type IAMUser @join__type(graph: IAM_SUBGRAPH) {
+  """Идентификатор пользователя"""
+  id: UUID!
+  """Email адрес"""
+  email: String!
+  """Имя пользователя"""
+  name: String
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+  """Статус аккаунта пользователя"""
+  status: UserStatus!
+  """Последний вход в систему"""
+  lastLoginAt: DateTime
+  """Количество неудачных попыток входа"""
+  failedLoginAttempts: Int!
+  """Заблокирован ли аккаунт"""
+  isLocked: Boolean!
+  """Дата блокировки аккаунта"""
+  lockedAt: DateTime
+  """Причина блокировки"""
+  lockReason: String
+  """Двухфакторная аутентификация включена"""
+  twoFactorEnabled: Boolean!
+  """Роли пользователя в системе"""
+  systemRoles: [SystemRole!]!
+  """Разрешения пользователя"""
+  permissions: [Permission!]!
+  """Активные сессии"""
+  activeSessions: [UserSession!]!
+  """История активности"""
+  activityLog: [ActivityLog!]!
+}
+
+"""Разрешения в системе"""
+type Permission @join__type(graph: IAM_SUBGRAPH) {
+  """Идентификатор разрешения"""
+  id: UUID!
+  """Название разрешения"""
+  name: String!
+  """Описание разрешения"""
+  description: String
+  """Категория разрешения"""
+  category: String!
+  """Действие"""
+  action: String!
+  """Ресурс"""
+  resource: String!
+}
+
+"""Сессия пользователя"""
+type UserSession @join__type(graph: IAM_SUBGRAPH, key: "id") {
+  """Идентификатор сессии"""
+  id: UUID!
+  """IP адрес"""
+  ipAddress: String
+  """User Agent"""
+  userAgent: String
+  """Дата создания сессии"""
+  createdAt: DateTime!
+  """Дата последней активности"""
+  lastActivityAt: DateTime!
+  """Активна ли сессия"""
+  isActive: Boolean!
+  """Тип устройства"""
+  deviceType: String
+  """Местоположение"""
+  location: String
+}
+
+"""Лог активности пользователя"""
+type ActivityLog @join__type(graph: IAM_SUBGRAPH) {
+  """Идентификатор записи"""
+  id: UUID!
+  """Тип действия"""
+  action: String!
+  """Описание действия"""
+  description: String!
+  """IP адрес"""
+  ipAddress: String
+  """User Agent"""
+  userAgent: String
+  """Метаданные действия"""
+  metadata: JSON
+  """Дата действия"""
+  createdAt: DateTime!
+}
+
+"""Статистика пользователей"""
+type UserStats @join__type(graph: IAM_SUBGRAPH) {
+  """Общее количество пользователей"""
+  totalUsers: Int!
+  """Активные пользователи"""
+  activeUsers: Int!
+  """Заблокированные пользователи"""
+  lockedUsers: Int!
+  """Пользователи онлайн"""
+  onlineUsers: Int!
+  """Новые пользователи за период"""
+  newUsers: Int!
+  """Пользователи по ролям"""
+  usersByRole: [RoleStats!]!
+}
+
+"""Статистика по ролям"""
+type RoleStats @join__type(graph: IAM_SUBGRAPH) {
+  """Роль"""
+  role: SystemRole!
+  """Количество пользователей"""
+  count: Int!
+}
+
+"""Соединение пользователей"""
+type IAMUserConnection @join__type(graph: IAM_SUBGRAPH) {
+  """Список пользователей"""
+  edges: [IAMUserEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""Граница пользователя"""
+type IAMUserEdge @join__type(graph: IAM_SUBGRAPH) {
+  """Пользователь"""
+  node: IAMUser!
+  """Курсор"""
+  cursor: String!
+}
+
 """
 Пользователь системы.
 Представляет физическое лицо, которое может работать с платформой.
@@ -676,6 +867,21 @@ type OrganizationConnection @join__type(graph: IDENTITY_SUBGRAPH) {
   edges: [OrganizationEdge!]!
   """Информация о пагинации"""
   pageInfo: PageInfo!
+}
+
+"""
+Результат аутентификации.
+Содержит пользователя и токены доступа.
+"""
+type AuthPayload @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Пользователь"""
+  user: User!
+  """JWT токен доступа"""
+  accessToken: String!
+  """JWT токен обновления"""
+  refreshToken: String!
+  """Время жизни токена в секундах"""
+  expiresIn: Int!
 }
 
 """
@@ -994,6 +1200,56 @@ enum BookingSource @join__type(graph: BOOKINGS_SUBGRAPH) {
   OTHER @join__enumValue(graph: BOOKINGS_SUBGRAPH)
 }
 
+"""Статус пользователя"""
+enum UserStatus @join__type(graph: IAM_SUBGRAPH) {
+  """Активный пользователь"""
+  ACTIVE @join__enumValue(graph: IAM_SUBGRAPH)
+  """Неактивный пользователь"""
+  INACTIVE @join__enumValue(graph: IAM_SUBGRAPH)
+  """Заблокированный пользователь"""
+  SUSPENDED @join__enumValue(graph: IAM_SUBGRAPH)
+  """Удаленный пользователь"""
+  DELETED @join__enumValue(graph: IAM_SUBGRAPH)
+}
+
+"""Системные роли"""
+enum SystemRole @join__type(graph: IAM_SUBGRAPH) {
+  """Супер администратор"""
+  SUPER_ADMIN @join__enumValue(graph: IAM_SUBGRAPH)
+  """Администратор"""
+  ADMIN @join__enumValue(graph: IAM_SUBGRAPH)
+  """Менеджер"""
+  MANAGER @join__enumValue(graph: IAM_SUBGRAPH)
+  """Оператор"""
+  OPERATOR @join__enumValue(graph: IAM_SUBGRAPH)
+  """Пользователь"""
+  USER @join__enumValue(graph: IAM_SUBGRAPH)
+  """Гость"""
+  GUEST @join__enumValue(graph: IAM_SUBGRAPH)
+}
+
+"""Поля для сортировки пользователей"""
+enum UserSortField @join__type(graph: IAM_SUBGRAPH) {
+  """По имени"""
+  NAME @join__enumValue(graph: IAM_SUBGRAPH)
+  """По email"""
+  EMAIL @join__enumValue(graph: IAM_SUBGRAPH)
+  """По дате создания"""
+  CREATED_AT @join__enumValue(graph: IAM_SUBGRAPH)
+  """По последнему входу"""
+  LAST_LOGIN @join__enumValue(graph: IAM_SUBGRAPH)
+  """По статусу"""
+  STATUS @join__enumValue(graph: IAM_SUBGRAPH)
+}
+
+"""Направление сортировки"""
+enum SortDirection @join__type(graph: IAM_SUBGRAPH) {
+  """По возрастанию"""
+  ASC @join__enumValue(graph: IAM_SUBGRAPH)
+  """По убыванию"""
+  DESC @join__enumValue(graph: IAM_SUBGRAPH)
+}
+
 """
 Роли пользователей в организации.
 Определяет уровень доступа и права.
@@ -1204,6 +1460,74 @@ input PriceBreakdownInput @join__type(graph: BOOKINGS_SUBGRAPH) {
   total: MoneyInput!
 }
 
+"""Фильтры для поиска пользователей"""
+input UserFilters @join__type(graph: IAM_SUBGRAPH) {
+  """Поиск по имени или email"""
+  search: String
+  """Статус пользователя"""
+  status: UserStatus
+  """Роль пользователя"""
+  role: SystemRole
+  """Дата создания от"""
+  createdAtFrom: DateTime
+  """Дата создания до"""
+  createdAtTo: DateTime
+  """Последний вход от"""
+  lastLoginFrom: DateTime
+  """Последний вход до"""
+  lastLoginTo: DateTime
+}
+
+"""Сортировка пользователей"""
+input UserSort @join__type(graph: IAM_SUBGRAPH) {
+  """Поле для сортировки"""
+  field: UserSortField!
+  """Направление сортировки"""
+  direction: SortDirection!
+}
+
+"""Входные данные для создания пользователя"""
+input CreateIAMUserInput @join__type(graph: IAM_SUBGRAPH) {
+  """Email адрес"""
+  email: String!
+  """Имя пользователя"""
+  name: String
+  """Пароль"""
+  password: String!
+  """Роли в системе"""
+  systemRoles: [SystemRole!]
+}
+
+"""Входные данные для обновления пользователя"""
+input UpdateIAMUserInput @join__type(graph: IAM_SUBGRAPH) {
+  """Имя пользователя"""
+  name: String
+  """Статус пользователя"""
+  status: UserStatus
+  """Роли в системе"""
+  systemRoles: [SystemRole!]
+  """Заблокировать аккаунт"""
+  lockUser: Boolean
+  """Причина блокировки"""
+  lockReason: String
+}
+
+"""Входные данные для смены пароля"""
+input ChangePasswordInput @join__type(graph: IAM_SUBGRAPH) {
+  """Текущий пароль"""
+  currentPassword: String!
+  """Новый пароль"""
+  newPassword: String!
+}
+
+"""Входные данные для сброса пароля администратором"""
+input ResetPasswordInput @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Токен сброса"""
+  token: String!
+  """Новый пароль"""
+  newPassword: String!
+}
+
 """Входные данные для создания пользователя."""
 input CreateUserInput @join__type(graph: IDENTITY_SUBGRAPH) {
   """Email адрес пользователя (обязательно)"""
@@ -1238,6 +1562,30 @@ input UpdateMemberRoleInput @join__type(graph: IDENTITY_SUBGRAPH) {
   membershipId: UUID!
   """Новая роль пользователя"""
   role: Role!
+}
+
+"""Входные данные для регистрации."""
+input RegisterInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Email адрес пользователя (обязательно)"""
+  email: String!
+  """Пароль пользователя (обязательно)"""
+  password: String!
+  """Полное имя пользователя (опционально)"""
+  name: String
+}
+
+"""Входные данные для входа в систему."""
+input LoginInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Email адрес пользователя"""
+  email: String!
+  """Пароль пользователя"""
+  password: String!
+}
+
+"""Входные данные для обновления токена."""
+input RefreshTokenInput @join__type(graph: IDENTITY_SUBGRAPH) {
+  """JWT токен обновления"""
+  refreshToken: String!
 }
 
 """Входные данные для создания или обновления объявления."""

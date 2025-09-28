@@ -6,8 +6,7 @@ import { createYoga } from 'graphql-yoga';
 import { createServer } from 'http';
 
 import { resolvers } from './resolvers/index.js';
-import { IdentityDLPrisma } from '@repo/datalayer-prisma';
-import { PrismaClient } from '@prisma/client';
+import { IdentityDLPrisma, prisma } from '@repo/datalayer-prisma';
 import { createGraphQLLogger } from '@repo/shared-logger';
 
 const logger = createGraphQLLogger('identity-subgraph');
@@ -20,14 +19,31 @@ const schema = makeExecutableSchema({
 
 logger.info('Identity Subgraph schema loaded successfully');
 
-const prisma = new PrismaClient();
 const dl = new IdentityDLPrisma(prisma);
 
 logger.info('Identity Subgraph data layer initialized');
 
 const yoga = createYoga({
   schema,
-  context: () => ({ dl }), // здесь легко подменить реализацию на другую (e.g. blockchain-DL)
+  context: (request) => ({ 
+    dl, 
+    request: request.request // Передаем request объект в контекст для доступа к заголовкам
+  }),
+  // Правильная обработка ошибок
+  plugins: [
+    {
+      onRequest: ({ request }) => {
+        // Логируем входящие запросы
+        logger.info('Incoming request', { 
+          method: request.method,
+          url: request.url,
+          headers: Object.fromEntries(request.headers.entries())
+        });
+      },
+    },
+  ],
+  // Обработка ошибок
+  maskedErrors: false, // Показываем реальные ошибки
 });
 
 const server = createServer(yoga);

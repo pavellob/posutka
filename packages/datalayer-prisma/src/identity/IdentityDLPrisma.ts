@@ -58,14 +58,21 @@ export class IdentityDLPrisma implements IIdentityDL {
       })),
       pageInfo: {
         hasNextPage,
-        endCursor
+        hasPreviousPage: false, // Для простоты всегда false
+        startCursor: edges.length > 0 ? edges[0].id : undefined,
+        endCursor,
+        totalCount: null
       }
     };
   }
 
   async createUser(input: CreateUserInput): Promise<User> {
     const user = await this.prisma.user.create({
-      data: input
+      data: {
+        email: input.email,
+        name: input.name,
+        password: input.password || ''
+      }
     });
     
     return this.mapUserFromPrisma(user);
@@ -74,7 +81,11 @@ export class IdentityDLPrisma implements IIdentityDL {
   async updateUser(id: string, input: Partial<CreateUserInput>): Promise<User> {
     const user = await this.prisma.user.update({
       where: { id },
-      data: input
+      data: {
+        ...(input.email && { email: input.email }),
+        ...(input.name !== undefined && { name: input.name }),
+        ...(input.password && { password: input.password })
+      }
     });
     
     return this.mapUserFromPrisma(user);
@@ -189,6 +200,7 @@ export class IdentityDLPrisma implements IIdentityDL {
       id: user.id,
       email: user.email,
       name: user.name,
+      password: user.password,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };

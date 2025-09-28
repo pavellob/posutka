@@ -6,7 +6,9 @@
   "types": "dist/datalayer-prisma/src/index.d.ts",
   "dependencies": {
     "@prisma/client": "^5.18.0",
-    "@repo/datalayer": "workspace:*"
+    "@repo/datalayer": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
     "prisma": "^5.18.0",
