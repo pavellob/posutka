@@ -2,6 +2,16 @@
 
 echo "🚀 Запуск Posutka Monorepo в Docker..."
 
+# Убеждаемся, что мы находимся в корневой директории проекта
+cd "$(dirname "$0")/.." || exit 1
+
+# Проверяем, что директория packages/datalayer-prisma существует
+if [ ! -d "packages/datalayer-prisma" ]; then
+  echo "❌ Ошибка: директория packages/datalayer-prisma не найдена в $(pwd)"
+  ls -la
+  exit 1
+fi
+
 # Ждем готовности базы данных
 echo "⏳ Ожидание готовности базы данных..."
 until nc -z db 5432; do
@@ -22,7 +32,7 @@ cd packages/datalayer-prisma && pnpm prisma generate
 # Заполняем базу тестовыми данными
 echo "🌱 Заполнение базы тестовыми данными..."
 cd packages/datalayer-prisma && pnpm tsx prisma/prisma-seed-mock.ts || echo "Seeding failed, continuing..."
-cd /app
+cd "$(dirname "$0")/.."
 
 echo "🎯 Запуск всех сервисов..."
 

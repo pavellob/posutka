@@ -17,6 +17,7 @@ COPY base-schema.gql ./
 COPY packages/ ./packages/
 COPY backend/ ./backend/
 COPY scripts/ ./scripts/
+COPY docker-entrypoint.sh ./
 
 # Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
@@ -43,6 +44,7 @@ COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/backend ./backend
 COPY --from=base /app/packages ./packages
 COPY --from=base /app/scripts ./scripts
+COPY --from=base /app/docker-entrypoint.sh ./
 COPY --from=base /app/base-schema.gql ./
 COPY --from=base /app/package.json ./
 COPY --from=base /app/pnpm-lock.yaml ./
@@ -52,6 +54,7 @@ COPY --from=base /app/pnpm-workspace.yaml ./
 
 # Делаем скрипты исполняемыми
 RUN chmod +x ./scripts/migrate-and-seed.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 # Создаем простой скрипт запуска
 COPY <<EOF ./start.sh
