@@ -11,7 +11,8 @@
     "paths": {
       "@repo/datalayer": ["packages/datalayer/src"],
       "@repo/datalayer-prisma": ["packages/datalayer-prisma/src"],
-      "@repo/shared": ["packages/shared/src"]
+      "@repo/shared": ["packages/shared/src"],
+      "@repo/shared-logger": ["backend/shared-logger/src"]
     }
   }
 }
