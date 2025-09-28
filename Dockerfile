@@ -57,7 +57,7 @@ RUN npm install -g pnpm
 COPY --from=base /app ./
 
 # Устанавливаем зависимости для создания симлинков workspace пакетов
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --shamefully-hoist --link-workspace-packages
 
 # Добавляем cache-busting для продакшн стадии
 RUN echo "Production scripts updated: $(date)" > /tmp/prod-scripts-version
