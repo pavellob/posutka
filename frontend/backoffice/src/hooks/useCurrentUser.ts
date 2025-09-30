@@ -10,6 +10,10 @@ const GET_ME = gql`
     me {
       id
       email
+      organizations {
+        id
+        name
+      }
       name
       createdAt
       updatedAt
