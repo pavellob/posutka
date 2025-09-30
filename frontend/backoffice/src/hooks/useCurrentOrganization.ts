@@ -22,7 +22,7 @@ export function useCurrentOrganization() {
     const savedOrgId = localStorage.getItem(CURRENT_ORG_KEY)
     if (savedOrgId) {
       setCurrentOrgId(savedOrgId)
-    } else if (organizationsData?.organizations?.edges?.length > 0) {
+    } else if (organizationsData?.organizations?.edges && organizationsData.organizations.edges.length > 0) {
       // Если нет сохраненной организации, выбираем первую доступную
       const firstOrg = organizationsData.organizations.edges[0].node
       setCurrentOrgId(firstOrg.id)

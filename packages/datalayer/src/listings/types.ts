@@ -2,7 +2,7 @@ import type { UUID, DateTime, Money } from '@repo/shared/types-only';
 
 export type { UUID, DateTime, Money };
 
-export type Channel = 'DIRECT' | 'AIRBNB' | 'BOOKING' | 'AVITO';
+export type Channel = 'DIRECT' | 'AIRBNB' | 'BOOKING_COM' | 'AVITO';
 export type ListingStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
 
 export interface Listing {

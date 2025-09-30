@@ -8,7 +8,7 @@ import type {
 export interface UpsertListingInput {
   unitId: UUID;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-  channel: 'DIRECT' | 'AIRBNB' | 'BOOKING' | 'AVITO';
+  channel: 'DIRECT' | 'AIRBNB' | 'BOOKING_COM' | 'AVITO';
   basePrice: Money;
   minNights: number;
   maxNights?: number;
