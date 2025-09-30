@@ -116,6 +116,32 @@ export const resolvers: any = {
   },
   
   // Резолверы для связей между типами
+  User: {
+    organizations: async (parent: any, _: unknown, { dl }: Context) => {
+      try {
+        // Получаем членства пользователя
+        const memberships = await dl.getMembershipsByUser(parent.id);
+        
+        if (!memberships || memberships.length === 0) {
+          return [];
+        }
+        
+        // Получаем организации по ID из членств
+        const organizations = await Promise.all(
+          memberships.map((membership: any) => 
+            dl.getOrganizationById(membership.orgId)
+          )
+        );
+        
+        // Фильтруем null значения
+        return organizations.filter(Boolean);
+      } catch (error: any) {
+        logger.error('Error resolving User.organizations', { error: error.message, userId: parent.id });
+        return [];
+      }
+    },
+  },
+  
   Organization: {
     members: (parent: any, _: unknown, { dl }: Context) => {
       return dl.getMembershipsByOrg(parent.id);
@@ -178,7 +204,10 @@ export const resolvers: any = {
         if (!user) {
           throw new Error('Invalid credentials');
         }
-        
+      
+        const hashedPassword = await bcrypt.hash(input.password, 12);
+        logger.info('hashedPassword', { hashedPassword });
+        logger.info('password', user );
         // Проверяем пароль
         if (!user.password) {
           throw new Error('Invalid credentials');

@@ -9,26 +9,26 @@ generator client {
 }
 
 model Organization {
-  id         String     @id @default(cuid())
-  name       String
-  timezone   String
-  currency   String
-  properties Property[]
+  id          String       @id @default(cuid())
+  name        String
+  timezone    String
+  currency    String
+  properties  Property[]
   memberships Membership[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 model Property {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   orgId     String
   title     String
   address   String
   amenities String[]
   org       Organization @relation(fields: [orgId], references: [id])
   units     Unit[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 }
 
 model Unit {
@@ -41,38 +41,38 @@ model Unit {
   amenities  String[]
   property   Property @relation(fields: [propertyId], references: [id])
   createdAt  DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt  DateTime @updatedAt
 }
 
 model CalendarBlock {
-  id     String  @id @default(cuid())
-  unitId String
-  from   DateTime
-  to     DateTime
-  note   String?
+  id        String   @id @default(cuid())
+  unitId    String
+  from      DateTime
+  to        DateTime
+  note      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Guest {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String
   email          String
   phone          String?
   documentType   String?
   documentNumber String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   bookings       Booking[]
 }
 
 model Booking {
-  id                  String        @id @default(cuid())
+  id                  String               @id @default(cuid())
   orgId               String
   unitId              String
   guestId             String
-  status              BookingStatus @default(PENDING)
-  source              BookingSource @default(DIRECT)
+  status              BookingStatus        @default(PENDING)
+  source              BookingSource        @default(DIRECT)
   checkIn             DateTime
   checkOut            DateTime
   guestsCount         Int
@@ -88,27 +88,27 @@ model Booking {
   totalCurrency       String
   notes               String?
   cancellationReason  String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  guest               Guest         @relation(fields: [guestId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  guest               Guest                @relation(fields: [guestId], references: [id])
   documents           Document[]
   depositTransactions DepositTransaction[]
 }
 
 model Document {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   bookingId String
   type      String
   template  String
   content   String
   signedAt  DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  booking   Booking  @relation(fields: [bookingId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  booking   Booking   @relation(fields: [bookingId], references: [id])
 }
 
 model DepositTransaction {
-  id            String         @id @default(cuid())
+  id            String            @id @default(cuid())
   bookingId     String
   action        DepositAction
   amount        Int
@@ -116,9 +116,9 @@ model DepositTransaction {
   status        TransactionStatus @default(PENDING)
   transactionId String?
   notes         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  booking       Booking        @relation(fields: [bookingId], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  booking       Booking           @relation(fields: [bookingId], references: [id])
 }
 
 enum BookingStatus {
@@ -151,48 +151,48 @@ enum TransactionStatus {
 }
 
 model ServiceProvider {
-  id           String   @id @default(cuid())
-  name         String
-  serviceTypes String[]
-  rating       Float?
-  contact      String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  tasks        Task[]
+  id            String         @id @default(cuid())
+  name          String
+  serviceTypes  String[]
+  rating        Float?
+  contact       String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  tasks         Task[]
   serviceOrders ServiceOrder[]
 }
 
 model Task {
-  id                  String        @id @default(cuid())
-  orgId               String
-  unitId              String?
-  bookingId           String?
-  type                TaskType
-  status              TaskStatus    @default(TODO)
-  dueAt               DateTime?
-  assignedProviderId  String?
-  checklist           String[]
-  note                String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  assignedProvider    ServiceProvider? @relation(fields: [assignedProviderId], references: [id])
-  serviceOrders       ServiceOrder[]
+  id                 String           @id @default(cuid())
+  orgId              String
+  unitId             String?
+  bookingId          String?
+  type               TaskType
+  status             TaskStatus       @default(TODO)
+  dueAt              DateTime?
+  assignedProviderId String?
+  checklist          String[]
+  note               String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  assignedProvider   ServiceProvider? @relation(fields: [assignedProviderId], references: [id])
+  serviceOrders      ServiceOrder[]
 }
 
 model ServiceOrder {
-  id          String            @id @default(cuid())
-  orgId       String
-  taskId      String
-  providerId  String?
-  status      ServiceOrderStatus @default(CREATED)
-  costAmount  Int?
+  id           String             @id @default(cuid())
+  orgId        String
+  taskId       String
+  providerId   String?
+  status       ServiceOrderStatus @default(CREATED)
+  costAmount   Int?
   costCurrency String?
-  invoiceId   String?
-  notes       String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  task        Task              @relation(fields: [taskId], references: [id])
-  provider    ServiceProvider?  @relation(fields: [providerId], references: [id])
+  invoiceId    String?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  task         Task               @relation(fields: [taskId], references: [id])
+  provider     ServiceProvider?   @relation(fields: [providerId], references: [id])
 }
 
 enum TaskStatus {
@@ -233,32 +233,32 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id              String  @id @default(cuid())
-  invoiceId       String
-  name            String
-  qty             Int
-  priceAmount     Int
-  priceCurrency   String
-  sumAmount       Int
-  sumCurrency     String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  invoice         Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  invoiceId     String
+  name          String
+  qty           Int
+  priceAmount   Int
+  priceCurrency String
+  sumAmount     Int
+  sumCurrency   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
-  id            String        @id @default(cuid())
-  invoiceId     String
-  method        PaymentMethod
-  amountAmount  Int
+  id             String        @id @default(cuid())
+  invoiceId      String
+  method         PaymentMethod
+  amountAmount   Int
   amountCurrency String
-  status        PaymentStatus @default(PENDING)
-  provider      String?
-  providerRef   String?
-  receiptUrl    String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
+  status         PaymentStatus @default(PENDING)
+  provider       String?
+  providerRef    String?
+  receiptUrl     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  invoice        Invoice       @relation(fields: [invoiceId], references: [id])
 }
 
 enum InvoiceStatus {
@@ -293,12 +293,12 @@ model User {
 }
 
 model Membership {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
   orgId     String
   role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -321,30 +321,30 @@ enum Role {
 }
 
 model Listing {
-  id          String        @id @default(cuid())
-  unitId      String
-  status      ListingStatus @default(DRAFT)
-  channel     Channel
-  basePriceAmount    Int
-  basePriceCurrency  String
-  minNights   Int
-  maxNights   Int?
-  externalId  String?
-  lastSyncAt  DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  discounts   DiscountRule[]
+  id                String         @id @default(cuid())
+  unitId            String
+  status            ListingStatus  @default(DRAFT)
+  channel           Channel
+  basePriceAmount   Int
+  basePriceCurrency String
+  minNights         Int
+  maxNights         Int?
+  externalId        String?
+  lastSyncAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  discounts         DiscountRule[]
 }
 
 model DiscountRule {
-  id          String  @id @default(cuid())
-  listingId   String
-  name        String
-  percentOff  Int
-  minNights   Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  listing     Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  listingId  String
+  name       String
+  percentOff Int
+  minNights  Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 }
 
 enum ListingStatus {
@@ -356,7 +356,7 @@ enum ListingStatus {
 enum Channel {
   DIRECT
   AIRBNB
-  BOOKING
+  BOOKING_COM
   AVITO
 }
 
@@ -371,16 +371,16 @@ model LegalDocument {
 }
 
 model LegalDepositTransaction {
-  id            String   @id @default(cuid())
-  bookingId     String
-  holdAmount    Int
-  holdCurrency  String
-  capturedAmount Int?
+  id               String   @id @default(cuid())
+  bookingId        String
+  holdAmount       Int
+  holdCurrency     String
+  capturedAmount   Int?
   capturedCurrency String?
-  refundedAmount Int?
+  refundedAmount   Int?
   refundedCurrency String?
-  method        String
-  status        String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  method           String
+  status           String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

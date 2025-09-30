@@ -794,6 +794,69 @@ export const AI_COMMAND = gql`
   }
 `
 
+// ===== МУТАЦИИ ДЛЯ БРОНИРОВАНИЙ =====
+
+export const CREATE_BOOKING = gql`
+  mutation CreateBooking($input: CreateBookingInput!) {
+    createBooking(input: $input) {
+      id
+      status
+      source
+      checkIn
+      checkOut
+      guestsCount
+      notes
+      createdAt
+      unit {
+        id
+        name
+        property {
+          id
+          title
+        }
+      }
+      guest {
+        id
+        name
+        email
+        phone
+      }
+      priceBreakdown {
+        basePrice {
+          amount
+          currency
+        }
+        total {
+          amount
+          currency
+        }
+      }
+    }
+  }
+`
+
+export const CANCEL_BOOKING = gql`
+  mutation CancelBooking($id: UUID!, $reason: String) {
+    cancelBooking(id: $id, reason: $reason) {
+      id
+      status
+      cancellationReason
+      updatedAt
+    }
+  }
+`
+
+export const CHANGE_BOOKING_DATES = gql`
+  mutation ChangeBookingDates($id: UUID!, $checkIn: DateTime!, $checkOut: DateTime!) {
+    changeBookingDates(id: $id, checkIn: $checkIn, checkOut: $checkOut) {
+      id
+      checkIn
+      checkOut
+      updatedAt
+    }
+  }
+`
+
 export const GENERATE_GRAPHQL_QUERY = gql`
   mutation GenerateGraphQLQuery(
     $orgId: UUID!

@@ -120,6 +120,8 @@ type User {
   createdAt: DateTime!
   """Дата и время последнего обновления"""
   updatedAt: DateTime!
+  """Список организаций, в которых состоит пользователь"""
+  organizations: [Organization!]!
 }
 
 """
