@@ -78,17 +78,28 @@ EOF
 RUN chmod +x ./start.sh
 
 # Открываем порты (GraphQL и gRPC)
-EXPOSE 4000  # Gateway
-EXPOSE 4001  # Inventory Subgraph (GraphQL)
-EXPOSE 4002  # Bookings Subgraph (GraphQL)
-EXPOSE 4102  # Bookings Subgraph (gRPC)
-EXPOSE 4003  # Ops Subgraph (GraphQL)
-EXPOSE 4103  # Ops Subgraph (gRPC)
-EXPOSE 4004  # Billing Subgraph (GraphQL)
-EXPOSE 4005  # Identity Subgraph (GraphQL)
-EXPOSE 4006  # Listings Subgraph (GraphQL)
-EXPOSE 4007  # Legal Subgraph (GraphQL)
-EXPOSE 4008  # AI Subgraph (GraphQL)
+# Gateway
+EXPOSE 4000  
+# Inventory Subgraph (GraphQL)
+EXPOSE 4001  
+# Bookings Subgraph (GraphQL)
+EXPOSE 4002  
+# Bookings Subgraph (gRPC)
+EXPOSE 4102  
+# Ops Subgraph (GraphQL)
+EXPOSE 4003  
+# Ops Subgraph (gRPC)
+EXPOSE 4103  
+# Billing Subgraph (GraphQL)
+EXPOSE 4004  
+# Identity Subgraph (GraphQL)
+EXPOSE 4005  
+# Listings Subgraph (GraphQL)
+EXPOSE 4006  
+# Legal Subgraph (GraphQL)
+EXPOSE 4007  
+# AI Subgraph (GraphQL)
+EXPOSE 4008  
 
 # Запускаем скрипт
 CMD ["./start.sh"]
