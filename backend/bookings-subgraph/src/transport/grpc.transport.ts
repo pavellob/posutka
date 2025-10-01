@@ -2,6 +2,7 @@ import { createServer } from 'nice-grpc';
 import { BookingsGrpcService } from '../grpc/bookings.grpc.service.js';
 import { BookingService } from '../services/booking.service.js';
 import { createGraphQLLogger } from '@repo/shared-logger';
+import { BookingsServiceDefinition } from '@repo/grpc-sdk';
 
 const logger = createGraphQLLogger('grpc-transport');
 
@@ -27,7 +28,7 @@ export class GrpcTransport {
       
       // Создаем GRPC сервер с nice-grpc
       this.server = createServer({
-        'bookings.BookingsService': {
+        [BookingsServiceDefinition.fullName]: {
           CreateBooking: grpcService.CreateBooking.bind(grpcService),
           GetBooking: grpcService.GetBooking.bind(grpcService),
           CancelBooking: grpcService.CancelBooking.bind(grpcService),

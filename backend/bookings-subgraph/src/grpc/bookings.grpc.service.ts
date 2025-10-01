@@ -1,12 +1,19 @@
 import { createGraphQLLogger } from '@repo/shared-logger';
 import { BookingService } from '../services/booking.service.js';
+import type { 
+  CreateBookingRequest,
+  GetBookingRequest,
+  CancelBookingRequest,
+  ChangeBookingDatesRequest,
+  BookingResponse
+} from '@repo/grpc-sdk';
 
 const logger = createGraphQLLogger('bookings-grpc-service');
 
 export class BookingsGrpcService {
   constructor(private readonly bookingService: BookingService) {}
 
-  async CreateBooking(request: any): Promise<any> {
+  async CreateBooking(request: CreateBookingRequest): Promise<BookingResponse> {
     try {
       logger.info('GRPC CreateBooking called', request);
       
@@ -26,7 +33,7 @@ export class BookingsGrpcService {
     }
   }
 
-  async GetBooking(request: any): Promise<any> {
+  async GetBooking(request: GetBookingRequest): Promise<BookingResponse> {
     try {
       logger.info('GRPC GetBooking called', request);
       
@@ -48,7 +55,7 @@ export class BookingsGrpcService {
     }
   }
 
-  async CancelBooking(request: any): Promise<any> {
+  async CancelBooking(request: CancelBookingRequest): Promise<BookingResponse> {
     try {
       logger.info('GRPC CancelBooking called', request);
       
@@ -66,15 +73,15 @@ export class BookingsGrpcService {
     }
   }
 
-  async ChangeBookingDates(request: any): Promise<any> {
+  async ChangeBookingDates(request: ChangeBookingDatesRequest): Promise<BookingResponse> {
     try {
       logger.info('GRPC ChangeBookingDates called', request);
       
       // Изменяем даты бронирования
       const booking = await this.bookingService.changeBookingDates(
         request.id, 
-        request.checkIn, 
-        request.checkOut
+        request.checkIn?.toISOString() || new Date().toISOString(), 
+        request.checkOut?.toISOString() || new Date().toISOString()
       );
       
       return {

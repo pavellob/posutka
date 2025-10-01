@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package bookings;
+
+import "google/protobuf/timestamp.proto";
+
+// Статус бронирования
+enum BookingStatus {
+  BOOKING_STATUS_PENDING = 0;
+  BOOKING_STATUS_CONFIRMED = 1;
+  BOOKING_STATUS_CANCELLED = 2;
+  BOOKING_STATUS_COMPLETED = 3;
+}
+
+// Бронирование
+message Booking {
+  string id = 1;
+  string org_id = 2;
+  string unit_id = 3;
+  string property_id = 4;
+  string guest_id = 5;
+  string guest_name = 6;
+  google.protobuf.Timestamp check_in = 7;
+  google.protobuf.Timestamp check_out = 8;
+  int32 guests_count = 9;
+  BookingStatus status = 10;
+  optional string cancellation_reason = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// Запрос на создание бронирования
+message CreateBookingRequest {
+  string org_id = 1;
+  string unit_id = 2;
+  string property_id = 3;
+  string guest_id = 4;
+  string guest_name = 5;
+  google.protobuf.Timestamp check_in = 6;
+  google.protobuf.Timestamp check_out = 7;
+  int32 guests_count = 8;
+}
+
+// Запрос на получение бронирования
+message GetBookingRequest {
+  string id = 1;
+}
+
+// Запрос на отмену бронирования
+message CancelBookingRequest {
+  string id = 1;
+  optional string reason = 2;
+}
+
+// Запрос на изменение дат бронирования
+message ChangeBookingDatesRequest {
+  string id = 1;
+  google.protobuf.Timestamp check_in = 2;
+  google.protobuf.Timestamp check_out = 3;
+}
+
+// Ответ с бронированием
+message BookingResponse {
+  Booking booking = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Сервис для управления бронированиями
+service BookingsService {
+  // Создать бронирование
+  rpc CreateBooking(CreateBookingRequest) returns (BookingResponse);
+  
+  // Получить бронирование по ID
+  rpc GetBooking(GetBookingRequest) returns (BookingResponse);
+  
+  // Отменить бронирование
+  rpc CancelBooking(CancelBookingRequest) returns (BookingResponse);
+  
+  // Изменить даты бронирования
+  rpc ChangeBookingDates(ChangeBookingDatesRequest) returns (BookingResponse);
+}
