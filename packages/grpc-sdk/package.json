@@ -19,7 +19,7 @@
     "build": "pnpm run generate && tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist src/generated",
-    "generate": "sh generate.sh",
+    "generate": "pnpm proto:generate",
     "proto:generate": "pnpm proto:clean && buf generate --template buf.gen.node.yaml",
     "proto:clean": "rimraf src/generated",
     "typecheck": "tsc --noEmit",

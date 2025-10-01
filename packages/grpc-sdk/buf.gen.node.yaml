@@ -15,5 +15,6 @@ plugins:
       - useOptionals=messages
       - lowerCaseServiceMethods=true
       - forceLong=number
+      - config=ts-proto.config.json
 inputs:
   - directory: ./src/proto
