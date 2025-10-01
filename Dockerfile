@@ -19,6 +19,12 @@ COPY backend/ ./backend/
 COPY scripts/ ./scripts/
 COPY docker-entrypoint.sh ./
 
+# Делаем скрипты исполняемыми
+RUN chmod +x ./scripts/migrate-and-seed.sh
+RUN chmod +x ./docker-entrypoint.sh
+RUN chmod +x ./scripts/wait-for-subgraphs.sh
+RUN chmod +x ./packages/grpc-sdk/generate.sh
+
 # Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
 
@@ -27,12 +33,6 @@ RUN pnpm generate
 
 # Собираем все приложения
 RUN pnpm build
-
-# Делаем скрипты исполняемыми
-RUN chmod +x ./scripts/migrate-and-seed.sh
-RUN chmod +x ./docker-entrypoint.sh
-RUN chmod +x ./scripts/wait-for-subgraphs.sh
-RUN chmod +x ./packages/grpc-sdk/generate.sh
 
 # Создаем простой скрипт запуска
 RUN cat > ./start.sh << 'EOF'
