@@ -1,4 +1,4 @@
-import { createOpsGrpcClient, OpsGrpcClient } from '@repo/grpc-sdk';
+import { createOpsGrpcClient, OpsGrpcClient, TaskPriority } from '@repo/grpc-sdk';
 import { createGraphQLLogger } from '@repo/shared-logger';
 
 const logger = createGraphQLLogger('booking-service');
@@ -66,7 +66,7 @@ export class BookingService {
         bookingId: booking.id,
         scheduledAt,
         notes: `Уборка для бронирования ${booking.id}. Гость: ${booking.guestId}`,
-        priority: 1 // MEDIUM
+        priority: TaskPriority.TASK_PRIORITY_MEDIUM
       };
 
       logger.info('Creating cleaning task', { 

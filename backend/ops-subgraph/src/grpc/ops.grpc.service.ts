@@ -1,60 +1,19 @@
 import type { IOpsDL } from '@repo/datalayer';
 import { sharedResolvers } from '../resolvers/index.js';
 import { createGraphQLLogger } from '@repo/shared-logger';
+import type { 
+  CreateCleaningTaskRequest,
+  TaskResponse,
+  GetTaskRequest,
+  UpdateTaskStatusRequest,
+  AssignTaskRequest,
+  GetTasksByPropertyRequest,
+  GetTasksByRoomRequest,
+  TasksResponse
+} from '@repo/grpc-sdk';
 
 const logger = createGraphQLLogger('ops-grpc-service');
 
-// Простые типы для начала (позже заменим на генерируемые)
-interface CreateCleaningTaskRequest {
-  orgId: string;
-  propertyId: string;
-  roomId: string;
-  bookingId: string;
-  scheduledAt?: Date;
-  notes?: string;
-  priority?: number;
-}
-
-interface TaskResponse {
-  task?: any;
-  success: boolean;
-  message: string;
-}
-
-interface GetTaskRequest {
-  id: string;
-}
-
-interface UpdateTaskStatusRequest {
-  id: string;
-  status: number;
-  notes?: string;
-}
-
-interface AssignTaskRequest {
-  id: string;
-  assignedTo: string;
-}
-
-interface GetTasksByPropertyRequest {
-  propertyId: string;
-  status?: number;
-  limit?: number;
-  offset?: number;
-}
-
-interface GetTasksByRoomRequest {
-  roomId: string;
-  status?: number;
-  limit?: number;
-  offset?: number;
-}
-
-interface TasksResponse {
-  tasks: any[];
-  success: boolean;
-  message: string;
-}
 
 // Status enum mapping from proto to string
 const statusMap: Record<number, string> = {
@@ -88,11 +47,13 @@ export class OpsGrpcService {
 
       // Validate required fields
       if (!request.orgId) {
-        logger.error('orgId is missing in request', { request });
         throw new Error('orgId is required');
       }
       if (!request.propertyId) {
         throw new Error('propertyId is required');
+      }
+      if (!request.roomId) {
+        throw new Error('roomId is required');
       }
 
       // Convert scheduledAt to ISO string (it might come as Date, string, or timestamp)
@@ -114,8 +75,8 @@ export class OpsGrpcService {
 
       // Use shared resolver that uses datalayer-prisma
       const task = await sharedResolvers.createTask(this.dl, {
-        orgId: request.orgId, // Use orgId from request
-        unitId: request.roomId || undefined,
+        orgId: request.orgId,
+        unitId: request.roomId,
         bookingId: request.bookingId || undefined,
         type: 'CLEANING',
         dueAt,
@@ -123,7 +84,7 @@ export class OpsGrpcService {
       });
 
       return {
-        task: task,
+        task: task as any,
         success: true,
         message: 'Cleaning task created successfully'
       };
@@ -151,7 +112,7 @@ export class OpsGrpcService {
       }
 
       return {
-        task: task,
+        task: task as any,
         success: true,
         message: 'Task retrieved successfully'
       };
@@ -178,7 +139,7 @@ export class OpsGrpcService {
       );
 
       return {
-        task: task,
+        task: task as any,
         success: true,
         message: 'Task status updated successfully'
       };
@@ -201,7 +162,7 @@ export class OpsGrpcService {
       });
 
       return {
-        task: task,
+        task: task as any,
         success: true,
         message: 'Task assigned successfully'
       };
@@ -226,7 +187,7 @@ export class OpsGrpcService {
       });
 
       return {
-        tasks: result.edges.map(edge => edge.node),
+        tasks: result.edges.map(edge => edge.node) as any,
         success: true,
         message: 'Tasks retrieved successfully'
       };
@@ -260,7 +221,7 @@ export class OpsGrpcService {
         .filter(task => task.unitId === request.roomId);
 
       return {
-        tasks: filteredTasks,
+        tasks: filteredTasks as any,
         success: true,
         message: 'Tasks retrieved successfully'
       };
