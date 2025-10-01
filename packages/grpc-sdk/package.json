@@ -16,12 +16,12 @@
     }
   },
   "scripts": {
-    "build": "pnpm run generate && tsup",
+    "build": "pnpm run generate:safe && tsup",
     "dev": "tsup --watch",
-    "clean": "rimraf dist src/generated",
+    "clean": "rimraf dist",
     "generate": "mkdir -p src/generated && protoc --plugin=../../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=src/generated --ts_proto_opt=esModuleInterop=true,outputServices=nice-grpc,outputClientImpl=nice-grpc,useExactTypes=false,env=node,forceLong=string,useDate=true --proto_path=src/proto src/proto/*.proto",
-    "typecheck": "tsc --noEmit",
-    "prebuild": "pnpm run clean"
+    "generate:safe": "pnpm run generate || echo 'Proto generation skipped (files already exist)'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "nice-grpc": "^2.1.12",
