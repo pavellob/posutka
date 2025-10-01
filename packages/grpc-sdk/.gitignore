@@ -1,0 +1,10 @@
+node_modules/
+dist/
+src/generated/
+*.log
+.turbo
+
+# Сгенерированные proto файлы
+src/generated/**/*.ts
+!src/generated/.gitkeep
+

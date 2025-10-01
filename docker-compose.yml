@@ -20,14 +20,16 @@ services:
     build: .
     ports:
       - "4000:4000"  # Mesh Gateway
-      - "4001:4001"  # Inventory Subgraph
-      - "4002:4002"  # Bookings Subgraph
-      - "4003:4003"  # Ops Subgraph
-      - "4004:4004"  # Billing Subgraph
-      - "4005:4005"  # Identity Subgraph
-      - "4006:4006"  # Listings Subgraph
-      - "4007:4007"  # Legal Subgraph
-      - "4008:4008"  # AI Subgraph
+      - "4001:4001"  # Inventory Subgraph (GraphQL)
+      - "4002:4002"  # Bookings Subgraph (GraphQL)
+      - "4102:4102"  # Bookings Subgraph (gRPC)
+      - "4003:4003"  # Ops Subgraph (GraphQL)
+      - "4103:4103"  # Ops Subgraph (gRPC)
+      - "4004:4004"  # Billing Subgraph (GraphQL)
+      - "4005:4005"  # Identity Subgraph (GraphQL)
+      - "4006:4006"  # Listings Subgraph (GraphQL)
+      - "4007:4007"  # Legal Subgraph (GraphQL)
+      - "4008:4008"  # AI Subgraph (GraphQL)
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/posutka
       - NODE_ENV=development

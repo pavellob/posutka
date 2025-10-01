@@ -1,0 +1,43 @@
+{
+  "name": "@repo/grpc-sdk",
+  "version": "0.1.0",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "pnpm run generate && tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist src/generated",
+    "generate": "mkdir -p src/generated && protoc --plugin=../../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=src/generated --ts_proto_opt=esModuleInterop=true,outputServices=nice-grpc,outputClientImpl=nice-grpc,useExactTypes=false,env=node,forceLong=string,useDate=true --proto_path=src/proto src/proto/*.proto",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "pnpm run clean"
+  },
+  "dependencies": {
+    "nice-grpc": "^2.1.12",
+    "nice-grpc-common": "^2.0.2",
+    "@grpc/grpc-js": "^1.9.0",
+    "@repo/shared-logger": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "rimraf": "^5.0.7",
+    "ts-proto": "^1.181.2",
+    "tsup": "^8.5.0",
+    "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "pino": "^9.7.0"
+  }
+}
+

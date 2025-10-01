@@ -15,9 +15,13 @@ services:
                protocol: http
              - port: 4001  # Inventory Subgraph
                protocol: http
-             - port: 4002  # Bookings Subgraph
+             - port: 4002  # Bookings Subgraph (GraphQL)
                protocol: http
-             - port: 4003  # Ops Subgraph
+             - port: 4102  # Bookings Subgraph (gRPC)
+               protocol: http
+             - port: 4003  # Ops Subgraph (GraphQL)
+               protocol: http
+             - port: 4103  # Ops Subgraph (gRPC)
                protocol: http
              - port: 4004  # Billing Subgraph
                protocol: http

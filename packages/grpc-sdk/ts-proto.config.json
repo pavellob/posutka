@@ -1,0 +1,21 @@
+{
+  "esModuleInterop": true,
+  "outputServices": "nice-grpc",
+  "outputClientImpl": "nice-grpc",
+  "useExactTypes": false,
+  "env": "node",
+  "forceLong": "string",
+  "useDate": true,
+  "outputExtension": ".ts",
+  "outputTypeRegistry": false,
+  "outputPartialMethods": false,
+  "outputJsonMethods": false,
+  "outputEncodeMethods": false,
+  "stringEnums": false,
+  "constEnums": false,
+  "exportCommonSymbols": false,
+  "initializeFieldsAsUndefined": false,
+  "oneof": "unions",
+  "unrecognizedEnum": true
+}
+

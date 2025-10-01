@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+package ops;
+
+import "google/protobuf/timestamp.proto";
+
+// Типы задач
+enum TaskType {
+  TASK_TYPE_CLEANING = 0;
+  TASK_TYPE_MAINTENANCE = 1;
+  TASK_TYPE_INSPECTION = 2;
+  TASK_TYPE_REPAIR = 3;
+}
+
+// Приоритет задачи
+enum TaskPriority {
+  TASK_PRIORITY_LOW = 0;
+  TASK_PRIORITY_MEDIUM = 1;
+  TASK_PRIORITY_HIGH = 2;
+  TASK_PRIORITY_URGENT = 3;
+}
+
+// Статус задачи
+enum TaskStatus {
+  TASK_STATUS_PENDING = 0;
+  TASK_STATUS_IN_PROGRESS = 1;
+  TASK_STATUS_COMPLETED = 2;
+  TASK_STATUS_CANCELLED = 3;
+}
+
+// Задача
+message Task {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  TaskType type = 4;
+  TaskPriority priority = 5;
+  TaskStatus status = 6;
+  string property_id = 7;
+  string room_id = 8;
+  string assigned_to = 9;
+  google.protobuf.Timestamp scheduled_at = 10;
+  google.protobuf.Timestamp due_at = 11;
+  google.protobuf.Timestamp completed_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+// Запрос на создание задачи уборки
+message CreateCleaningTaskRequest {
+  string property_id = 1;
+  string room_id = 2;
+  string booking_id = 3;
+  google.protobuf.Timestamp scheduled_at = 4;
+  string notes = 5;
+  TaskPriority priority = 6;
+}
+
+// Запрос на получение задачи
+message GetTaskRequest {
+  string id = 1;
+}
+
+// Запрос на обновление статуса задачи
+message UpdateTaskStatusRequest {
+  string id = 1;
+  TaskStatus status = 2;
+  string notes = 3;
+}
+
+// Запрос на назначение задачи
+message AssignTaskRequest {
+  string id = 1;
+  string assigned_to = 2;
+}
+
+// Ответ с задачей
+message TaskResponse {
+  Task task = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Ответ со списком задач
+message TasksResponse {
+  repeated Task tasks = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Запросы для получения задач
+message GetTasksByPropertyRequest {
+  string property_id = 1;
+  TaskStatus status = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message GetTasksByRoomRequest {
+  string room_id = 1;
+  TaskStatus status = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+// Сервис для управления задачами
+service OpsService {
+  // Создать задачу уборки
+  rpc CreateCleaningTask(CreateCleaningTaskRequest) returns (TaskResponse);
+  
+  // Получить задачу по ID
+  rpc GetTask(GetTaskRequest) returns (TaskResponse);
+  
+  // Обновить статус задачи
+  rpc UpdateTaskStatus(UpdateTaskStatusRequest) returns (TaskResponse);
+  
+  // Назначить задачу
+  rpc AssignTask(AssignTaskRequest) returns (TaskResponse);
+  
+  // Получить задачи по объекту
+  rpc GetTasksByProperty(GetTasksByPropertyRequest) returns (TasksResponse);
+  
+  // Получить задачи по комнате
+  rpc GetTasksByRoom(GetTasksByRoomRequest) returns (TasksResponse);
+}
+

@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx --watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "tsx src/server.ts",
+    "build": "npm run generate && tsc -p tsconfig.json",
+    "start": "npm run generate && tsx src/server.ts",
+    "generate": "protoc --plugin=../../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/generated --ts_proto_opt=esModuleInterop=true,useExactTypes=false,outputServices=nice-grpc,outputClientImpl=nice-grpc ./src/proto/*.proto || echo 'No proto files'",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "schema:publish": "hive schema:publish --registry.accessToken \"$HIVE_TOKEN\" --target \"$HIVE_TARGET\" --service bookings --url http://localhost:4002/graphql src/schema/index.gql",
@@ -16,6 +17,7 @@
     "@graphql-tools/schema": "^10.0.0",
     "@repo/datalayer": "workspace:*",
     "@repo/datalayer-prisma": "workspace:*",
+    "@repo/grpc-sdk": "workspace:*",
     "@prisma/client": "^5.18.0",
     "graphql": "^16.9.0",
     "graphql-tag": "^2.12.6",
@@ -28,6 +30,7 @@
     "typescript": "^5.5.0",
     "vitest": "^2.0.0",
     "@types/node": "^22.0.0",
-    "tsx": "^4.20.5"
+    "tsx": "^4.20.5",
+    "ts-proto": "^1.180.0"
   }
 }

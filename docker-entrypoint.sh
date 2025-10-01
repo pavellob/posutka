@@ -34,11 +34,13 @@ cd packages/datalayer-prisma && pnpm prisma db push --accept-data-loss || echo "
 # Генерируем Prisma клиент
 echo "🔧 Генерация Prisma клиента..."
 cd packages/datalayer-prisma && pnpm prisma generate
-
-# Заполняем базу тестовыми данными
-echo "🌱 Заполнение базы тестовыми данными..."
-cd packages/datalayer-prisma && pnpm tsx prisma/prisma-seed-mock.ts || echo "Seeding failed, continuing..."
 cd "$(dirname "$0")/.."
+
+# Сиды закомментированы для продакшена
+# Раскомментируйте для локальной разработки
+# echo "🌱 Заполнение базы тестовыми данными..."
+# cd packages/datalayer-prisma && pnpm tsx prisma/prisma-seed-mock.ts || echo "Seeding failed, continuing..."
+# cd "$(dirname "$0")/.."
 
 echo "🎯 Запуск всех сервисов..."
 

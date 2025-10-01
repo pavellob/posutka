@@ -878,3 +878,32 @@ export const GENERATE_GRAPHQL_QUERY = gql`
     }
   }
 `
+
+// ===== МУТАЦИИ ДЛЯ ЗАДАЧ =====
+
+export const ASSIGN_TASK = gql`
+  mutation AssignTask($input: AssignTaskInput!) {
+    assignTask(input: $input) {
+      id
+      status
+      dueAt
+      note
+      updatedAt
+      assignedTo {
+        id
+        name
+        contact
+      }
+    }
+  }
+`
+
+export const UPDATE_TASK_STATUS = gql`
+  mutation UpdateTaskStatus($id: UUID!, $status: TaskStatus!) {
+    updateTaskStatus(id: $id, status: $status) {
+      id
+      status
+      updatedAt
+    }
+  }
+`

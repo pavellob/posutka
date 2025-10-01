@@ -1,8 +1,8 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
-# Устанавливаем pnpm и необходимые пакеты
+# Устанавливаем pnpm, protoc и необходимые пакеты
 RUN npm install -g pnpm
-RUN apk add --no-cache curl openssl
+RUN apk add --no-cache curl openssl protobuf
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -39,7 +39,7 @@ RUN cat > ./start.sh << 'EOF'
 
 echo "🚀 Запуск Posutka GraphQL Federation..."
 
-# Сначала выполняем миграции и сиды
+# Сначала выполняем миграции (сиды закомментированы в скрипте)
 echo "📊 Подготовка базы данных..."
 ./scripts/migrate-and-seed.sh
 
@@ -77,8 +77,18 @@ EOF
 # Делаем скрипт запуска исполняемым
 RUN chmod +x ./start.sh
 
-# Открываем порты
-EXPOSE 4001 4002 4003 4004 4005 4006 4007 4008 4000
+# Открываем порты (GraphQL и gRPC)
+EXPOSE 4000  # Gateway
+EXPOSE 4001  # Inventory Subgraph (GraphQL)
+EXPOSE 4002  # Bookings Subgraph (GraphQL)
+EXPOSE 4102  # Bookings Subgraph (gRPC)
+EXPOSE 4003  # Ops Subgraph (GraphQL)
+EXPOSE 4103  # Ops Subgraph (gRPC)
+EXPOSE 4004  # Billing Subgraph (GraphQL)
+EXPOSE 4005  # Identity Subgraph (GraphQL)
+EXPOSE 4006  # Listings Subgraph (GraphQL)
+EXPOSE 4007  # Legal Subgraph (GraphQL)
+EXPOSE 4008  # AI Subgraph (GraphQL)
 
 # Запускаем скрипт
 CMD ["./start.sh"]

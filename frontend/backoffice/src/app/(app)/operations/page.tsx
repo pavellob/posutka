@@ -1,6 +1,8 @@
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
+import { Button } from '@/components/button'
+import Link from 'next/link'
 
 export default function OperationsPage() {
   return (
@@ -55,6 +57,56 @@ export default function OperationsPage() {
           </div>
           <Text className="text-2xl font-bold text-red-600">3</Text>
           <Text className="text-sm text-zinc-500">Critical</Text>
+        </div>
+      </div>
+
+      {/* Управление задачами */}
+      <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <Heading level={2}>Управление задачами</Heading>
+            <Text className="mt-2 text-zinc-600 dark:text-zinc-400">
+              Создание, назначение и отслеживание операционных задач
+            </Text>
+          </div>
+          <Link href="/operations/tasks">
+            <Button>Управление задачами</Button>
+          </Link>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-semibold text-sm">⏳</span>
+              </div>
+              <Text className="font-medium">Ожидающие задачи</Text>
+            </div>
+            <Text className="text-2xl font-bold text-orange-600">12</Text>
+            <Text className="text-sm text-zinc-500">Требуют назначения</Text>
+          </div>
+          
+          <div className="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-semibold text-sm">🔄</span>
+              </div>
+              <Text className="font-medium">В работе</Text>
+            </div>
+            <Text className="text-2xl font-bold text-blue-600">8</Text>
+            <Text className="text-sm text-zinc-500">Выполняются сейчас</Text>
+          </div>
+          
+          <div className="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-semibold text-sm">✅</span>
+              </div>
+              <Text className="font-medium">Завершены</Text>
+            </div>
+            <Text className="text-2xl font-bold text-green-600">45</Text>
+            <Text className="text-sm text-zinc-500">За сегодня</Text>
+          </div>
         </div>
       </div>
 

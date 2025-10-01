@@ -22,14 +22,14 @@ export const resolvers = {
     },
   },
   Mutation: {
-    createBooking: async (_: unknown, { input }: { input: any }, { dl }: Context) => {
+    createBooking: async (_: unknown, { input }: { input: any }, { dl, bookingService }: Context) => {
       // Check availability first
       const isAvailable = await dl.isRangeAvailable(input.unitId, input.checkIn, input.checkOut);
       if (!isAvailable) {
         throw new Error('Unit is not available for the selected dates');
       }
       
-      return dl.createBooking(input);
+      return bookingService.createBooking(input);
     },
     cancelBooking: (_: unknown, { id, reason }: { id: string; reason?: string }, { dl }: Context) => 
       dl.cancelBooking(id, reason),

@@ -10,22 +10,64 @@ import { OpsDLPrisma } from '@repo/datalayer-prisma';
 // @ts-ignore - PrismaClient is available at runtime but linter has cache issues
 import { PrismaClient } from '@prisma/client';
 
-import { createGraphQLLogger } from '@repo/shared-logger';  
+import { createGraphQLLogger } from '@repo/shared-logger';
+import { GrpcTransport } from './transport/grpc.transport.js';
+
 const logger = createGraphQLLogger('ops-subgraph');
 
-const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
-const schema = makeExecutableSchema({
-  typeDefs,
-  resolvers,
-});
+async function startServer() {
+  try {
+    logger.info('Starting Ops Subgraph with dual transport');
 
-const prisma = new PrismaClient();
-const dl = new OpsDLPrisma(prisma);
+    // Инициализируем datalayer
+    const prisma = new PrismaClient();
+    const dl = new OpsDLPrisma(prisma);
 
-const yoga = createYoga({
-  schema,
-  context: () => ({ dl }), // здесь легко подменить реализацию на другую (e.g. blockchain-DL)
-});
+    // Создаем GraphQL схему
+    const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
+    const schema = makeExecutableSchema({
+      typeDefs,
+      resolvers,
+    });
 
-const server = createServer(yoga);
-server.listen(4003, () => logger.info('Ops Subgraph server started on port 4003'));
+    const yoga = createYoga({
+      schema,
+      context: () => ({ dl }),
+    });
+
+    // Запускаем GraphQL сервер
+    const graphqlServer = createServer(yoga);
+    graphqlServer.listen(4003, () => {
+      logger.info('GraphQL server started on port 4003');
+    });
+
+    // Запускаем GRPC сервер с datalayer
+    const grpcTransport = new GrpcTransport('localhost', 4103, dl);
+    await grpcTransport.start();
+
+    logger.info('Ops Subgraph started successfully');
+    logger.info('GraphQL endpoint: http://localhost:4003/graphql');
+    logger.info('GRPC endpoint: localhost:4103');
+
+    // Graceful shutdown
+    process.on('SIGINT', async () => {
+      logger.info('Received SIGINT, shutting down gracefully');
+      await grpcTransport.stop();
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+
+    process.on('SIGTERM', async () => {
+      logger.info('Received SIGTERM, shutting down gracefully');
+      await grpcTransport.stop();
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+
+  } catch (error: any) {
+    logger.error('Failed to start Ops Subgraph', { error: error.message });
+    process.exit(1);
+  }
+}
+
+startServer();
