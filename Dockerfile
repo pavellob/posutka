@@ -19,11 +19,19 @@ COPY backend/ ./backend/
 COPY scripts/ ./scripts/
 COPY docker-entrypoint.sh ./
 
+# Отладочная информация
+RUN echo "🔍 Проверяем структуру после копирования:"
+RUN ls -la packages/grpc-sdk/ || echo "grpc-sdk не найден"
+RUN ls -la packages/grpc-sdk/generate.sh || echo "generate.sh не найден"
+
 # Делаем скрипты исполняемыми
 RUN chmod +x ./scripts/migrate-and-seed.sh
 RUN chmod +x ./docker-entrypoint.sh
 RUN chmod +x ./scripts/wait-for-subgraphs.sh
 RUN chmod +x ./packages/grpc-sdk/generate.sh
+
+# Проверяем, что скрипт стал исполняемым
+RUN ls -la ./packages/grpc-sdk/generate.sh
 
 # Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
