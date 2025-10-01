@@ -26,21 +26,23 @@
     "prebuild": "pnpm run clean"
   },
   "dependencies": {
-    "nice-grpc": "^2.1.12",
-    "nice-grpc-common": "^2.0.2",
     "@grpc/grpc-js": "^1.9.0",
     "@repo/shared-logger": "workspace:*",
-    "protobufjs": "^7.2.5",
-    "google-protobuf": "^3.21.2"
+    "google-protobuf": "^3.21.2",
+    "long": "^5.3.2",
+    "nice-grpc": "^2.1.12",
+    "nice-grpc-common": "^2.0.2",
+    "protobufjs": "^7.2.5"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.50.0",
+    "@types/long": "^5.0.0",
     "@types/node": "^22.0.0",
+    "google-proto-files": "^5.0.1",
     "rimraf": "^5.0.7",
     "ts-proto": "^1.181.2",
     "tsup": "^8.5.0",
-    "typescript": "^5.5.0",
-    "google-proto-files": "^5.0.1",
-    "@bufbuild/buf": "^1.50.0"
+    "typescript": "^5.5.0"
   },
   "peerDependencies": {
     "pino": "^9.7.0"
