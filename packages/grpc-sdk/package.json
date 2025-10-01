@@ -20,6 +20,8 @@
     "dev": "tsup --watch",
     "clean": "rimraf dist src/generated",
     "generate": "sh generate.sh",
+    "proto:generate": "pnpm proto:clean && buf generate --template buf.gen.node.yaml",
+    "proto:clean": "rimraf src/generated",
     "typecheck": "tsc --noEmit",
     "prebuild": "pnpm run clean"
   },
@@ -37,7 +39,8 @@
     "ts-proto": "^1.181.2",
     "tsup": "^8.5.0",
     "typescript": "^5.5.0",
-    "google-proto-files": "^5.0.1"
+    "google-proto-files": "^5.0.1",
+    "@bufbuild/buf": "^1.50.0"
   },
   "peerDependencies": {
     "pino": "^9.7.0"

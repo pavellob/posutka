@@ -52,7 +52,7 @@ message CreateCleaningTaskRequest {
   string room_id = 2;
   string booking_id = 3;
   google.protobuf.Timestamp scheduled_at = 4;
-  string notes = 5;
+  optional string notes = 5;
   TaskPriority priority = 6;
 }
 

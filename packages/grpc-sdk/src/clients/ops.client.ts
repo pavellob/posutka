@@ -1,7 +1,7 @@
 import { createChannel, createClient, Client, Channel } from 'nice-grpc';
 import { createGraphQLLogger } from '@repo/shared-logger';
 import type { 
-  OpsServiceClient, 
+  OpsServiceClientImpl, 
   CreateCleaningTaskRequest,
   TaskResponse,
   Task,
@@ -32,7 +32,7 @@ export interface CreateCleaningTaskParams {
 }
 
 export class OpsGrpcClient {
-  private client: OpsServiceClient | null = null;
+  private client: OpsServiceClientImpl | null = null;
   private channel: Channel | null = null;
   private isConnected = false;
   private retryAttempts: number;
@@ -102,7 +102,7 @@ export class OpsGrpcClient {
       logger.info('Sending GRPC request', { request });
 
       // Реальный GRPC вызов через сгенерированный клиент
-      const response = await this.client!.createCleaningTask(request);
+      const response = await this.client!.CreateCleaningTask(request);
       
       logger.info('Cleaning task created', { taskId: response.task?.id });
       return response;
@@ -167,4 +167,3 @@ export class OpsGrpcClient {
 export function createOpsGrpcClient(config: OpsGrpcClientConfig): OpsGrpcClient {
   return new OpsGrpcClient(config);
 }
-
