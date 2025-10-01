@@ -16,18 +16,19 @@
     }
   },
   "scripts": {
-    "build": "pnpm run generate:safe && tsup",
+    "build": "tsup",
+    "build:with-proto": "pnpm run generate && tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "generate": "mkdir -p src/generated && protoc --plugin=../../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=src/generated --ts_proto_opt=esModuleInterop=true,outputServices=nice-grpc,outputClientImpl=nice-grpc,useExactTypes=false,env=node,forceLong=string,useDate=true --proto_path=src/proto src/proto/*.proto",
-    "generate:safe": "pnpm run generate || echo 'Proto generation skipped (files already exist)'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "nice-grpc": "^2.1.12",
     "nice-grpc-common": "^2.0.2",
     "@grpc/grpc-js": "^1.9.0",
-    "@repo/shared-logger": "workspace:*"
+    "@repo/shared-logger": "workspace:*",
+    "protobufjs": "^7.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
