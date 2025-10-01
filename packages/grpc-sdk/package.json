@@ -19,7 +19,7 @@
     "build": "pnpm run generate && tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist src/generated",
-    "generate": "./generate.sh",
+    "generate": "sh generate.sh",
     "typecheck": "tsc --noEmit",
     "prebuild": "pnpm run clean"
   },
