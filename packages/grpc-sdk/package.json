@@ -16,19 +16,20 @@
     }
   },
   "scripts": {
-    "build": "tsup",
-    "build:with-proto": "pnpm run generate && tsup",
+    "build": "pnpm run generate && tsup",
     "dev": "tsup --watch",
-    "clean": "rimraf dist",
-    "generate": "mkdir -p src/generated && protoc --plugin=../../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=src/generated --ts_proto_opt=esModuleInterop=true,outputServices=nice-grpc,outputClientImpl=nice-grpc,useExactTypes=false,env=node,forceLong=string,useDate=true --proto_path=src/proto src/proto/*.proto",
-    "typecheck": "tsc --noEmit"
+    "clean": "rimraf dist src/generated",
+    "generate": "mkdir -p src/generated && protoc --plugin=../../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=src/generated --ts_proto_opt=esModuleInterop=true,outputServices=nice-grpc,outputClientImpl=nice-grpc,useExactTypes=false,env=node,forceLong=string,useDate=true --proto_path=src/proto --proto_path=../../node_modules/@protobuf-ts/protoc/installed/protoc-32.1-osx-aarch_64/include src/proto/*.proto",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "pnpm run clean"
   },
   "dependencies": {
     "nice-grpc": "^2.1.12",
     "nice-grpc-common": "^2.0.2",
     "@grpc/grpc-js": "^1.9.0",
     "@repo/shared-logger": "workspace:*",
-    "protobufjs": "^7.4.0"
+    "protobufjs": "^7.2.5",
+    "google-protobuf": "^3.21.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -41,4 +42,3 @@
     "pino": "^9.7.0"
   }
 }
-

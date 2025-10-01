@@ -4,9 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx --watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "tsx src/server.ts",
-    "generate": "echo 'No proto files to generate'",
+    "build": "npm run generate && tsc -p tsconfig.json",
+    "start": "npm run generate && tsx src/server.ts",
+    "generate": "protoc --plugin=../../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/generated --ts_proto_opt=esModuleInterop=true,useExactTypes=false,outputServices=nice-grpc,outputClientImpl=nice-grpc ./src/proto/*.proto || echo 'No proto files'",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "schema:publish": "hive schema:publish --registry.accessToken \"$HIVE_TOKEN\" --target \"$HIVE_TARGET\" --service bookings --url http://localhost:4002/graphql src/schema/index.gql",
@@ -23,7 +23,6 @@
     "graphql-tag": "^2.12.6",
     "graphql-yoga": "^5.6.0",
     "@repo/shared-logger": "workspace:*",
-    "nice-grpc": "^2.1.12",
     "pino": "^8.17.2",
     "pino-pretty": "^10.3.1"
   },

@@ -13,14 +13,11 @@ COPY turbo.json ./
 COPY tsconfig.base.json ./
 COPY base-schema.gql ./
 
-# Копируем все пакеты (включая сгенерированные proto файлы), приложения и скрипты
+# Копируем все пакеты, приложения и скрипты
 COPY packages/ ./packages/
 COPY backend/ ./backend/
 COPY scripts/ ./scripts/
 COPY docker-entrypoint.sh ./
-
-# Убеждаемся, что proto файлы скопированы
-RUN ls -la packages/grpc-sdk/src/generated/ || echo "Generated proto files not found, will generate during build"
 
 # Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
@@ -42,7 +39,7 @@ RUN cat > ./start.sh << 'EOF'
 
 echo "🚀 Запуск Posutka GraphQL Federation..."
 
-# Сначала выполняем миграции (сиды закомментированы в скрипте)
+# Сначала выполняем миграции и сиды
 echo "📊 Подготовка базы данных..."
 ./scripts/migrate-and-seed.sh
 
