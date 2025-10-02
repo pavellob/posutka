@@ -11,6 +11,7 @@ import { Select } from '@/components/select'
 import { Input } from '@/components/input'
 import { Dialog } from '@/components/dialog'
 import { GET_TASKS, GET_SERVICE_PROVIDERS, ASSIGN_TASK, UPDATE_TASK_STATUS } from '@/lib/graphql-queries'
+import { CreateTaskDialog } from '@/components/create-task-dialog'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import type { 
@@ -27,6 +28,7 @@ type ServiceProvider = NonNullable<GetServiceProvidersQuery['serviceProviders'][
 export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [filters, setFilters] = useState({
     status: '',
     type: '',
@@ -89,10 +91,10 @@ export default function TasksPage() {
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
-      'PENDING': { color: 'orange' as const, text: 'Ожидает' },
+      'TODO': { color: 'orange' as const, text: 'Ожидает' },
       'IN_PROGRESS': { color: 'blue' as const, text: 'В работе' },
-      'COMPLETED': { color: 'green' as const, text: 'Завершена' },
-      'CANCELLED': { color: 'red' as const, text: 'Отменена' }
+      'DONE': { color: 'green' as const, text: 'Завершена' },
+      'CANCELED': { color: 'red' as const, text: 'Отменена' }
     }
     const statusInfo = statusMap[status as keyof typeof statusMap] || { color: 'zinc' as const, text: status }
     return <Badge color={statusInfo.color}>{statusInfo.text}</Badge>
@@ -101,9 +103,10 @@ export default function TasksPage() {
   const getTypeBadge = (type: string) => {
     const typeMap = {
       'CLEANING': { color: 'blue' as const, text: 'Уборка' },
+      'CHECKIN': { color: 'green' as const, text: 'Заселение' },
+      'CHECKOUT': { color: 'purple' as const, text: 'Выселение' },
       'MAINTENANCE': { color: 'orange' as const, text: 'Обслуживание' },
-      'INSPECTION': { color: 'purple' as const, text: 'Инспекция' },
-      'REPAIR': { color: 'red' as const, text: 'Ремонт' }
+      'INVENTORY': { color: 'cyan' as const, text: 'Инвентаризация' }
     }
     const typeInfo = typeMap[type as keyof typeof typeMap] || { color: 'zinc' as const, text: type }
     return <Badge color={typeInfo.color}>{typeInfo.text}</Badge>
@@ -134,6 +137,13 @@ export default function TasksPage() {
 
   const tasks = tasksData?.tasks?.edges?.map(edge => edge.node) || []
 
+  // Подсчет статистики
+  const totalTasks = tasks.length
+  const todoTasks = tasks.filter(t => t.status === 'TODO').length
+  const inProgressTasks = tasks.filter(t => t.status === 'IN_PROGRESS').length
+  const doneTasks = tasks.filter(t => t.status === 'DONE').length
+  const canceledTasks = tasks.filter(t => t.status === 'CANCELED').length
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -143,12 +153,80 @@ export default function TasksPage() {
             Управление операционными задачами и их выполнение
           </Text>
         </div>
-        <Button>Создать задачу</Button>
+        <Button onClick={() => setShowCreateDialog(true)}>
+          Создать задачу
+        </Button>
+      </div>
+
+      {/* Статистика */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">📋</span>
+            </div>
+            <Heading level={3}>Всего задач</Heading>
+          </div>
+          <Text className="text-2xl font-bold text-blue-600">{totalTasks}</Text>
+          <Text className="text-sm text-zinc-500">Задач в системе</Text>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">⏳</span>
+            </div>
+            <Heading level={3}>Ожидают</Heading>
+          </div>
+          <Text className="text-2xl font-bold text-orange-600">{todoTasks}</Text>
+          <Text className="text-sm text-zinc-500">
+            {totalTasks > 0 ? `${Math.round((todoTasks / totalTasks) * 100)}%` : '0%'}
+          </Text>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">🔧</span>
+            </div>
+            <Heading level={3}>В работе</Heading>
+          </div>
+          <Text className="text-2xl font-bold text-blue-600">{inProgressTasks}</Text>
+          <Text className="text-sm text-zinc-500">
+            {totalTasks > 0 ? `${Math.round((inProgressTasks / totalTasks) * 100)}%` : '0%'}
+          </Text>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">✅</span>
+            </div>
+            <Heading level={3}>Завершены</Heading>
+          </div>
+          <Text className="text-2xl font-bold text-green-600">{doneTasks}</Text>
+          <Text className="text-sm text-zinc-500">
+            {totalTasks > 0 ? `${Math.round((doneTasks / totalTasks) * 100)}%` : '0%'}
+          </Text>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">❌</span>
+            </div>
+            <Heading level={3}>Отменены</Heading>
+          </div>
+          <Text className="text-2xl font-bold text-red-600">{canceledTasks}</Text>
+          <Text className="text-sm text-zinc-500">
+            {totalTasks > 0 ? `${Math.round((canceledTasks / totalTasks) * 100)}%` : '0%'}
+          </Text>
+        </div>
       </div>
 
       {/* Фильтры */}
       <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Статус</label>
             <Select
@@ -156,10 +234,10 @@ export default function TasksPage() {
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
             >
               <option value="">Все статусы</option>
-              <option value="PENDING">Ожидает</option>
+              <option value="TODO">Ожидает</option>
               <option value="IN_PROGRESS">В работе</option>
-              <option value="COMPLETED">Завершена</option>
-              <option value="CANCELLED">Отменена</option>
+              <option value="DONE">Завершена</option>
+              <option value="CANCELED">Отменена</option>
             </Select>
           </div>
           <div>
@@ -170,25 +248,64 @@ export default function TasksPage() {
             >
               <option value="">Все типы</option>
               <option value="CLEANING">Уборка</option>
-              <option value="MAINTENANCE">Обслуживание</option>
-              <option value="INSPECTION">Инспекция</option>
-              <option value="REPAIR">Ремонт</option>
+              <option value="CHECKIN">Заселение гостя</option>
+              <option value="CHECKOUT">Выселение гостя</option>
+              <option value="MAINTENANCE">Техническое обслуживание</option>
+              <option value="INVENTORY">Инвентаризация</option>
             </Select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Поиск</label>
             <Input
-              placeholder="Поиск по задачам..."
+              placeholder="Поиск по заметкам..."
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             />
           </div>
-          <div className="flex items-end">
-            <Button onClick={() => refetch()} className="w-full">
-              Применить фильтры
+          <div className="flex items-end gap-2">
+            <Button 
+              onClick={() => refetch()} 
+              className="flex-1"
+              color="blue"
+            >
+              Применить
+            </Button>
+            <Button 
+              onClick={() => setFilters({ status: '', type: '', search: '' })}
+              outline
+              className="flex-1"
+            >
+              Сбросить
             </Button>
           </div>
         </div>
+        
+        {/* Активные фильтры */}
+        {(filters.status || filters.type || filters.search) && (
+          <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+            <div className="flex flex-wrap gap-2">
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">Активные фильтры:</Text>
+              {filters.status && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full text-xs">
+                  Статус: {filters.status === 'TODO' ? 'Ожидает' : filters.status === 'IN_PROGRESS' ? 'В работе' : filters.status === 'DONE' ? 'Завершена' : filters.status === 'CANCELED' ? 'Отменена' : filters.status}
+                  <button onClick={() => setFilters({ ...filters, status: '' })} className="ml-1 hover:text-blue-600">×</button>
+                </span>
+              )}
+              {filters.type && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-xs">
+                  Тип: {filters.type === 'CLEANING' ? 'Уборка' : filters.type === 'CHECKIN' ? 'Заселение' : filters.type === 'CHECKOUT' ? 'Выселение' : filters.type === 'MAINTENANCE' ? 'Обслуживание' : filters.type === 'INVENTORY' ? 'Инвентаризация' : filters.type}
+                  <button onClick={() => setFilters({ ...filters, type: '' })} className="ml-1 hover:text-green-600">×</button>
+                </span>
+              )}
+              {filters.search && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 rounded-full text-xs">
+                  Поиск: &ldquo;{filters.search}&rdquo;
+                  <button onClick={() => setFilters({ ...filters, search: '' })} className="ml-1 hover:text-orange-600">×</button>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Таблица задач */}
@@ -243,27 +360,29 @@ export default function TasksPage() {
                 </td>
                 <td>
                   <div className="flex gap-2">
-                    {String(task.status) === 'PENDING' && (
+                    {String(task.status) === 'TODO' && (
                       <Button
                         onClick={() => {
                           setSelectedTask(task)
                           setShowAssignDialog(true)
                         }}
+                        color="blue"
                       >
                         Назначить
                       </Button>
                     )}
                     {String(task.status) === 'IN_PROGRESS' && (
                       <Button
-                        onClick={() => handleUpdateStatus(task.id, 'COMPLETED')}
+                        onClick={() => handleUpdateStatus(task.id, 'DONE')}
+                        color="green"
                       >
                         Завершить
                       </Button>
                     )}
-                    {String(task.status) === 'PENDING' && (
+                    {(String(task.status) === 'TODO' || String(task.status) === 'IN_PROGRESS') && (
                       <Button
                         color="red"
-                        onClick={() => handleUpdateStatus(task.id, 'CANCELLED')}
+                        onClick={() => handleUpdateStatus(task.id, 'CANCELED')}
                       >
                         Отменить
                       </Button>
@@ -302,6 +421,16 @@ export default function TasksPage() {
           </div>
         </div>
       </Dialog>
+
+      {/* Диалог создания задачи */}
+      <CreateTaskDialog
+        isOpen={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['tasks'] })
+        }}
+        orgId={orgId!}
+      />
     </div>
   )
 }

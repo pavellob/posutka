@@ -52,11 +52,42 @@ export const resolvers = {
       }
     },
     unitsByPropertyId: async (_: unknown, { propertyId }: { propertyId: string }, { dl }: Context) => {
+      logger.resolverStart('unitsByPropertyId', { propertyId });
+      const startTime = Date.now();
+      
       try {
+        logger.debug('Calling data layer getUnitsByPropertyId', { propertyId });
         const units = await dl.getUnitsByPropertyId(propertyId);
+        const executionTime = Date.now() - startTime;
+        
+        logger.resolverEnd('unitsByPropertyId', units, executionTime);
+        logger.info('GraphQL resolver returning units', {
+          count: units?.length || 0,
+          executionTime: `${executionTime}ms`,
+          propertyId: propertyId
+        });
+        
+        if (units && units.length > 0) {
+          logger.debug('Units details', { 
+            units: units.map(u => ({
+              id: u.id,
+              name: u.name,
+              capacity: u.capacity
+            }))
+          });
+        } else {
+          logger.warn('No units found for propertyId', { propertyId });
+        }
+        
         return units || [];
       } catch (error) {
-        logger.error('Error fetching units by propertyId', error, { propertyId });
+        const executionTime = Date.now() - startTime;
+        logger.graphqlError('unitsByPropertyId', error, { propertyId });
+        logger.error('Error fetching units by propertyId', error, {
+          propertyId: propertyId,
+          executionTime: `${executionTime}ms`,
+          timestamp: new Date().toISOString()
+        });
         return [];
       }
     },

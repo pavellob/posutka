@@ -12,7 +12,11 @@ export class InventoryDLPrisma implements IDataLayerInventory {
 
   async getPropertyById(id: string): Promise<Property | null> {
     const property = await this.prisma.property.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        org: true,
+        units: true,
+      }
     });
     
     if (!property) return null;
@@ -46,6 +50,10 @@ export class InventoryDLPrisma implements IDataLayerInventory {
         title: input.title,
         address: input.address,
         amenities: input.amenities,
+      },
+      include: {
+        org: true,
+        units: true,
       }
     });
     
@@ -54,7 +62,10 @@ export class InventoryDLPrisma implements IDataLayerInventory {
 
   async getUnitById(id: string): Promise<Unit | null> {
     const unit = await this.prisma.unit.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        property: true,
+      }
     });
     
     if (!unit) return null;
@@ -63,11 +74,21 @@ export class InventoryDLPrisma implements IDataLayerInventory {
   }
 
   async getUnitsByPropertyId(propertyId: string): Promise<Unit[]> {
+    console.log('🔍 InventoryDLPrisma.getUnitsByPropertyId called with propertyId:', propertyId);
+    
     const units = await this.prisma.unit.findMany({
-      where: { propertyId }
+      where: { propertyId },
+      include: {
+        property: true,
+      }
     });
     
-    return units.map((u: any) => this.mapUnitFromPrisma(u));
+    console.log('📊 Found units:', units.length, units);
+    
+    const mappedUnits = units.map((u: any) => this.mapUnitFromPrisma(u));
+    console.log('🔄 Mapped units:', mappedUnits);
+    
+    return mappedUnits;
   }
 
   async createUnit(input: Pick<Unit, 'propertyId' | 'name' | 'capacity' | 'beds' | 'bathrooms' | 'amenities'>): Promise<Unit> {
@@ -79,6 +100,9 @@ export class InventoryDLPrisma implements IDataLayerInventory {
         beds: input.beds,
         bathrooms: input.bathrooms,
         amenities: input.amenities,
+      },
+      include: {
+        property: true,
       }
     });
     
@@ -201,6 +225,7 @@ export class InventoryDLPrisma implements IDataLayerInventory {
       beds: unit.beds,
       bathrooms: unit.bathrooms,
       amenities: unit.amenities,
+      property: unit.property,
     };
   }
 }

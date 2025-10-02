@@ -75,10 +75,14 @@ export default function BookingsPage() {
     enabled: !!orgId
   })
 
-  const { data: unitsData } = useQuery<GetUnitsByPropertyQuery>({
+  const { data: unitsData, isLoading: unitsLoading, error: unitsError } = useQuery<GetUnitsByPropertyQuery>({
     queryKey: ['units', selectedProperty],
-    queryFn: () => graphqlClient.request(GET_UNITS_BY_PROPERTY, { propertyId: selectedProperty }),
-    enabled: !!selectedProperty
+    queryFn: () => {
+      console.log('🔄 Fetching units for property:', selectedProperty)
+      return graphqlClient.request(GET_UNITS_BY_PROPERTY, { propertyId: selectedProperty })
+    },
+    enabled: !!selectedProperty,
+    retry: 1
   })
 
   // Мутации
@@ -151,7 +155,18 @@ export default function BookingsPage() {
 
   const bookings = bookingsData?.bookings?.edges?.map(edge => edge.node) || []
   const properties = propertiesData?.propertiesByOrgId || []
-  const units = unitsData?.unitsByPropertyId || []
+  const units = (unitsData as any)?.unitsByPropertyId || []
+
+  // Отладочная информация
+  console.log('🔍 Bookings Page Debug:', {
+    orgId,
+    selectedProperty,
+    propertiesCount: properties.length,
+    unitsCount: units.length,
+    properties,
+    units,
+    unitsLoading
+  })
 
   // Подсчет статистики
   const totalBookings = bookings.length
@@ -399,15 +414,32 @@ export default function BookingsPage() {
                   value={selectedUnit}
                   onChange={(e) => setSelectedUnit(e.target.value)}
                   required
-                  disabled={!selectedProperty}
+                  disabled={!selectedProperty || unitsLoading}
                 >
-                  <option value="">Выберите единицу</option>
-                  {units.map((unit) => (
+                  <option value="">
+                    {!selectedProperty 
+                      ? "Сначала выберите объект" 
+                      : unitsLoading 
+                        ? "Загрузка единиц..." 
+                        : "Выберите единицу"
+                    }
+                  </option>
+                  {units.map((unit: any) => (
                     <option key={unit.id} value={unit.id}>
                       {unit.name} (вместимость: {unit.capacity})
                     </option>
                   ))}
                 </Select>
+                {selectedProperty && !unitsLoading && units.length === 0 && (
+                  <Text className="text-sm text-orange-600 mt-1">
+                    В выбранном объекте нет единиц недвижимости
+                  </Text>
+                )}
+                {unitsError && (
+                  <Text className="text-sm text-red-600 mt-1">
+                    Ошибка загрузки единиц: {unitsError.message}
+                  </Text>
+                )}
               </div>
             </div>
 

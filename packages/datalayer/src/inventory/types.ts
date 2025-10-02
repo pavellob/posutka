@@ -24,6 +24,7 @@ export interface Unit {
   beds: number;
   bathrooms: number;
   amenities: string[];
+  property?: Property;
 }
 
 export type AvailabilityStatus = 'AVAILABLE' | 'BLOCKED' | 'BOOKED';

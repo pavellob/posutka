@@ -3,6 +3,9 @@
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
+import { Button } from '@/components/button'
+import { CreatePropertyDialog } from '@/components/create-property-dialog'
+import { CreateUnitDialog } from '@/components/create-unit-dialog'
 import React, { useState } from 'react'
 import { useGetPropertiesByOrgQuery, useGetUnitsByPropertyQuery, useGetAllOrganizationsQuery } from '@/lib/generated/graphql'
 import { graphqlClient } from '@/lib/graphql-client'
@@ -10,6 +13,9 @@ import { graphqlClient } from '@/lib/graphql-client'
 export default function InventoryPage() {
   // Состояние для выбранного объекта
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
+  // Состояние для диалогов создания
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isCreateUnitDialogOpen, setIsCreateUnitDialogOpen] = useState(false)
   
   // Получаем все организации
   const { data: organizationsData, isLoading: organizationsLoading, error: organizationsError } = useGetAllOrganizationsQuery(
@@ -29,52 +35,48 @@ export default function InventoryPage() {
   const [isLoadingProperties, setIsLoadingProperties] = useState(false)
   const [propertiesError, setPropertiesError] = useState<Error | null>(null)
   
-  // Эффект для получения объектов из всех организаций
-  React.useEffect(() => {
-    console.log('Organizations data:', organizationsData)
+  // Функция для обновления списка объектов
+  const refreshProperties = React.useCallback(async () => {
     if (organizationsData?.organizations?.edges) {
-      console.log('Found organizations:', organizationsData.organizations.edges.length)
       setIsLoadingProperties(true)
       setPropertiesError(null)
       
-      const fetchAllProperties = async () => {
-        try {
-          const propertiesPromises = organizationsData.organizations.edges.map(async (orgEdge) => {
-            const orgId = orgEdge.node.id
-            // Здесь мы бы использовали useGetPropertiesByOrgQuery для каждой организации
-            // Но поскольку мы не можем использовать хуки в цикле, используем прямой запрос
-            const response = await graphqlClient.request(`
-              query GetPropertiesByOrg($orgId: UUID!) {
-                propertiesByOrgId(orgId: $orgId) {
+      try {
+        const propertiesPromises = organizationsData.organizations.edges.map(async (orgEdge) => {
+          const orgId = orgEdge.node.id
+          const response = await graphqlClient.request(`
+            query GetPropertiesByOrg($orgId: UUID!) {
+              propertiesByOrgId(orgId: $orgId) {
+                id
+                title
+                address
+                amenities
+                org {
                   id
-                  title
-                  address
-                  amenities
-                  org {
-                    id
-                    name
-                  }
+                  name
                 }
               }
-            `, { orgId }) as any
-            return response.propertiesByOrgId
-          })
-          
-          const allPropertiesArrays = await Promise.all(propertiesPromises)
-          const flattenedProperties = allPropertiesArrays.flat()
-          console.log('All properties found:', flattenedProperties.length)
-          setAllProperties(flattenedProperties)
-        } catch (error) {
-          console.error('Error fetching properties:', error)
-          setPropertiesError(error as Error)
-        } finally {
-          setIsLoadingProperties(false)
-        }
+            }
+          `, { orgId }) as any
+          return response.propertiesByOrgId
+        })
+        
+        const allPropertiesArrays = await Promise.all(propertiesPromises)
+        const flattenedProperties = allPropertiesArrays.flat()
+        setAllProperties(flattenedProperties)
+      } catch (error) {
+        console.error('Error fetching properties:', error)
+        setPropertiesError(error as Error)
+      } finally {
+        setIsLoadingProperties(false)
       }
-      
-      fetchAllProperties()
     }
   }, [organizationsData])
+
+  // Эффект для получения объектов из всех организаций
+  React.useEffect(() => {
+    refreshProperties()
+  }, [refreshProperties])
   
   const { data: unitsData, isLoading: unitsLoading } = useGetUnitsByPropertyQuery(
     { 
@@ -194,10 +196,20 @@ export default function InventoryPage() {
       {/* Список объектов недвижимости */}
       <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
         <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
-          <Heading level={2}>Объекты Недвижимости</Heading>
-          <Text className="text-zinc-600 dark:text-zinc-400">
-            Управление всеми объектами недвижимости в системе
-          </Text>
+          <div className="flex items-center justify-between">
+            <div>
+              <Heading level={2}>Объекты Недвижимости</Heading>
+              <Text className="text-zinc-600 dark:text-zinc-400">
+                Управление всеми объектами недвижимости в системе
+              </Text>
+            </div>
+            <Button
+              onClick={() => setIsCreateDialogOpen(true)}
+              color="blue"
+            >
+              Создать объект
+            </Button>
+          </div>
         </div>
         <div className="p-6">
           {allProperties?.length === 0 ? (
@@ -263,10 +275,20 @@ export default function InventoryPage() {
       {selectedPropertyId && (
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
           <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
-            <Heading level={2}>Единицы Недвижимости</Heading>
-            <Text className="text-zinc-600 dark:text-zinc-400">
-              Единицы в выбранном объекте недвижимости
-            </Text>
+            <div className="flex items-center justify-between">
+              <div>
+                <Heading level={2}>Единицы Недвижимости</Heading>
+                <Text className="text-zinc-600 dark:text-zinc-400">
+                  Единицы в выбранном объекте недвижимости
+                </Text>
+              </div>
+              <Button
+                onClick={() => setIsCreateUnitDialogOpen(true)}
+                color="green"
+              >
+                Создать единицу
+              </Button>
+            </div>
           </div>
           <div className="p-6">
             {unitsLoading ? (
@@ -329,6 +351,24 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
+
+      {/* Диалоги создания */}
+      <CreatePropertyDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        onSuccess={refreshProperties}
+      />
+      
+      <CreateUnitDialog
+        isOpen={isCreateUnitDialogOpen}
+        onClose={() => setIsCreateUnitDialogOpen(false)}
+        onSuccess={() => {
+          // Обновляем список единиц при создании новой единицы
+          window.location.reload() // Простое решение для обновления данных
+        }}
+        propertyId={selectedPropertyId || ''}
+        propertyTitle={allProperties.find(p => p.id === selectedPropertyId)?.title || ''}
+      />
     </div>
   )
 }
