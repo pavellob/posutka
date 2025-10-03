@@ -22,7 +22,7 @@ import {
   SidebarSpacer,
 } from '@/components/sidebar'
 import { SidebarLayout } from '@/components/sidebar-layout'
-import { DomainSelector } from '@/components/domain-selector'
+import { SidebarNavigation } from '@/components/sidebar-navigation'
 import { getEvents } from '@/data'
 import {
   ArrowRightStartOnRectangleIcon,
@@ -95,84 +95,7 @@ export function ApplicationLayout({
           </NavbarSection>
         </Navbar>
       }
-      sidebar={
-        <Sidebar>
-          <SidebarHeader>
-            <DomainSelector />
-          </SidebarHeader>
-
-          <SidebarBody>
-            <SidebarSection>
-              <SidebarItem href="/" aria-current={pathname === '/' ? 'page' : undefined}>
-                <HomeIcon />
-                <SidebarLabel>Dashboard</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem href="/inventory" aria-current={pathname === '/inventory' ? 'page' : undefined}>
-                <Square2StackIcon />
-                <SidebarLabel>Inventory</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem href="/bookings" aria-current={pathname === '/bookings' ? 'page' : undefined}>
-                <TicketIcon />
-                <SidebarLabel>Bookings</SidebarLabel>
-              </SidebarItem>
-            </SidebarSection>
-
-            <SidebarSection>
-              <SidebarHeading>Управление</SidebarHeading>
-              <SidebarItem href="/operations" aria-current={pathname === '/operations' ? 'page' : undefined}>
-                <Cog6ToothIcon />
-                <SidebarLabel>Операции</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
-                <Cog6ToothIcon />
-                <SidebarLabel>Настройки</SidebarLabel>
-              </SidebarItem>
-            </SidebarSection>
-
-            <SidebarSection className="max-lg:hidden">
-              <SidebarHeading>Ближайшие События</SidebarHeading>
-              {events.map((event) => (
-                <SidebarItem key={event.id} href={event.url}>
-                  {event.name}
-                </SidebarItem>
-              ))}
-            </SidebarSection>
-
-            <SidebarSpacer />
-
-            <SidebarSection>
-              <SidebarItem href="#">
-                <QuestionMarkCircleIcon />
-                <SidebarLabel>Поддержка</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem href="#">
-                <SparklesIcon />
-                <SidebarLabel>История Изменений</SidebarLabel>
-              </SidebarItem>
-            </SidebarSection>
-          </SidebarBody>
-
-          <SidebarFooter className="max-lg:hidden">
-            <Dropdown>
-              <DropdownButton as={SidebarItem}>
-                <span className="flex min-w-0 items-center gap-3">
-                  <Avatar src="/users/erica.jpg" className="size-10" square alt="" />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">
-                      {loading ? 'Loading...' : user?.name || 'User'}
-                    </span>
-                    <span className="block truncate text-xs/5 font-normal text-zinc-500 dark:text-zinc-400">
-                      {loading ? 'Loading...' : user?.email || 'user@example.com'}
-                    </span>
-                  </span>
-                </span>
-                <ChevronUpIcon />
-              </DropdownButton>
-              <AccountDropdownMenu anchor="top start" />
-            </Dropdown>
-          </SidebarFooter>
-        </Sidebar>
-      }
+      sidebar={<SidebarNavigation />}
     >
       {children}
     </SidebarLayout>

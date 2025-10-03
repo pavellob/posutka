@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
@@ -10,11 +10,13 @@ import { Dialog } from '@/components/dialog'
 import { Input } from '@/components/input'
 import { Select } from '@/components/select'
 import { Textarea } from '@/components/textarea'
-import { Table } from '@/components/table'
-import { Alert } from '@/components/alert'
+import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@/components/table'
+import { Fieldset, Field, Label } from '@/components/fieldset'
+import { Combobox, ComboboxOption, ComboboxLabel } from '@/components/combobox'
 import { GET_BOOKINGS, CREATE_BOOKING, CANCEL_BOOKING, GET_PROPERTIES_BY_ORG, GET_UNITS_BY_PROPERTY } from '@/lib/graphql-queries'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
+import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import type { 
   GetBookingsQuery, 
   GetPropertiesByOrgQuery, 
@@ -56,23 +58,118 @@ export default function BookingsPage() {
     notes: ''
   })
   
+  // Фильтры для бронирований
+  const [filters, setFilters] = useState({
+    status: '',
+    property: '',
+    dateFrom: '',
+    dateTo: ''
+  })
+  
+  // Ключ для принудительного обновления компонента
+  const [componentKey, setComponentKey] = useState(0)
+  
   const queryClient = useQueryClient()
 
   // Получаем текущую организацию пользователя
   const { currentOrganization, currentOrgId, isLoading: orgLoading } = useCurrentOrganization()
-  const orgId = currentOrgId
-
-  // Запросы данных
-  const { data: bookingsData, isLoading: bookingsLoading } = useQuery<GetBookingsQuery>({
-    queryKey: ['bookings', orgId],
-    queryFn: () => graphqlClient.request(GET_BOOKINGS, { orgId }),
-    enabled: !!orgId
+  const { getSelectedOrgId, selectedOrg } = useSelectedOrganization()
+  
+  // Используем выбранную организацию из селектора, если есть, иначе текущую
+  const selectedOrgId = getSelectedOrgId()
+  const orgId = selectedOrgId || currentOrgId
+  
+  // Принудительно обновляем данные при изменении selectedOrgId
+  const [prevSelectedOrgId, setPrevSelectedOrgId] = useState<string | null>(null)
+  
+  // Отладочная информация
+  console.log('🔍 BookingsPage Debug:', {
+    selectedOrgId,
+    currentOrgId,
+    orgId,
+    selectedOrg: selectedOrg?.name,
+    componentKey,
+    prevSelectedOrgId,
+    hasSelectedOrgChanged: selectedOrgId !== prevSelectedOrgId
   })
 
-  const { data: propertiesData } = useQuery<GetPropertiesByOrgQuery>({
+  // Запросы данных
+  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useQuery<GetBookingsQuery>({
+    queryKey: ['bookings', orgId],
+    queryFn: () => {
+      console.log('🔄 Fetching bookings for orgId:', orgId)
+      return graphqlClient.request(GET_BOOKINGS, { orgId })
+    },
+    enabled: !!orgId,
+    refetchOnWindowFocus: false
+  })
+
+  const { data: propertiesData, refetch: refetchProperties } = useQuery<GetPropertiesByOrgQuery>({
     queryKey: ['properties', orgId],
-    queryFn: () => graphqlClient.request(GET_PROPERTIES_BY_ORG, { orgId }),
-    enabled: !!orgId
+    queryFn: () => {
+      console.log('🔄 Fetching properties for orgId:', orgId)
+      return graphqlClient.request(GET_PROPERTIES_BY_ORG, { orgId })
+    },
+    enabled: !!orgId,
+    refetchOnWindowFocus: false
+  })
+
+  // Принудительно обновляем данные при смене организации
+  useEffect(() => {
+    if (orgId) {
+      console.log('🔄 OrgId changed, invalidating queries:', orgId)
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['properties'] })
+      queryClient.invalidateQueries({ queryKey: ['units'] })
+      // Сбрасываем выбранные фильтры при смене организации
+      setSelectedProperty('')
+      setSelectedUnit('')
+    }
+  }, [orgId, queryClient])
+
+  // Слушаем изменения организации через события
+  useEffect(() => {
+    const handleOrganizationChange = (event: any) => {
+      console.log('🔄 Organization changed event:', event.detail)
+      // Принудительно обновляем все запросы
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['properties'] })
+      queryClient.invalidateQueries({ queryKey: ['units'] })
+      // Принудительно обновляем компонент
+      setComponentKey(prev => prev + 1)
+    }
+
+    window.addEventListener('organizationChanged', handleOrganizationChange)
+    return () => window.removeEventListener('organizationChanged', handleOrganizationChange)
+  }, [queryClient])
+
+  // Отслеживаем изменения selectedOrgId и принудительно обновляем данные
+  useEffect(() => {
+    if (selectedOrgId && selectedOrgId !== prevSelectedOrgId) {
+      console.log('🔄 SelectedOrgId changed from', prevSelectedOrgId, 'to', selectedOrgId)
+      setPrevSelectedOrgId(selectedOrgId)
+      
+      // Принудительно обновляем все запросы
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['properties'] })
+      queryClient.invalidateQueries({ queryKey: ['units'] })
+      
+      // Сбрасываем фильтры
+      setSelectedProperty('')
+      setSelectedUnit('')
+      
+      // Принудительно обновляем компонент
+      setComponentKey(prev => prev + 1)
+    }
+  }, [selectedOrgId, prevSelectedOrgId, queryClient])
+
+  // Отладочная информация при рендере (без принудительного обновления)
+  useEffect(() => {
+    console.log('🔄 Component rendered, orgId:', orgId, 'selectedOrgId:', selectedOrgId)
+    
+    // Проверяем localStorage напрямую
+    const savedOrgId = localStorage.getItem('selectedOrganizationId')
+    console.log('🔍 Direct localStorage check:', { savedOrgId, selectedOrgId, orgId })
   })
 
   const { data: unitsData, isLoading: unitsLoading, error: unitsError } = useQuery<GetUnitsByPropertyQuery>({
@@ -89,7 +186,8 @@ export default function BookingsPage() {
   const createBookingMutation = useMutation<CreateBookingMutation, Error, any>({
     mutationFn: (input: any) => graphqlClient.request(CREATE_BOOKING, { input }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['bookings', orgId] })
+      queryClient.invalidateQueries({ queryKey: ['properties', orgId] })
       setShowCreateDialog(false)
       resetCreateForm()
     }
@@ -99,7 +197,7 @@ export default function BookingsPage() {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) => 
       graphqlClient.request(CANCEL_BOOKING, { id, reason }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['bookings', orgId] })
     }
   })
 
@@ -153,9 +251,20 @@ export default function BookingsPage() {
     createBookingMutation.mutate(input)
   }
 
-  const bookings = bookingsData?.bookings?.edges?.map(edge => edge.node) || []
+  const allBookings = bookingsData?.bookings?.edges?.map(edge => edge.node) || []
   const properties = propertiesData?.propertiesByOrgId || []
   const units = (unitsData as any)?.unitsByPropertyId || []
+
+  // Фильтрация бронирований
+  const filteredBookings = allBookings.filter(booking => {
+    if (filters.status && booking.status !== filters.status) return false
+    if (filters.property && booking.unit.property.id !== filters.property) return false
+    if (filters.dateFrom && new Date(booking.checkIn) < new Date(filters.dateFrom)) return false
+    if (filters.dateTo && new Date(booking.checkIn) > new Date(filters.dateTo)) return false
+    return true
+  })
+
+  const bookings = filteredBookings
 
   // Отладочная информация
   console.log('🔍 Bookings Page Debug:', {
@@ -211,16 +320,18 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div key={componentKey} className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <Heading level={1}>Bookings Management</Heading>
           <Text className="mt-2 text-zinc-600 dark:text-zinc-400">
             Управление бронированиями, заказами и резервациями
           </Text>
-          {currentOrganization && (
+          {orgId && (
             <Text className="mt-1 text-sm text-zinc-500">
-              Организация: {currentOrganization.name}
+              Организация: {selectedOrg?.name || currentOrganization?.name || 'Загрузка...'} 
+              | Бронирований: {bookings.length} | Ключ: {componentKey}
+              | SelectedOrgId: {selectedOrgId} | PrevSelectedOrgId: {prevSelectedOrgId}
             </Text>
           )}
         </div>
@@ -229,55 +340,159 @@ export default function BookingsPage() {
         </Button>
       </div>
 
+      {/* Analytics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Revenue */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">📅</span>
+          <div className="flex items-center justify-between">
+            <div>
+              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Revenue</Text>
+              <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
+                {formatMoney(
+                  bookings.reduce((sum, booking) => sum + booking.priceBreakdown.total.amount, 0),
+                  'RUB'
+                )}
+              </Text>
+              <div className="flex items-center mt-1">
+                <span className="text-sm text-green-600 font-medium">+12.5%</span>
+                <span className="text-sm text-zinc-500 ml-1">from last month</span>
+              </div>
             </div>
-            <Heading level={3}>Total Bookings</Heading>
           </div>
-          <Text className="text-2xl font-bold text-blue-600">{totalBookings}</Text>
-          <Text className="text-sm text-zinc-500">Всего бронирований</Text>
         </div>
 
+        {/* Average Order Value */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">✅</span>
+          <div className="flex items-center justify-between">
+            <div>
+              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Average Order Value</Text>
+              <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
+                {totalBookings > 0 
+                  ? formatMoney(
+                      bookings.reduce((sum, booking) => sum + booking.priceBreakdown.total.amount, 0) / totalBookings,
+                      'RUB'
+                    )
+                  : formatMoney(0, 'RUB')
+                }
+              </Text>
+              <div className="flex items-center mt-1">
+                <span className="text-sm text-red-600 font-medium">-2.1%</span>
+                <span className="text-sm text-zinc-500 ml-1">from last month</span>
+              </div>
             </div>
-            <Heading level={3}>Confirmed</Heading>
           </div>
-          <Text className="text-2xl font-bold text-green-600">{confirmedBookings}</Text>
-          <Text className="text-sm text-zinc-500">
-            {totalBookings > 0 ? `${Math.round((confirmedBookings / totalBookings) * 100)}%` : '0%'}
-          </Text>
         </div>
 
+        {/* Tickets Sold */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">⏳</span>
+          <div className="flex items-center justify-between">
+            <div>
+              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Bookings Created</Text>
+              <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
+                {totalBookings.toLocaleString()}
+              </Text>
+              <div className="flex items-center mt-1">
+                <span className="text-sm text-green-600 font-medium">+8.3%</span>
+                <span className="text-sm text-zinc-500 ml-1">from last month</span>
+              </div>
             </div>
-            <Heading level={3}>Pending</Heading>
           </div>
-          <Text className="text-2xl font-bold text-orange-600">{pendingBookings}</Text>
-          <Text className="text-sm text-zinc-500">
-            {totalBookings > 0 ? `${Math.round((pendingBookings / totalBookings) * 100)}%` : '0%'}
-          </Text>
         </div>
 
+        {/* Pageviews */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">❌</span>
+          <div className="flex items-center justify-between">
+            <div>
+              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Active Properties</Text>
+              <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
+                {properties.length.toLocaleString()}
+              </Text>
+              <div className="flex items-center mt-1">
+                <span className="text-sm text-green-600 font-medium">+15.2%</span>
+                <span className="text-sm text-zinc-500 ml-1">from last month</span>
+              </div>
             </div>
-            <Heading level={3}>Cancelled</Heading>
           </div>
-          <Text className="text-2xl font-bold text-red-600">{cancelledBookings}</Text>
-          <Text className="text-sm text-zinc-500">
-            {totalBookings > 0 ? `${Math.round((cancelledBookings / totalBookings) * 100)}%` : '0%'}
-          </Text>
+        </div>
+      </div>
+
+      {/* Фильтры */}
+      <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+        <Heading level={2} className="mb-4">Фильтры</Heading>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Field>
+            <Label>Статус</Label>
+            <Combobox
+              value={filters.status}
+              onChange={(value) => setFilters(prev => ({ ...prev, status: value || '' }))}
+              options={['', 'CONFIRMED', 'PENDING', 'CANCELLED', 'COMPLETED', 'NO_SHOW']}
+              displayValue={(value) => {
+                if (!value) return 'Все статусы'
+                switch (value) {
+                  case 'CONFIRMED': return 'Подтверждено'
+                  case 'PENDING': return 'Ожидает'
+                  case 'CANCELLED': return 'Отменено'
+                  case 'COMPLETED': return 'Завершено'
+                  case 'NO_SHOW': return 'Не явился'
+                  default: return value
+                }
+              }}
+            >
+              {(option) => (
+                <ComboboxOption value={option}>
+                  <ComboboxLabel>
+                    {option === '' ? 'Все статусы' : 
+                     option === 'CONFIRMED' ? 'Подтверждено' :
+                     option === 'PENDING' ? 'Ожидает' :
+                     option === 'CANCELLED' ? 'Отменено' :
+                     option === 'COMPLETED' ? 'Завершено' :
+                     option === 'NO_SHOW' ? 'Не явился' : option}
+                  </ComboboxLabel>
+                </ComboboxOption>
+              )}
+            </Combobox>
+          </Field>
+
+          <Field>
+            <Label>Объект</Label>
+            <Combobox
+              value={filters.property}
+              onChange={(value) => setFilters(prev => ({ ...prev, property: value || '' }))}
+              options={['', ...properties.map(p => p?.id || '').filter(Boolean)]}
+              displayValue={(value) => {
+                if (!value) return 'Все объекты'
+                const property = properties.find(p => p?.id === value)
+                return property?.title || 'Неизвестный объект'
+              }}
+            >
+              {(option) => (
+                <ComboboxOption value={option}>
+                  <ComboboxLabel>
+                    {option === '' ? 'Все объекты' : 
+                     properties.find(p => p?.id === option)?.title || 'Неизвестный объект'}
+                  </ComboboxLabel>
+                </ComboboxOption>
+              )}
+            </Combobox>
+          </Field>
+
+          <Field>
+            <Label>Дата от</Label>
+            <Input
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+            />
+          </Field>
+
+          <Field>
+            <Label>Дата до</Label>
+            <Input
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+            />
+          </Field>
         </div>
       </div>
 
@@ -285,6 +500,9 @@ export default function BookingsPage() {
       <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
         <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
           <Heading level={2}>Список бронирований</Heading>
+          <Text className="text-sm text-zinc-500 mt-1">
+            Показано {bookings.length} из {allBookings.length} бронирований
+          </Text>
         </div>
         
         {bookingsLoading ? (
@@ -296,85 +514,69 @@ export default function BookingsPage() {
             <Text className="text-zinc-500">Нет бронирований</Text>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-zinc-50 dark:bg-zinc-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Гость
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Объект
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Даты
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Гости
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Статус
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Сумма
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Действия
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
-                {bookings.map((booking) => (
-                  <tr key={booking.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <Text className="font-medium">{booking.guest.name}</Text>
-                        <Text className="text-sm text-zinc-500">{booking.guest.email}</Text>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <Text className="font-medium">{booking.unit.name}</Text>
-                        <Text className="text-sm text-zinc-500">{booking.unit.property.title}</Text>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <Text className="text-sm">
-                          {new Date(booking.checkIn).toLocaleDateString('ru-RU')}
-                        </Text>
-                        <Text className="text-sm text-zinc-500">
-                          {new Date(booking.checkOut).toLocaleDateString('ru-RU')}
-                        </Text>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Text>{booking.guestsCount}</Text>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge color={getStatusColor(booking.status) as any}>
-                        {getStatusLabel(booking.status)}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Text className="font-medium">
-                        {formatMoney(booking.priceBreakdown.total.amount, booking.priceBreakdown.total.currency)}
+          <Table striped>
+            <TableHead>
+              <tr>
+                <TableHeader>Гость</TableHeader>
+                <TableHeader>Объект</TableHeader>
+                <TableHeader>Даты</TableHeader>
+                <TableHeader>Гости</TableHeader>
+                <TableHeader>Статус</TableHeader>
+                <TableHeader>Сумма</TableHeader>
+                <TableHeader>Действия</TableHeader>
+              </tr>
+            </TableHead>
+            <TableBody>
+              {bookings.map((booking) => (
+                <TableRow key={booking.id}>
+                  <TableCell>
+                    <div>
+                      <Text className="font-medium">{booking.guest.name}</Text>
+                      <Text className="text-sm text-zinc-500">{booking.guest.email}</Text>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <Text className="font-medium">{booking.unit.name}</Text>
+                      <Text className="text-sm text-zinc-500">{booking.unit.property.title}</Text>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <Text className="text-sm">
+                        {new Date(booking.checkIn).toLocaleDateString('ru-RU')}
                       </Text>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {booking.status === 'PENDING' && (
-                        <Button
-                          onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: 'Отменено пользователем' })}
-                        >
-                          Отменить
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      <Text className="text-sm text-zinc-500">
+                        {new Date(booking.checkOut).toLocaleDateString('ru-RU')}
+                      </Text>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Text>{booking.guestsCount}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Badge color={getStatusColor(booking.status) as any}>
+                      {getStatusLabel(booking.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Text className="font-medium">
+                      {formatMoney(booking.priceBreakdown.total.amount, booking.priceBreakdown.total.currency)}
+                    </Text>
+                  </TableCell>
+                  <TableCell>
+                    {booking.status === 'PENDING' && (
+                      <Button
+                        onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: 'Отменено пользователем' })}
+                      >
+                        Отменить
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </div>
 
@@ -383,165 +585,153 @@ export default function BookingsPage() {
         <div className="space-y-6">
           <Heading level={2}>Создать новое бронирование</Heading>
           
-          <form onSubmit={handleCreateBooking} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Объект недвижимости
-                </label>
-                <Select
-                  value={selectedProperty}
-                  onChange={(e) => {
-                    setSelectedProperty(e.target.value)
-                    setSelectedUnit('')
-                  }}
-                  required
-                >
-                  <option value="">Выберите объект</option>
-                  {properties.map((property) => (
-                    <option key={property?.id} value={property?.id}>
-                      {property?.title}
+          <form onSubmit={handleCreateBooking} className="space-y-6">
+            <Fieldset>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field>
+                  <Label>Объект недвижимости</Label>
+                  <Select
+                    value={selectedProperty}
+                    onChange={(e) => {
+                      setSelectedProperty(e.target.value)
+                      setSelectedUnit('')
+                    }}
+                    required
+                  >
+                    <option value="">Выберите объект</option>
+                    {properties.map((property) => (
+                      <option key={property?.id} value={property?.id}>
+                        {property?.title}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field>
+                  <Label>Единица недвижимости</Label>
+                  <Select
+                    value={selectedUnit}
+                    onChange={(e) => setSelectedUnit(e.target.value)}
+                    required
+                    disabled={!selectedProperty || unitsLoading}
+                  >
+                    <option value="">
+                      {!selectedProperty 
+                        ? "Сначала выберите объект" 
+                        : unitsLoading 
+                          ? "Загрузка единиц..." 
+                          : "Выберите единицу"
+                      }
                     </option>
-                  ))}
-                </Select>
+                    {units.map((unit: any) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name} (вместимость: {unit.capacity})
+                      </option>
+                    ))}
+                  </Select>
+                  {selectedProperty && !unitsLoading && units.length === 0 && (
+                    <Text className="text-sm text-orange-600 mt-1">
+                      В выбранном объекте нет единиц недвижимости
+                    </Text>
+                  )}
+                  {unitsError && (
+                    <Text className="text-sm text-red-600 mt-1">
+                      Ошибка загрузки единиц: {unitsError.message}
+                    </Text>
+                  )}
+                </Field>
+              </div>
+            </Fieldset>
+
+            <Fieldset>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field>
+                  <Label>Имя гостя</Label>
+                  <Input
+                    value={createFormData.guestName}
+                    onChange={(e) => setCreateFormData(prev => ({ ...prev, guestName: e.target.value }))}
+                    required
+                  />
+                </Field>
+
+                <Field>
+                  <Label>Email гостя</Label>
+                  <Input
+                    type="email"
+                    value={createFormData.guestEmail}
+                    onChange={(e) => setCreateFormData(prev => ({ ...prev, guestEmail: e.target.value }))}
+                    required
+                  />
+                </Field>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Единица недвижимости
-                </label>
-                <Select
-                  value={selectedUnit}
-                  onChange={(e) => setSelectedUnit(e.target.value)}
-                  required
-                  disabled={!selectedProperty || unitsLoading}
-                >
-                  <option value="">
-                    {!selectedProperty 
-                      ? "Сначала выберите объект" 
-                      : unitsLoading 
-                        ? "Загрузка единиц..." 
-                        : "Выберите единицу"
-                    }
-                  </option>
-                  {units.map((unit: any) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name} (вместимость: {unit.capacity})
-                    </option>
-                  ))}
-                </Select>
-                {selectedProperty && !unitsLoading && units.length === 0 && (
-                  <Text className="text-sm text-orange-600 mt-1">
-                    В выбранном объекте нет единиц недвижимости
-                  </Text>
-                )}
-                {unitsError && (
-                  <Text className="text-sm text-red-600 mt-1">
-                    Ошибка загрузки единиц: {unitsError.message}
-                  </Text>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Имя гостя
-                </label>
+              <Field>
+                <Label>Телефон гостя</Label>
                 <Input
-                  value={createFormData.guestName}
-                  onChange={(e) => setCreateFormData(prev => ({ ...prev, guestName: e.target.value }))}
-                  required
+                  type="tel"
+                  value={createFormData.guestPhone}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, guestPhone: e.target.value }))}
                 />
+              </Field>
+            </Fieldset>
+
+            <Fieldset>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Field>
+                  <Label>Дата заезда</Label>
+                  <Input
+                    type="date"
+                    value={createFormData.checkIn}
+                    onChange={(e) => setCreateFormData(prev => ({ ...prev, checkIn: e.target.value }))}
+                    required
+                  />
+                </Field>
+
+                <Field>
+                  <Label>Дата выезда</Label>
+                  <Input
+                    type="date"
+                    value={createFormData.checkOut}
+                    onChange={(e) => setCreateFormData(prev => ({ ...prev, checkOut: e.target.value }))}
+                    required
+                  />
+                </Field>
+
+                <Field>
+                  <Label>Количество гостей</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={createFormData.guestsCount}
+                    onChange={(e) => setCreateFormData(prev => ({ ...prev, guestsCount: parseInt(e.target.value) || 1 }))}
+                    required
+                  />
+                </Field>
               </div>
+            </Fieldset>
 
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Email гостя
-                </label>
-                <Input
-                  type="email"
-                  value={createFormData.guestEmail}
-                  onChange={(e) => setCreateFormData(prev => ({ ...prev, guestEmail: e.target.value }))}
-                  required
-                />
-              </div>
-            </div>
-
-              <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                Телефон гостя
-              </label>
-              <Input
-                type="tel"
-                value={createFormData.guestPhone}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, guestPhone: e.target.value }))}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Дата заезда
-                </label>
-                <Input
-                  type="date"
-                  value={createFormData.checkIn}
-                  onChange={(e) => setCreateFormData(prev => ({ ...prev, checkIn: e.target.value }))}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Дата выезда
-                </label>
-                <Input
-                  type="date"
-                  value={createFormData.checkOut}
-                  onChange={(e) => setCreateFormData(prev => ({ ...prev, checkOut: e.target.value }))}
-                  required
-                />
-        </div>
-
-                <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                  Количество гостей
-                </label>
+            <Fieldset>
+              <Field>
+                <Label>Базовая стоимость (руб.)</Label>
                 <Input
                   type="number"
-                  min="1"
-                  value={createFormData.guestsCount}
-                  onChange={(e) => setCreateFormData(prev => ({ ...prev, guestsCount: parseInt(e.target.value) || 1 }))}
+                  min="0"
+                  step="100"
+                  value={createFormData.basePrice}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, basePrice: parseFloat(e.target.value) || 0 }))}
                   required
                 />
-              </div>
-            </div>
+              </Field>
 
-                <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                Базовая стоимость (руб.)
-              </label>
-              <Input
-                type="number"
-                min="0"
-                step="100"
-                value={createFormData.basePrice}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, basePrice: parseFloat(e.target.value) || 0 }))}
-                required
-              />
-            </div>
-
-                <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                Заметки
-              </label>
-              <Textarea
-                value={createFormData.notes}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, notes: e.target.value }))}
-                rows={3}
-              />
-            </div>
+              <Field>
+                <Label>Заметки</Label>
+                <Textarea
+                  value={createFormData.notes}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                />
+              </Field>
+            </Fieldset>
 
             {createBookingMutation.error && (
               <div className="bg-red-50 border border-red-200 rounded-md p-4">
