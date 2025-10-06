@@ -11,7 +11,7 @@ import { Select } from '@/components/select'
 import { Input } from '@/components/input'
 import { Dialog } from '@/components/dialog'
 import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
-import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline'
+import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon, ViewColumnsIcon } from '@heroicons/react/24/outline'
 import { GET_TASKS, GET_SERVICE_PROVIDERS, ASSIGN_TASK, UPDATE_TASK_STATUS } from '@/lib/graphql-queries'
 
 // Компонент карточки задачи
@@ -144,6 +144,7 @@ function TaskCard({ task, onAssign, onUpdateStatus, onEdit }: {
 }
 import { CreateTaskDialog } from '@/components/create-task-dialog'
 import { EditTaskDialog } from '@/components/edit-task-dialog'
+import { KanbanBoard } from '@/components/kanban-board'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import type { 
@@ -158,8 +159,8 @@ type Task = NonNullable<GetTasksQuery['tasks']['edges'][0]>['node']
 type ServiceProvider = NonNullable<GetServiceProvidersQuery['serviceProviders'][0]>
 
 export default function TasksPage() {
-  // Состояние для переключения вида (таблица/карточки)
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
+  // Состояние для переключения вида (таблица/карточки/канбан)
+  const [viewMode, setViewMode] = useState<'table' | 'cards' | 'kanban'>('table')
   
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
@@ -280,7 +281,8 @@ export default function TasksPage() {
 
   // Подсчет статистики
   const totalTasks = tasks.length
-  const todoTasks = tasks.filter(t => t.status === 'TODO').length
+  const backlogTasks = tasks.filter(t => t.status === 'TODO' && !t.assignedTo).length
+  const todoTasks = tasks.filter(t => t.status === 'TODO' && t.assignedTo).length
   const inProgressTasks = tasks.filter(t => t.status === 'IN_PROGRESS').length
   const doneTasks = tasks.filter(t => t.status === 'DONE').length
   const canceledTasks = tasks.filter(t => t.status === 'CANCELED').length
@@ -301,11 +303,19 @@ export default function TasksPage() {
       </div>
 
       {/* Статистика */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <div className="p-6">
           <Heading level={3} className="mb-4">Всего задач</Heading>
           <Text className="text-2xl font-bold text-blue-600">{totalTasks}</Text>
           <Text className="text-sm text-zinc-500">Задач в системе</Text>
+        </div>
+
+        <div className="p-6">
+          <Heading level={3} className="mb-4">Backlog</Heading>
+          <Text className="text-2xl font-bold text-gray-600">{backlogTasks}</Text>
+          <Text className="text-sm text-zinc-500">
+            {totalTasks > 0 ? `${Math.round((backlogTasks / totalTasks) * 100)}%` : '0%'}
+          </Text>
         </div>
 
         <div className="p-6">
@@ -436,21 +446,45 @@ export default function TasksPage() {
                 <Button
                   onClick={() => setViewMode('table')}
                   className={`p-2 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300 ${viewMode === 'table' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
+                  title="Таблица"
                 >
                   <TableCellsIcon className="w-4 h-4" />
                 </Button>
                 <Button
                   onClick={() => setViewMode('cards')}
                   className={`p-2 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300 ${viewMode === 'cards' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
+                  title="Карточки"
                 >
                   <Squares2X2Icon className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => setViewMode('kanban')}
+                  className={`p-2 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300 ${viewMode === 'kanban' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
+                  title="Канбан"
+                >
+                  <ViewColumnsIcon className="w-4 h-4" />
                 </Button>
               </div>
           </div>
         </div>
         
         {/* Контент в зависимости от выбранного вида */}
-        {viewMode === 'table' ? (
+        {viewMode === 'kanban' ? (
+          <KanbanBoard
+            tasks={tasks as any}
+            onUpdateStatus={handleUpdateStatus}
+            onEdit={handleEditTask as any}
+            onAssign={(task) => {
+              setSelectedTask(task as any)
+              setShowAssignDialog(true)
+            }}
+            onAssignTask={handleAssignTask}
+            onDragToAssign={(task) => {
+              setSelectedTask(task as any)
+              setShowAssignDialog(true)
+            }}
+          />
+        ) : viewMode === 'table' ? (
           <div className="overflow-x-auto">
             <Table className="min-w-full">
               <TableHead>
