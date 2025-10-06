@@ -371,6 +371,8 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   assignTask(input: AssignTaskInput!): Task! @join__field(graph: OPS_SUBGRAPH)
   """Обновить статус задачи"""
   updateTaskStatus(id: UUID!, status: TaskStatus!): Task! @join__field(graph: OPS_SUBGRAPH)
+  """Обновить задачу"""
+  updateTask(id: UUID!, input: UpdateTaskInput!): Task! @join__field(graph: OPS_SUBGRAPH)
   """Создать заказ на услуги"""
   createServiceOrder(input: CreateServiceOrderInput!): ServiceOrder! @join__field(graph: OPS_SUBGRAPH)
   """Обновить статус заказа на услуги"""
@@ -1732,6 +1734,18 @@ input AssignTaskInput @join__type(graph: OPS_SUBGRAPH) {
   status: TaskStatus
   """Дополнительные заметки (опционально)"""
   note: String
+}
+
+"""Входные данные для обновления задачи."""
+input UpdateTaskInput @join__type(graph: OPS_SUBGRAPH) {
+  """Тип задачи (опционально)"""
+  type: TaskType
+  """Статус задачи (опционально)"""
+  status: TaskStatus
+  """Дополнительные заметки (опционально)"""
+  note: String
+  """Дата и время выполнения задачи (опционально)"""
+  dueAt: DateTime
 }
 
 """Входные данные для создания заказа на услуги."""
