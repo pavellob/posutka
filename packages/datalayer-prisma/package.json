@@ -24,5 +24,8 @@
     "generate": "prisma generate",
     "seed": "node prisma-seed.js",
     "seed:ts": "tsx prisma-seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma-seed.ts"
   }
 }
