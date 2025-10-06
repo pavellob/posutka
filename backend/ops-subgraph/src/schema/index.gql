@@ -323,6 +323,20 @@ input AssignTaskInput {
 }
 
 """
+Входные данные для обновления задачи.
+"""
+input UpdateTaskInput {
+  """Тип задачи (опционально)"""
+  type: TaskType
+  """Статус задачи (опционально)"""
+  status: TaskStatus
+  """Дополнительные заметки (опционально)"""
+  note: String
+  """Дата и время выполнения задачи (опционально)"""
+  dueAt: DateTime
+}
+
+"""
 Входные данные для создания заказа на услуги.
 """
 input CreateServiceOrderInput {
@@ -361,6 +375,8 @@ type Mutation {
   assignTask(input: AssignTaskInput!): Task!
   """Обновить статус задачи"""
   updateTaskStatus(id: UUID!, status: TaskStatus!): Task!
+  """Обновить задачу"""
+  updateTask(id: UUID!, input: UpdateTaskInput!): Task!
   """Создать заказ на услуги"""
   createServiceOrder(input: CreateServiceOrderInput!): ServiceOrder!
   """Обновить статус заказа на услуги"""

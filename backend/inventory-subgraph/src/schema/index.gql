@@ -110,7 +110,101 @@ type Query {
 """
 type Mutation {
   """Создать новый объект недвижимости"""
-  createProperty(orgId: UUID!, title: String!, address: String!, amenities: [String!]): Property!
+  createProperty(
+    orgId: UUID!
+    title: String!
+    address: String!
+    amenities: [String!]
+    # Яндекс.Недвижимость поля
+    propertyType: String
+    category: String
+    dealStatus: String
+    country: String
+    region: String
+    district: String
+    localityName: String
+    apartment: String
+    metroName: String
+    metroTimeOnFoot: Int
+    metroTimeOnTransport: Int
+    latitude: Float
+    longitude: Float
+    totalArea: Float
+    livingArea: Float
+    kitchenArea: Float
+    rooms: Int
+    roomsOffered: Int
+    floor: Int
+    floorsTotal: Int
+    buildingType: String
+    buildingYear: Int
+    buildingSeries: String
+    elevator: Boolean
+    parking: Boolean
+    security: Boolean
+    concierge: Boolean
+    playground: Boolean
+    gym: Boolean
+    balcony: Boolean
+    loggia: Boolean
+    airConditioning: Boolean
+    internet: Boolean
+    washingMachine: Boolean
+    dishwasher: Boolean
+    tv: Boolean
+    renovation: String
+    furniture: Boolean
+    isElite: Boolean
+    yandexBuildingId: String
+    yandexHouseId: String
+  ): Property!
+  """Обновить объект недвижимости"""
+  updateProperty(
+    id: UUID!
+    title: String!
+    address: String!
+    propertyType: String
+    category: String
+    dealStatus: String
+    country: String
+    region: String
+    district: String
+    localityName: String
+    apartment: String
+    metroName: String
+    metroTimeOnFoot: Int
+    metroTimeOnTransport: Int
+    latitude: Float
+    longitude: Float
+    totalArea: Float
+    livingArea: Float
+    kitchenArea: Float
+    rooms: Int
+    roomsOffered: Int
+    floor: Int
+    floorsTotal: Int
+    buildingType: String
+    buildingYear: Int
+    buildingSeries: String
+    elevator: Boolean
+    parking: Boolean
+    security: Boolean
+    concierge: Boolean
+    playground: Boolean
+    gym: Boolean
+    balcony: Boolean
+    loggia: Boolean
+    airConditioning: Boolean
+    internet: Boolean
+    washingMachine: Boolean
+    dishwasher: Boolean
+    tv: Boolean
+    renovation: String
+    furniture: Boolean
+    isElite: Boolean
+    yandexBuildingId: String
+    yandexHouseId: String
+  ): Property!
   """Создать новую единицу недвижимости в объекте"""
   createUnit(propertyId: UUID!, name: String!, capacity: Int!, beds: Int!, bathrooms: Int!, amenities: [String!]): Unit!
   """Заблокировать даты в календаре единицы недвижимости"""
@@ -129,6 +223,7 @@ type Organization {
 """
 Объект недвижимости (здание, комплекс, отель и т.д.).
 Представляет физическое здание или комплекс, содержащий несколько единиц недвижимости.
+Соответствует формату Яндекс.Недвижимости.
 """
 type Property {
   """Уникальный идентификатор объекта недвижимости"""
@@ -143,6 +238,111 @@ type Property {
   amenities: [String!]!
   """Список единиц недвижимости в объекте"""
   units: [Unit]!
+  
+  # Яндекс.Недвижимость поля
+  
+  """Тип недвижимости (жилая/коммерческая)"""
+  propertyType: String
+  """Категория объекта (квартира/комната/дом/гараж)"""
+  category: String
+  """Статус сделки (первичная продажа/вторичка/аренда)"""
+  dealStatus: String
+  
+  # Локация
+  """Страна"""
+  country: String
+  """Регион/область"""
+  region: String
+  """Район"""
+  district: String
+  """Город/населенный пункт"""
+  localityName: String
+  """Номер квартиры"""
+  apartment: String
+  
+  # Метро
+  """Название станции метро"""
+  metroName: String
+  """Время до метро пешком (минуты)"""
+  metroTimeOnFoot: Int
+  """Время до метро на транспорте (минуты)"""
+  metroTimeOnTransport: Int
+  
+  # Координаты
+  """Широта"""
+  latitude: Float
+  """Долгота"""
+  longitude: Float
+  
+  # Площадь и характеристики
+  """Общая площадь (кв.м)"""
+  totalArea: Float
+  """Жилая площадь (кв.м)"""
+  livingArea: Float
+  """Площадь кухни (кв.м)"""
+  kitchenArea: Float
+  """Количество комнат"""
+  rooms: Int
+  """Количество комнат к сдаче"""
+  roomsOffered: Int
+  """Этаж"""
+  floor: Int
+  """Общее количество этажей"""
+  floorsTotal: Int
+  
+  # Тип здания
+  """Материал стен (кирпичный/панельный/монолитный)"""
+  buildingType: String
+  """Год постройки"""
+  buildingYear: Int
+  """Серия здания"""
+  buildingSeries: String
+  
+  # Удобства здания
+  """Наличие лифта"""
+  elevator: Boolean
+  """Наличие парковки"""
+  parking: Boolean
+  """Наличие охраны"""
+  security: Boolean
+  """Наличие консьержа"""
+  concierge: Boolean
+  """Наличие детской площадки"""
+  playground: Boolean
+  """Наличие спортзала"""
+  gym: Boolean
+  
+  # Удобства квартиры
+  """Наличие балкона"""
+  balcony: Boolean
+  """Наличие лоджии"""
+  loggia: Boolean
+  """Наличие кондиционера"""
+  airConditioning: Boolean
+  """Наличие интернета"""
+  internet: Boolean
+  """Наличие стиральной машины"""
+  washingMachine: Boolean
+  """Наличие посудомоечной машины"""
+  dishwasher: Boolean
+  """Наличие телевизора"""
+  tv: Boolean
+  
+  # Состояние
+  """Состояние ремонта"""
+  renovation: String
+  """Наличие мебели"""
+  furniture: Boolean
+  
+  # Элитная недвижимость
+  """Элитная недвижимость"""
+  isElite: Boolean
+  
+  # Внешние ID
+  """ID здания в Яндекс.Недвижимости"""
+  yandexBuildingId: String
+  """ID дома в Яндекс.Недвижимости"""
+  yandexHouseId: String
 }
 
 """

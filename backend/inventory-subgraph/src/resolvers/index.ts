@@ -101,6 +101,7 @@ export const resolvers = {
   },
   Mutation: {
     createProperty: (_: unknown, args: any, { dl }: Context) => dl.createProperty(args),
+    updateProperty: (_: unknown, args: any, { dl }: Context) => dl.updateProperty(args),
     createUnit: (_: unknown, args: any, { dl }: Context) => dl.createUnit(args),
     blockDates: (_: unknown, args: any, { dl }: Context) => dl.blockDates(args.unitId, args.from, args.to, args.note),
   },

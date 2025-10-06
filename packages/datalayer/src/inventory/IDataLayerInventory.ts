@@ -4,6 +4,7 @@ export interface IDataLayerInventory {
   getPropertyById(id: UUID): Promise<Property | null>;
   getPropertiesByOrgId(orgId: UUID): Promise<Property[]>;
   createProperty(input: Pick<Property, 'orgId' | 'title' | 'address' | 'amenities'>): Promise<Property>;
+  updateProperty(input: any): Promise<Property>;
 
   getUnitById(id: UUID): Promise<Unit | null>;
   getUnitsByPropertyId(propertyId: UUID): Promise<Unit[]>;

@@ -38,6 +38,11 @@ export const sharedResolvers = {
     return dl.updateTaskStatus(id, status);
   },
   
+  updateTask: (dl: IOpsDL, id: string, input: any) => {
+    logger.info('Updating task', { id, input });
+    return dl.updateTask(id, input);
+  },
+  
   createServiceOrder: (dl: IOpsDL, input: any) => {
     logger.info('Creating service order', { input });
     return dl.createServiceOrder(input);
@@ -75,6 +80,8 @@ export const resolvers = {
       sharedResolvers.assignTask(dl, input),
     updateTaskStatus: (_: unknown, { id, status }: { id: string; status: string }, { dl }: Context) => 
       sharedResolvers.updateTaskStatus(dl, id, status),
+    updateTask: (_: unknown, { id, input }: { id: string; input: any }, { dl }: Context) => 
+      sharedResolvers.updateTask(dl, id, input),
     createServiceOrder: (_: unknown, { input }: { input: any }, { dl }: Context) => 
       sharedResolvers.createServiceOrder(dl, input),
     updateServiceOrderStatus: (_: unknown, { id, status }: { id: string; status: string }, { dl }: Context) => 

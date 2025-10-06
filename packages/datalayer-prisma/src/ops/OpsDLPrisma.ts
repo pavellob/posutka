@@ -109,6 +109,23 @@ export class OpsDLPrisma implements IOpsDL {
     return this.mapTaskFromPrisma(task);
   }
 
+  async updateTask(id: string, input: any): Promise<Task> {
+    const updateData: any = {};
+    
+    if (input.type) updateData.type = input.type;
+    if (input.status) updateData.status = input.status;
+    if (input.note !== undefined) updateData.note = input.note;
+    if (input.dueAt) updateData.dueAt = new Date(input.dueAt);
+
+    const task = await this.prisma.task.update({
+      where: { id },
+      data: updateData,
+      include: { assignedProvider: true }
+    });
+
+    return this.mapTaskFromPrisma(task);
+  }
+
   async getProviderById(id: string): Promise<ServiceProvider | null> {
     const provider = await this.prisma.serviceProvider.findUnique({ where: { id } });
     return provider ? this.mapProviderFromPrisma(provider) : null;

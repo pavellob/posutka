@@ -6,6 +6,48 @@ query GetPropertiesByOrg($orgId: UUID!) {
     title
     address
     amenities
+    # Яндекс.Недвижимость поля
+    propertyType
+    category
+    dealStatus
+    country
+    region
+    district
+    localityName
+    apartment
+    metroName
+    metroTimeOnFoot
+    metroTimeOnTransport
+    latitude
+    longitude
+    totalArea
+    livingArea
+    kitchenArea
+    rooms
+    roomsOffered
+    floor
+    floorsTotal
+    buildingType
+    buildingYear
+    buildingSeries
+    elevator
+    parking
+    security
+    concierge
+    playground
+    gym
+    balcony
+    loggia
+    airConditioning
+    internet
+    washingMachine
+    dishwasher
+    tv
+    renovation
+    furniture
+    isElite
+    yandexBuildingId
+    yandexHouseId
     org {
       id
       name
@@ -30,6 +72,48 @@ query GetPropertyById($id: UUID!) {
     title
     address
     amenities
+    # Яндекс.Недвижимость поля
+    propertyType
+    category
+    dealStatus
+    country
+    region
+    district
+    localityName
+    apartment
+    metroName
+    metroTimeOnFoot
+    metroTimeOnTransport
+    latitude
+    longitude
+    totalArea
+    livingArea
+    kitchenArea
+    rooms
+    roomsOffered
+    floor
+    floorsTotal
+    buildingType
+    buildingYear
+    buildingSeries
+    elevator
+    parking
+    security
+    concierge
+    playground
+    gym
+    balcony
+    loggia
+    airConditioning
+    internet
+    washingMachine
+    dishwasher
+    tv
+    renovation
+    furniture
+    isElite
+    yandexBuildingId
+    yandexHouseId
     org {
       id
       name
@@ -76,12 +160,146 @@ query GetUnitById($id: UUID!) {
 
 # Мутации для создания объектов
 
-mutation CreateProperty($orgId: UUID!, $title: String!, $address: String!, $amenities: [String!]) {
-  createProperty(orgId: $orgId, title: $title, address: $address, amenities: $amenities) {
+mutation CreateProperty(
+  $orgId: UUID!
+  $title: String!
+  $address: String!
+  $amenities: [String!]
+  # Яндекс.Недвижимость поля
+  $propertyType: String
+  $category: String
+  $dealStatus: String
+  $country: String
+  $region: String
+  $district: String
+  $localityName: String
+  $apartment: String
+  $metroName: String
+  $metroTimeOnFoot: Int
+  $metroTimeOnTransport: Int
+  $latitude: Float
+  $longitude: Float
+  $totalArea: Float
+  $livingArea: Float
+  $kitchenArea: Float
+  $rooms: Int
+  $roomsOffered: Int
+  $floor: Int
+  $floorsTotal: Int
+  $buildingType: String
+  $buildingYear: Int
+  $buildingSeries: String
+  $elevator: Boolean
+  $parking: Boolean
+  $security: Boolean
+  $concierge: Boolean
+  $playground: Boolean
+  $gym: Boolean
+  $balcony: Boolean
+  $loggia: Boolean
+  $airConditioning: Boolean
+  $internet: Boolean
+  $washingMachine: Boolean
+  $dishwasher: Boolean
+  $tv: Boolean
+  $renovation: String
+  $furniture: Boolean
+  $isElite: Boolean
+  $yandexBuildingId: String
+  $yandexHouseId: String
+) {
+  createProperty(
+    orgId: $orgId
+    title: $title
+    address: $address
+    amenities: $amenities
+    propertyType: $propertyType
+    category: $category
+    dealStatus: $dealStatus
+    country: $country
+    region: $region
+    district: $district
+    localityName: $localityName
+    apartment: $apartment
+    metroName: $metroName
+    metroTimeOnFoot: $metroTimeOnFoot
+    metroTimeOnTransport: $metroTimeOnTransport
+    latitude: $latitude
+    longitude: $longitude
+    totalArea: $totalArea
+    livingArea: $livingArea
+    kitchenArea: $kitchenArea
+    rooms: $rooms
+    roomsOffered: $roomsOffered
+    floor: $floor
+    floorsTotal: $floorsTotal
+    buildingType: $buildingType
+    buildingYear: $buildingYear
+    buildingSeries: $buildingSeries
+    elevator: $elevator
+    parking: $parking
+    security: $security
+    concierge: $concierge
+    playground: $playground
+    gym: $gym
+    balcony: $balcony
+    loggia: $loggia
+    airConditioning: $airConditioning
+    internet: $internet
+    washingMachine: $washingMachine
+    dishwasher: $dishwasher
+    tv: $tv
+    renovation: $renovation
+    furniture: $furniture
+    isElite: $isElite
+    yandexBuildingId: $yandexBuildingId
+    yandexHouseId: $yandexHouseId
+  ) {
     id
     title
     address
     amenities
+    propertyType
+    category
+    dealStatus
+    country
+    region
+    district
+    localityName
+    apartment
+    metroName
+    metroTimeOnFoot
+    metroTimeOnTransport
+    latitude
+    longitude
+    totalArea
+    livingArea
+    kitchenArea
+    rooms
+    roomsOffered
+    floor
+    floorsTotal
+    buildingType
+    buildingYear
+    buildingSeries
+    elevator
+    parking
+    security
+    concierge
+    playground
+    gym
+    balcony
+    loggia
+    airConditioning
+    internet
+    washingMachine
+    dishwasher
+    tv
+    renovation
+    furniture
+    isElite
+    yandexBuildingId
+    yandexHouseId
     org {
       id
       name

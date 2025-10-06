@@ -62,9 +62,9 @@ export default function BookingsPage() {
   const [filters, setFilters] = useState({
     status: '',
     property: '',
-    dateFrom: '',
-    dateTo: ''
+    guest: ''
   })
+
   
   // Ключ для принудительного обновления компонента
   const [componentKey, setComponentKey] = useState(0)
@@ -126,6 +126,7 @@ export default function BookingsPage() {
       setSelectedUnit('')
     }
   }, [orgId, queryClient])
+
 
   // Слушаем изменения организации через события
   useEffect(() => {
@@ -255,12 +256,16 @@ export default function BookingsPage() {
   const properties = propertiesData?.propertiesByOrgId || []
   const units = (unitsData as any)?.unitsByPropertyId || []
 
-  // Фильтрация бронирований
-  const filteredBookings = allBookings.filter(booking => {
+
+  // Показываем все бронирования без фильтрации по периоду
+  const bookingsInPeriod = allBookings
+
+  // Фильтрация бронирований по дополнительным фильтрам
+  const filteredBookings = bookingsInPeriod.filter(booking => {
     if (filters.status && booking.status !== filters.status) return false
     if (filters.property && booking.unit.property.id !== filters.property) return false
-    if (filters.dateFrom && new Date(booking.checkIn) < new Date(filters.dateFrom)) return false
-    if (filters.dateTo && new Date(booking.checkIn) > new Date(filters.dateTo)) return false
+    if (filters.guest && !booking.guest.name.toLowerCase().includes(filters.guest.toLowerCase()) && 
+        !booking.guest.email.toLowerCase().includes(filters.guest.toLowerCase())) return false
     return true
   })
 
@@ -274,14 +279,41 @@ export default function BookingsPage() {
     unitsCount: units.length,
     properties,
     units,
-    unitsLoading
+    unitsLoading,
+    allBookingsCount: allBookings.length,
+    filteredBookingsCount: filteredBookings.length
   })
 
   // Подсчет статистики
   const totalBookings = bookings.length
-  const confirmedBookings = bookings.filter(b => b.status === 'CONFIRMED').length
-  const pendingBookings = bookings.filter(b => b.status === 'PENDING').length
+  const activeBookings = bookings.filter(b => b.status === 'CONFIRMED').length
+  const completedBookings = bookings.filter(b => b.status === 'COMPLETED').length
+  const futureBookings = bookings.filter(b => {
+    const checkIn = new Date(b.checkIn)
+    const now = new Date()
+    return checkIn > now && b.status === 'CONFIRMED'
+  }).length
   const cancelledBookings = bookings.filter(b => b.status === 'CANCELLED').length
+
+  // Подсчет сумм
+  const totalRevenue = bookings.reduce((sum, booking) => sum + booking.priceBreakdown.total.amount, 0)
+  const activeRevenue = bookings.filter(b => b.status === 'CONFIRMED').reduce((sum, booking) => sum + booking.priceBreakdown.total.amount, 0)
+  const completedRevenue = bookings.filter(b => b.status === 'COMPLETED').reduce((sum, booking) => sum + booking.priceBreakdown.total.amount, 0)
+  const futureRevenue = bookings.filter(b => {
+    const checkIn = new Date(b.checkIn)
+    const now = new Date()
+    return checkIn > now && b.status === 'CONFIRMED'
+  }).reduce((sum, booking) => sum + booking.priceBreakdown.total.amount, 0)
+
+  // Подсчет гостей
+  const totalGuests = bookings.reduce((sum, booking) => sum + booking.guestsCount, 0)
+  const activeGuests = bookings.filter(b => b.status === 'CONFIRMED').reduce((sum, booking) => sum + booking.guestsCount, 0)
+  const completedGuests = bookings.filter(b => b.status === 'COMPLETED').reduce((sum, booking) => sum + booking.guestsCount, 0)
+  const futureGuests = bookings.filter(b => {
+    const checkIn = new Date(b.checkIn)
+    const now = new Date()
+    return checkIn > now && b.status === 'CONFIRMED'
+  }).reduce((sum, booking) => sum + booking.guestsCount, 0)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -310,7 +342,7 @@ export default function BookingsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <Heading level={1}>Bookings Management</Heading>
+          <Heading level={1}>Управление бронированиями</Heading>
           <Text className="mt-2 text-zinc-600 dark:text-zinc-400">
             Загрузка организации...
           </Text>
@@ -323,94 +355,87 @@ export default function BookingsPage() {
     <div key={componentKey} className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <Heading level={1}>Bookings Management</Heading>
+          <Heading level={1}>Управление бронированиями</Heading>
           <Text className="mt-2 text-zinc-600 dark:text-zinc-400">
-            Управление бронированиями, заказами и резервациями
+            Статистика и управление бронированиями, заказами и резервациями
           </Text>
-          {orgId && (
-            <Text className="mt-1 text-sm text-zinc-500">
-              Организация: {selectedOrg?.name || currentOrganization?.name || 'Загрузка...'} 
-              | Бронирований: {bookings.length} | Ключ: {componentKey}
-              | SelectedOrgId: {selectedOrgId} | PrevSelectedOrgId: {prevSelectedOrgId}
-            </Text>
-          )}
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           Создать бронирование
         </Button>
       </div>
 
-      {/* Analytics Dashboard */}
+
+      {/* Статистика бронирований */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Revenue */}
+        {/* Общее количество бронирований */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Revenue</Text>
-              <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
-                {formatMoney(
-                  bookings.reduce((sum, booking) => sum + booking.priceBreakdown.total.amount, 0),
-                  'RUB'
-                )}
-              </Text>
-              <div className="flex items-center mt-1">
-                <span className="text-sm text-green-600 font-medium">+12.5%</span>
-                <span className="text-sm text-zinc-500 ml-1">from last month</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Average Order Value */}
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Average Order Value</Text>
-              <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
-                {totalBookings > 0 
-                  ? formatMoney(
-                      bookings.reduce((sum, booking) => sum + booking.priceBreakdown.total.amount, 0) / totalBookings,
-                      'RUB'
-                    )
-                  : formatMoney(0, 'RUB')
-                }
-              </Text>
-              <div className="flex items-center mt-1">
-                <span className="text-sm text-red-600 font-medium">-2.1%</span>
-                <span className="text-sm text-zinc-500 ml-1">from last month</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tickets Sold */}
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Bookings Created</Text>
+              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Всего бронирований</Text>
               <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
                 {totalBookings.toLocaleString()}
               </Text>
-              <div className="flex items-center mt-1">
-                <span className="text-sm text-green-600 font-medium">+8.3%</span>
-                <span className="text-sm text-zinc-500 ml-1">from last month</span>
-              </div>
+              <Text className="text-xs text-zinc-500 mt-1">
+                Сумма: {formatMoney(totalRevenue, 'RUB')}
+              </Text>
+              <Text className="text-xs text-zinc-500">
+                Гостей: {totalGuests}
+              </Text>
             </div>
           </div>
         </div>
 
-        {/* Pageviews */}
+        {/* Активные бронирования */}
         <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Active Properties</Text>
+              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Активные</Text>
               <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
-                {properties.length.toLocaleString()}
+                {activeBookings.toLocaleString()}
               </Text>
-              <div className="flex items-center mt-1">
-                <span className="text-sm text-green-600 font-medium">+15.2%</span>
-                <span className="text-sm text-zinc-500 ml-1">from last month</span>
-              </div>
+              <Text className="text-xs text-zinc-500 mt-1">
+                Сумма: {formatMoney(activeRevenue, 'RUB')}
+              </Text>
+              <Text className="text-xs text-zinc-500">
+                Гостей: {activeGuests}
+              </Text>
+            </div>
+          </div>
+        </div>
+
+        {/* Завершенные бронирования */}
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Завершенные</Text>
+              <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
+                {completedBookings.toLocaleString()}
+              </Text>
+              <Text className="text-xs text-zinc-500 mt-1">
+                Сумма: {formatMoney(completedRevenue, 'RUB')}
+              </Text>
+              <Text className="text-xs text-zinc-500">
+                Гостей: {completedGuests}
+              </Text>
+            </div>
+          </div>
+        </div>
+
+        {/* Будущие бронирования */}
+        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Будущие</Text>
+              <Text className="text-2xl font-bold text-zinc-900 dark:text-white">
+                {futureBookings.toLocaleString()}
+              </Text>
+              <Text className="text-xs text-zinc-500 mt-1">
+                Сумма: {formatMoney(futureRevenue, 'RUB')}
+              </Text>
+              <Text className="text-xs text-zinc-500">
+                Гостей: {futureGuests}
+              </Text>
             </div>
           </div>
         </div>
@@ -477,20 +502,12 @@ export default function BookingsPage() {
           </Field>
 
           <Field>
-            <Label>Дата от</Label>
+            <Label>Гость</Label>
             <Input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-            />
-          </Field>
-
-          <Field>
-            <Label>Дата до</Label>
-            <Input
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+              type="text"
+              placeholder="Поиск по имени или email"
+              value={filters.guest}
+              onChange={(e) => setFilters(prev => ({ ...prev, guest: e.target.value }))}
             />
           </Field>
         </div>
@@ -501,7 +518,7 @@ export default function BookingsPage() {
         <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
           <Heading level={2}>Список бронирований</Heading>
           <Text className="text-sm text-zinc-500 mt-1">
-            Показано {bookings.length} из {allBookings.length} бронирований
+            Показано {bookings.length} бронирований
           </Text>
         </div>
         
@@ -542,13 +559,27 @@ export default function BookingsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <Text className="text-sm">
-                        {new Date(booking.checkIn).toLocaleDateString('ru-RU')}
-                      </Text>
-                      <Text className="text-sm text-zinc-500">
-                        {new Date(booking.checkOut).toLocaleDateString('ru-RU')}
-                      </Text>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Text className="text-sm font-medium">
+                          {new Date(booking.checkIn).toLocaleDateString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
+                        </Text>
+                        <Text className="text-xs text-zinc-400">заезд</Text>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Text className="text-sm font-medium">
+                          {new Date(booking.checkOut).toLocaleDateString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
+                        </Text>
+                        <Text className="text-xs text-zinc-400">выезд</Text>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>

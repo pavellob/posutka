@@ -27,7 +27,7 @@ const navigationItems = [
   { name: 'Главная', href: '/', icon: HomeIcon },
   { name: 'Объекты', href: '/inventory', icon: BuildingOfficeIcon },
   { name: 'Бронирования', href: '/bookings', icon: CalendarDaysIcon },
-  { name: 'Обслуживание', href: '/operations', icon: WrenchScrewdriverIcon },
+  { name: 'Задачи', href: '/tasks', icon: WrenchScrewdriverIcon },
   { name: 'Пользователи', href: '/iam', icon: UserGroupIcon },
   { name: 'Уведомления', href: '/notifications', icon: BellIcon },
   { name: 'Биллинг', href: '/billing', icon: CreditCardIcon },

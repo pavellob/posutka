@@ -43,19 +43,124 @@ export class InventoryDLPrisma implements IDataLayerInventory {
     return mappedProperties;
   }
 
-  async createProperty(input: Pick<Property, 'orgId' | 'title' | 'address' | 'amenities'>): Promise<Property> {
+  async createProperty(input: any): Promise<Property> {
     const property = await this.prisma.property.create({
       data: {
         orgId: input.orgId,
         title: input.title,
         address: input.address,
         amenities: input.amenities,
+        // Яндекс.Недвижимость поля
+        propertyType: input.propertyType,
+        category: input.category,
+        dealStatus: input.dealStatus,
+        country: input.country,
+        region: input.region,
+        district: input.district,
+        localityName: input.localityName,
+        apartment: input.apartment,
+        metroName: input.metroName,
+        metroTimeOnFoot: input.metroTimeOnFoot,
+        metroTimeOnTransport: input.metroTimeOnTransport,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        totalArea: input.totalArea,
+        livingArea: input.livingArea,
+        kitchenArea: input.kitchenArea,
+        rooms: input.rooms,
+        roomsOffered: input.roomsOffered,
+        floor: input.floor,
+        floorsTotal: input.floorsTotal,
+        buildingType: input.buildingType,
+        buildingYear: input.buildingYear,
+        buildingSeries: input.buildingSeries,
+        elevator: input.elevator,
+        parking: input.parking,
+        security: input.security,
+        concierge: input.concierge,
+        playground: input.playground,
+        gym: input.gym,
+        balcony: input.balcony,
+        loggia: input.loggia,
+        airConditioning: input.airConditioning,
+        internet: input.internet,
+        washingMachine: input.washingMachine,
+        dishwasher: input.dishwasher,
+        tv: input.tv,
+        renovation: input.renovation,
+        furniture: input.furniture,
+        isElite: input.isElite,
+        yandexBuildingId: input.yandexBuildingId,
+        yandexHouseId: input.yandexHouseId,
       },
       include: {
         org: true,
         units: true,
       }
     });
+    
+    return this.mapPropertyFromPrisma(property);
+  }
+
+  async updateProperty(input: any): Promise<Property> {
+    const { id, ...updateData } = input;
+    
+    console.log('🔄 InventoryDLPrisma.updateProperty called with:', { id, updateData });
+    
+    const property = await this.prisma.property.update({
+      where: { id },
+      data: {
+        title: updateData.title,
+        address: updateData.address,
+        propertyType: updateData.propertyType,
+        category: updateData.category,
+        dealStatus: updateData.dealStatus,
+        country: updateData.country,
+        region: updateData.region,
+        district: updateData.district,
+        localityName: updateData.localityName,
+        apartment: updateData.apartment,
+        metroName: updateData.metroName,
+        metroTimeOnFoot: updateData.metroTimeOnFoot,
+        metroTimeOnTransport: updateData.metroTimeOnTransport,
+        latitude: updateData.latitude,
+        longitude: updateData.longitude,
+        totalArea: updateData.totalArea,
+        livingArea: updateData.livingArea,
+        kitchenArea: updateData.kitchenArea,
+        rooms: updateData.rooms,
+        roomsOffered: updateData.roomsOffered,
+        floor: updateData.floor,
+        floorsTotal: updateData.floorsTotal,
+        buildingType: updateData.buildingType,
+        buildingYear: updateData.buildingYear,
+        buildingSeries: updateData.buildingSeries,
+        elevator: updateData.elevator,
+        parking: updateData.parking,
+        security: updateData.security,
+        concierge: updateData.concierge,
+        playground: updateData.playground,
+        gym: updateData.gym,
+        balcony: updateData.balcony,
+        loggia: updateData.loggia,
+        airConditioning: updateData.airConditioning,
+        internet: updateData.internet,
+        washingMachine: updateData.washingMachine,
+        dishwasher: updateData.dishwasher,
+        tv: updateData.tv,
+        renovation: updateData.renovation,
+        furniture: updateData.furniture,
+        isElite: updateData.isElite,
+        yandexBuildingId: updateData.yandexBuildingId,
+        yandexHouseId: updateData.yandexHouseId,
+      },
+      include: {
+        org: true,
+        units: true,
+      }
+    });
+    
+    console.log('✅ InventoryDLPrisma.updateProperty completed:', property);
     
     return this.mapPropertyFromPrisma(property);
   }
@@ -213,6 +318,48 @@ export class InventoryDLPrisma implements IDataLayerInventory {
       amenities: property.amenities,
       org: property.org,
       units: property.units,
+      // Яндекс.Недвижимость поля
+      propertyType: property.propertyType,
+      category: property.category,
+      dealStatus: property.dealStatus,
+      country: property.country,
+      region: property.region,
+      district: property.district,
+      localityName: property.localityName,
+      apartment: property.apartment,
+      metroName: property.metroName,
+      metroTimeOnFoot: property.metroTimeOnFoot,
+      metroTimeOnTransport: property.metroTimeOnTransport,
+      latitude: property.latitude,
+      longitude: property.longitude,
+      totalArea: property.totalArea,
+      livingArea: property.livingArea,
+      kitchenArea: property.kitchenArea,
+      rooms: property.rooms,
+      roomsOffered: property.roomsOffered,
+      floor: property.floor,
+      floorsTotal: property.floorsTotal,
+      buildingType: property.buildingType,
+      buildingYear: property.buildingYear,
+      buildingSeries: property.buildingSeries,
+      elevator: property.elevator,
+      parking: property.parking,
+      security: property.security,
+      concierge: property.concierge,
+      playground: property.playground,
+      gym: property.gym,
+      balcony: property.balcony,
+      loggia: property.loggia,
+      airConditioning: property.airConditioning,
+      internet: property.internet,
+      washingMachine: property.washingMachine,
+      dishwasher: property.dishwasher,
+      tv: property.tv,
+      renovation: property.renovation,
+      furniture: property.furniture,
+      isElite: property.isElite,
+      yandexBuildingId: property.yandexBuildingId,
+      yandexHouseId: property.yandexHouseId,
     };
   }
 

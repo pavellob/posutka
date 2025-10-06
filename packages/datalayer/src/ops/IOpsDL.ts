@@ -17,6 +17,7 @@ export interface IOpsDL {
   createTask(input: CreateTaskInput): Promise<Task>;
   assignTask(input: AssignTaskInput): Promise<Task>;
   updateTaskStatus(id: UUID, status: string): Promise<Task>;
+  updateTask(id: UUID, input: any): Promise<Task>;
   
   // ServiceProvider operations
   getProviderById(id: UUID): Promise<ServiceProvider | null>;
