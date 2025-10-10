@@ -13,8 +13,11 @@ import {
   TableHeader, 
   TableCell 
 } from '@/components/table'
+import { EditUserDialog } from '@/components/edit-user-dialog'
+import { CreateUserDialog } from '@/components/create-user-dialog'
 import { graphqlRequest } from '@/lib/graphql-wrapper'
 import { gql } from 'graphql-request'
+import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 
 // GraphQL запросы
 const GET_USER_STATS = gql`
@@ -34,8 +37,8 @@ const GET_USER_STATS = gql`
 `
 
 const GET_USERS = gql`
-  query GetUsers($first: Int, $after: String) {
-    usersAdvanced(first: $first, after: $after) {
+  query GetUsers($orgId: UUID!, $first: Int, $after: String) {
+    usersAdvanced(orgId: $orgId, first: $first, after: $after) {
       edges {
         node {
           id
@@ -63,31 +66,60 @@ export default function IAMPage() {
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedUser, setSelectedUser] = useState<any>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  
+  // Получаем текущую организацию
+  const { currentOrgId } = useCurrentOrganization()
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      if (!currentOrgId) {
+        setError('Организация не выбрана')
+        setLoading(false)
+        return
+      }
+
+      // Получаем статистику
+      const statsResult = await graphqlRequest(GET_USER_STATS)
+      setStats(statsResult.userStats)
+
+      // Получаем пользователей организации
+      const usersResult = await graphqlRequest(GET_USERS, { 
+        orgId: currentOrgId, 
+        first: 20 
+      })
+      setUsers(usersResult.usersAdvanced.edges.map((edge: any) => edge.node))
+
+    } catch (err: any) {
+      console.error('Failed to fetch IAM data:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true)
-        setError(null)
-
-        // Получаем статистику
-        const statsResult = await graphqlRequest(GET_USER_STATS)
-        setStats(statsResult.userStats)
-
-        // Получаем пользователей
-        const usersResult = await graphqlRequest(GET_USERS, { first: 20 })
-        setUsers(usersResult.usersAdvanced.edges.map((edge: any) => edge.node))
-
-      } catch (err: any) {
-        console.error('Failed to fetch IAM data:', err)
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
+    if (currentOrgId) {
+      fetchData()
     }
+  }, [currentOrgId])
 
+  const handleEditUser = (user: any) => {
+    setSelectedUser(user)
+    setShowEditDialog(true)
+  }
+
+  const handleEditSuccess = () => {
+    setShowEditDialog(false)
+    setSelectedUser(null)
+    // Перезагружаем данные
     fetchData()
-  }, [])
+  }
 
   if (loading) {
     return (
@@ -118,61 +150,52 @@ export default function IAMPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Heading level={1}>Управление пользователями и доступом</Heading>
-        <Text className="mt-2 text-zinc-600 dark:text-zinc-400">
-          Управление пользователями, ролями и доступом к системе
-        </Text>
+      {/* Заголовок */}
+      <div className="flex justify-between items-center">
+        <div>
+          <Heading level={1}>Сотрудники</Heading>
+          <Text className="mt-2 text-zinc-600 dark:text-zinc-400">
+            Управление учетными записями сотрудников
+          </Text>
+        </div>
+        <Button 
+          onClick={() => setShowCreateDialog(true)}
+          className="bg-black hover:bg-gray-800 text-white border-gray-600"
+        >
+          Добавить сотрудника
+        </Button>
       </div>
 
       {/* Статистика */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">👥</span>
-            </div>
-            <Heading level={3}>Всего пользователей</Heading>
-          </div>
+        <div className="p-6">
+          <Heading level={3} className="mb-4">Всего сотрудников</Heading>
           <Text className="text-2xl font-bold text-blue-600">
             {stats?.totalUsers || 0}
           </Text>
-          <Text className="text-sm text-zinc-500">Активных аккаунтов</Text>
+          <Text className="text-sm text-zinc-500">Зарегистрировано</Text>
         </div>
 
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">🔑</span>
-            </div>
-            <Heading level={3}>Активные сессии</Heading>
-          </div>
+        <div className="p-6">
+          <Heading level={3} className="mb-4">Активные</Heading>
           <Text className="text-2xl font-bold text-green-600">
-            {stats?.onlineUsers || 0}
+            {stats?.activeUsers || 0}
           </Text>
-          <Text className="text-sm text-zinc-500">Сейчас онлайн</Text>
+          <Text className="text-sm text-zinc-500">
+            {stats?.totalUsers > 0 ? `${Math.round((stats?.activeUsers / stats?.totalUsers) * 100)}%` : '0%'}
+          </Text>
         </div>
 
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">🛡️</span>
-            </div>
-            <Heading level={3}>Администраторы</Heading>
-          </div>
+        <div className="p-6">
+          <Heading level={3} className="mb-4">Администраторы</Heading>
           <Text className="text-2xl font-bold text-orange-600">
             {stats?.usersByRole?.find((r: any) => r.role === 'ADMIN')?.count || 0}
           </Text>
-          <Text className="text-sm text-zinc-500">С расширенными правами</Text>
+          <Text className="text-sm text-zinc-500">С полным доступом</Text>
         </div>
 
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">⚠️</span>
-            </div>
-            <Heading level={3}>Заблокированные</Heading>
-          </div>
+        <div className="p-6">
+          <Heading level={3} className="mb-4">Заблокированные</Heading>
           <Text className="text-2xl font-bold text-red-600">
             {stats?.lockedUsers || 0}
           </Text>
@@ -180,137 +203,164 @@ export default function IAMPage() {
         </div>
       </div>
 
-      {/* Таблица пользователей */}
-      <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
-        <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
-          <Heading level={2}>Управление пользователями</Heading>
-          <Text className="text-sm text-zinc-500">
-            Управление аккаунтами пользователей, ролями и разрешениями
+      {/* Таблица сотрудников */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Heading level={2}>Список сотрудников</Heading>
+          <Text className="text-sm text-gray-500 dark:text-gray-400">
+            Показано: {users.length}
           </Text>
         </div>
-        
-        <Table striped>
-          <TableHead>
-            <TableRow>
-              <TableHeader>Пользователь</TableHeader>
-              <TableHeader>Email</TableHeader>
-              <TableHeader>Статус</TableHeader>
-              <TableHeader>Роли</TableHeader>
-              <TableHeader>Последний вход</TableHeader>
-              <TableHeader>Действия</TableHeader>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-semibold text-sm">
-                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                      </span>
-                    </div>
-                    <div>
-                      <Text className="font-medium">{user.name || 'No name'}</Text>
-                      <Text className="text-sm text-zinc-500">
-                        ID: {user.id.slice(0, 8)}...
-                      </Text>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Text className="font-mono text-sm">{user.email}</Text>
-                </TableCell>
-                <TableCell>
-                  <Badge 
-                    color={user.isLocked ? 'red' : user.status === 'ACTIVE' ? 'green' : 'yellow'}
-                  >
-                    {user.isLocked ? 'Заблокирован' : user.status === 'ACTIVE' ? 'Активен' : user.status || 'Активен'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {user.systemRoles?.map((role: string) => (
-                      <Badge key={role} color="blue" className="text-xs">
-                        {role}
-                      </Badge>
-                    )) || <Text className="text-sm text-zinc-500">Нет ролей</Text>}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Text className="text-sm text-zinc-500">
-                    {user.lastLoginAt 
-                      ? new Date(user.lastLoginAt).toLocaleDateString()
-                      : 'Никогда'
-                    }
-                  </Text>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button color="blue">
-                      Редактировать
-                    </Button>
-                    <Button color="red">
-                      Заблокировать
-                    </Button>
-                  </div>
-                </TableCell>
+
+        <div className="overflow-x-auto">
+          <Table className="min-w-full">
+            <TableHead>
+              <TableRow className="bg-gray-50 dark:bg-zinc-900">
+                <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Сотрудник
+                </TableHeader>
+                <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Email
+                </TableHeader>
+                <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Роли
+                </TableHeader>
+                <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Статус
+                </TableHeader>
+                <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Последний вход
+                </TableHeader>
+                <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Дата создания
+                </TableHeader>
+                <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Действия
+                </TableHeader>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Роли и разрешения */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <Heading level={2} className="mb-4">Роли и разрешения пользователей</Heading>
-          <div className="space-y-3">
-            {stats?.usersByRole?.map((roleStat: any) => (
-              <div key={roleStat.role} className="flex items-center justify-between py-3 border-b border-zinc-100 dark:border-zinc-700">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">
-                      {roleStat.role === 'ADMIN' ? '👑' : 
-                       roleStat.role === 'MANAGER' ? '⚡' : 
-                       roleStat.role === 'USER' ? '👤' : '👥'}
-                    </span>
-                  </div>
-                  <div>
-                    <Text className="font-medium">{roleStat.role}</Text>
-                    <Text className="text-sm text-zinc-500">
-                      {roleStat.role === 'ADMIN' ? 'Полный доступ к системе' :
-                       roleStat.role === 'MANAGER' ? 'Доступ к управлению' :
-                       roleStat.role === 'USER' ? 'Базовый доступ' : 'Ограниченный доступ'}
+            </TableHead>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150">
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-semibold">
+                          {user.name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || 'U'}
+                        </span>
+                      </div>
+                      <div>
+                        <Text className="font-medium text-gray-900 dark:text-white">
+                          {user.name || 'Без имени'}
+                        </Text>
+                        <Text className="text-xs text-gray-500 dark:text-gray-400">
+                          ID: {user.id.slice(0, 8)}
+                        </Text>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <Text className="text-sm font-mono text-gray-900 dark:text-white">
+                      {user.email}
                     </Text>
-                  </div>
-                </div>
-                <Badge color="blue">{roleStat.count} пользователей</Badge>
-              </div>
-            )) || (
-              <Text className="text-zinc-500">Данные о ролях недоступны</Text>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <Heading level={2} className="mb-4">Быстрые действия</Heading>
-          <div className="space-y-3">
-            <Button className="w-full justify-start" color="blue">
-              ➕ Создать пользователя
-            </Button>
-            <Button className="w-full justify-start" color="green">
-              📊 Экспорт данных
-            </Button>
-            <Button className="w-full justify-start" color="orange">
-              🔄 Массовые операции
-            </Button>
-            <Button className="w-full justify-start" color="red">
-              🛡️ Аудит безопасности
-            </Button>
-          </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-wrap gap-1">
+                      {user.systemRoles && user.systemRoles.length > 0 ? (
+                        user.systemRoles.map((role: string) => (
+                          <Badge key={role} color={role === 'ADMIN' ? 'orange' : role === 'MANAGER' ? 'blue' : 'zinc'} className="text-xs">
+                            {role === 'ADMIN' ? 'Админ' : 
+                             role === 'MANAGER' ? 'Менеджер' : 
+                             role === 'USER' ? 'Пользователь' : role}
+                          </Badge>
+                        ))
+                      ) : (
+                        <Badge color="zinc" className="text-xs">Пользователь</Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <Badge 
+                      color={user.isLocked ? 'red' : user.status === 'ACTIVE' ? 'green' : 'zinc'}
+                    >
+                      {user.isLocked ? 'Заблокирован' : 
+                       user.status === 'ACTIVE' ? 'Активен' : 
+                       user.status === 'INACTIVE' ? 'Неактивен' : 
+                       'Активен'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <Text className="text-sm text-gray-900 dark:text-white">
+                      {user.lastLoginAt 
+                        ? new Date(user.lastLoginAt).toLocaleDateString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })
+                        : '-'
+                      }
+                    </Text>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">
+                      {new Date(user.createdAt).toLocaleDateString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                      })}
+                    </Text>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={() => handleEditUser(user)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600 text-sm px-3 py-1"
+                      >
+                        Редактировать
+                      </Button>
+                      {user.isLocked ? (
+                        <Button 
+                          className="bg-green-500 hover:bg-green-600 text-white border-green-600 text-sm px-3 py-1"
+                        >
+                          Разблокировать
+                        </Button>
+                      ) : (
+                        <Button 
+                          className="bg-red-500 hover:bg-red-600 text-white border-red-600 text-sm px-3 py-1"
+                        >
+                          Заблокировать
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </div>
+
+      {/* Диалог создания пользователя */}
+      <CreateUserDialog
+        isOpen={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        orgId={currentOrgId || undefined}
+        onSuccess={() => {
+          setShowCreateDialog(false)
+          fetchData()
+        }}
+      />
+
+      {/* Диалог редактирования пользователя */}
+      <EditUserDialog
+        isOpen={showEditDialog}
+        onClose={() => {
+          setShowEditDialog(false)
+          setSelectedUser(null)
+        }}
+        user={selectedUser}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   )
 }

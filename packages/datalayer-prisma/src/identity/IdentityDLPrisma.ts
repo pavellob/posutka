@@ -76,13 +76,16 @@ export class IdentityDLPrisma implements IIdentityDL {
     return this.mapUserFromPrisma(user);
   }
 
-  async updateUser(id: string, input: Partial<CreateUserInput>): Promise<User> {
+  async updateUser(id: string, input: Partial<CreateUserInput & { systemRoles?: string[]; status?: string; isLocked?: boolean }>): Promise<User> {
     const user = await this.prisma.user.update({
       where: { id },
       data: {
         ...(input.email && { email: input.email }),
         ...(input.name !== undefined && { name: input.name }),
-        ...(input.password && { password: input.password })
+        ...(input.password && { password: input.password }),
+        ...(input.systemRoles && { systemRoles: input.systemRoles }),
+        ...(input.status && { status: input.status }),
+        ...(input.isLocked !== undefined && { isLocked: input.isLocked })
       }
     });
     
@@ -199,6 +202,10 @@ export class IdentityDLPrisma implements IIdentityDL {
       email: user.email,
       name: user.name,
       password: user.password,
+      systemRoles: user.systemRoles || ['USER'],
+      status: user.status || 'ACTIVE',
+      isLocked: user.isLocked || false,
+      lastLoginAt: user.lastLoginAt || null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };

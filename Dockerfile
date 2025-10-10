@@ -20,7 +20,7 @@ COPY scripts/ ./scripts/
 COPY docker-entrypoint.sh ./
 
 # Делаем скрипты исполняемыми
-RUN chmod +x ./scripts/migrate-and-seed.sh
+RUN chmod +x ./scripts/migrate.sh
 RUN chmod +x ./docker-entrypoint.sh
 RUN chmod +x ./scripts/wait-for-subgraphs.sh
 
@@ -39,9 +39,9 @@ RUN cat > ./start.sh << 'EOF'
 
 echo "🚀 Запуск Posutka GraphQL Federation..."
 
-# Сначала выполняем миграции и сиды
+# Сначала выполняем миграции (без сидов)
 echo "📊 Подготовка базы данных..."
-./scripts/migrate-and-seed.sh
+./scripts/migrate.sh
 
 # Запускаем подграфы в фоне
 echo "📦 Запуск подграфов..."

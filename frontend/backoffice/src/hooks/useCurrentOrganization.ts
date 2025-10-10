@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useCurrentUser } from './useCurrentUser'
 
-const CURRENT_ORG_KEY = 'currentOrganizationId'
+const CURRENT_ORG_KEY = 'selectedOrganizationId' // Унифицировано с useSelectedOrganization
 
 export function useCurrentOrganization() {
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
@@ -24,10 +24,28 @@ export function useCurrentOrganization() {
     }
   }, [user])
 
+  // Слушаем изменения организации от селектора
+  useEffect(() => {
+    const handleOrganizationChange = (e: CustomEvent) => {
+      const newOrgId = e.detail?.id || localStorage.getItem(CURRENT_ORG_KEY)
+      if (newOrgId && newOrgId !== currentOrgId) {
+        setCurrentOrgId(newOrgId)
+      }
+    }
+
+    window.addEventListener('organizationChanged', handleOrganizationChange as EventListener)
+    
+    return () => {
+      window.removeEventListener('organizationChanged', handleOrganizationChange as EventListener)
+    }
+  }, [currentOrgId])
+
   // Функция для смены организации
   const switchOrganization = (orgId: string) => {
     setCurrentOrgId(orgId)
     localStorage.setItem(CURRENT_ORG_KEY, orgId)
+    // Уведомляем другие компоненты об изменении
+    window.dispatchEvent(new CustomEvent('organizationChanged', { detail: { id: orgId } }))
   }
 
   // Получаем текущую организацию

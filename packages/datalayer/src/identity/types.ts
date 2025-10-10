@@ -9,6 +9,10 @@ export interface User {
   email: string;
   name?: string;
   password?: string;
+  systemRoles?: string[];
+  status?: string;
+  isLocked?: boolean;
+  lastLoginAt?: DateTime | null;
   createdAt: DateTime;
   updatedAt: DateTime;
 }

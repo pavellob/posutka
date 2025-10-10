@@ -46,10 +46,14 @@ async function main() {
   ])
 
   // 2) Организация с Объектами/Юнитами
-  const org = await prisma.organization.create({
-    data: {
-      name: 'Посутка СПб',
-      timezone: 'Europe/Amsterdam',
+  // Используем фиксированный ID для совместимости с фронтендом
+  const org = await prisma.organization.upsert({
+    where: { id: 'petroga' },
+    update: {},
+    create: {
+      id: 'petroga',
+      name: 'Петрога',
+      timezone: 'Europe/Moscow',
       currency: 'RUB',
       properties: {
         create: [
@@ -178,70 +182,6 @@ async function main() {
                   beds: 3,
                   bathrooms: 1,
                   amenities: ['wifi', 'душ', 'отдельный_вход'],
-                },
-              ],
-            },
-          },
-          {
-            title: 'Элитная 4‑комнатная квартира — Невский проспект, 28, кв. 15',
-            address: 'Россия, Санкт-Петербург, Невский проспект, д. 28, кв. 15',
-            amenities: [
-              'wifi',
-              'элитная_недвижимость',
-              'панорамные_окна',
-              'терраса',
-              'консьерж',
-              'спальных_мест:8',
-            ],
-            // Яндекс.Недвижимость поля
-            propertyType: 'жилая',
-            category: 'квартира',
-            dealStatus: 'аренда',
-            country: 'Россия',
-            region: 'Санкт-Петербург',
-            localityName: 'Санкт-Петербург',
-            apartment: '15',
-            metroName: 'Адмиралтейская',
-            metroTimeOnFoot: 3,
-            metroTimeOnTransport: 1,
-            latitude: 59.9358,
-            longitude: 30.3256,
-            totalArea: 120.5,
-            livingArea: 95.2,
-            kitchenArea: 18.3,
-            rooms: 4,
-            roomsOffered: 4,
-            floor: 3,
-            floorsTotal: 6,
-            buildingType: 'монолитный',
-            buildingYear: 2015,
-            buildingSeries: 'элитная застройка',
-            elevator: true,
-            parking: true,
-            security: true,
-            concierge: true,
-            playground: false,
-            gym: true,
-            balcony: true,
-            loggia: false,
-            airConditioning: true,
-            internet: true,
-            washingMachine: true,
-            dishwasher: true,
-            tv: true,
-            renovation: 'отличное',
-            furniture: true,
-            isElite: true,
-            yandexBuildingId: '12345',
-            yandexHouseId: '54321',
-            units: {
-              create: [
-                {
-                  name: 'Элитная квартира 15 — Основной юнит',
-                  capacity: 8,
-                  beds: 4,
-                  bathrooms: 2,
-                  amenities: ['wifi', 'кондиционер', 'стиральная_машина', 'посудомоечная_машина', 'терраса'],
                 },
               ],
             },

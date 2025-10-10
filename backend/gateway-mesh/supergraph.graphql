@@ -158,7 +158,7 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
   """Получить статистику пользователей"""
   userStats: UserStats! @join__field(graph: IAM_SUBGRAPH)
   """Получить список пользователей с расширенными фильтрами"""
-  usersAdvanced(first: Int, after: String, filters: UserFilters, sort: UserSort): IAMUserConnection! @join__field(graph: IAM_SUBGRAPH)
+  usersAdvanced(orgId: UUID!, first: Int, after: String, filters: UserFilters, sort: UserSort): IAMUserConnection! @join__field(graph: IAM_SUBGRAPH)
   """Получить пользователя с полной информацией"""
   userProfile(id: UUID!): IAMUser @join__field(graph: IAM_SUBGRAPH)
   """Получить активные сессии пользователя"""
@@ -1584,6 +1584,8 @@ input CreateIAMUserInput @join__type(graph: IAM_SUBGRAPH) {
   password: String!
   """Роли в системе"""
   systemRoles: [SystemRole!]
+  """ID организации (опционально)"""
+  orgId: UUID
 }
 
 """Входные данные для обновления пользователя"""

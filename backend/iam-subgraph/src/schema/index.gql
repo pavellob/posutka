@@ -236,6 +236,8 @@ input CreateIAMUserInput {
   password: String!
   """Роли в системе"""
   systemRoles: [SystemRole!]
+  """ID организации (опционально)"""
+  orgId: UUID
 }
 
 """Входные данные для обновления пользователя"""
@@ -276,6 +278,7 @@ type Query {
   userStats: UserStats!
   """Получить список пользователей с расширенными фильтрами"""
   usersAdvanced(
+    orgId: UUID!
     first: Int
     after: String
     filters: UserFilters

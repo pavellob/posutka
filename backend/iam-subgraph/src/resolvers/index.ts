@@ -66,24 +66,52 @@ export const resolvers: any = {
     // Расширенный список пользователей
     async usersAdvanced(
       _: unknown, 
-      { first = 10, after, filters, sort }: any, 
+      { orgId, first = 10, after, filters, sort }: any, 
       { dl }: Context
     ) {
       try {
-        logger.info('Fetching users with advanced filters', { first, filters, sort });
+        logger.info('Fetching users for organization', { orgId, first, filters, sort });
         
-        // Базовый запрос пользователей
-        const users = await dl.listUsers({ first, after });
+        // Получаем членство в организации
+        const memberships = await dl.getMembershipsByOrg(orgId);
+        
+        logger.info('Found memberships', { 
+          orgId, 
+          count: memberships.length,
+          userIds: memberships.map(m => m.userId)
+        });
+        
+        if (!memberships || memberships.length === 0) {
+          logger.info('No members found in organization', { orgId });
+          return {
+            edges: [],
+            pageInfo: {
+              hasNextPage: false,
+              hasPreviousPage: false,
+              startCursor: null,
+              endCursor: null,
+              totalCount: 0
+            }
+          };
+        }
+        
+        // Получаем пользователей по их ID
+        const userIds = memberships.map(m => m.userId);
+        const userPromises = userIds.map(userId => dl.getUserById(userId));
+        const usersArray = await Promise.all(userPromises);
+        
+        // Фильтруем null значения
+        const validUsers = usersArray.filter(user => user !== null);
         
         // Преобразуем в IAMUser формат
-        const iamUsers = users.edges.map((edge: any) => ({
-          ...edge.node,
-          status: 'ACTIVE',
-          lastLoginAt: new Date(),
+        const iamUsers = validUsers.map((user: any) => ({
+          ...user,
+          status: user.status || 'ACTIVE',
+          lastLoginAt: user.lastLoginAt || null,
           failedLoginAttempts: 0,
-          isLocked: false,
+          isLocked: user.isLocked || false,
           twoFactorEnabled: false,
-          systemRoles: ['USER'],
+          systemRoles: user.systemRoles || ['USER'],
           permissions: [],
           activeSessions: [],
           activityLog: []
@@ -92,12 +120,15 @@ export const resolvers: any = {
         return {
           edges: iamUsers.map((user: any) => ({ node: user, cursor: user.id })),
           pageInfo: {
-            hasNextPage: users.pageInfo.hasNextPage || false,
-            endCursor: users.pageInfo.endCursor
+            hasNextPage: false,
+            hasPreviousPage: false,
+            startCursor: iamUsers.length > 0 ? iamUsers[0].id : null,
+            endCursor: iamUsers.length > 0 ? iamUsers[iamUsers.length - 1].id : null,
+            totalCount: iamUsers.length
           }
         };
       } catch (error: any) {
-        logger.error('Failed to fetch users', { error: error.message });
+        logger.error('Failed to fetch users', { error: error.message, orgId });
         throw error;
       }
     },
@@ -115,12 +146,12 @@ export const resolvers: any = {
         // Преобразуем в IAMUser формат
         return {
           ...user,
-          status: 'ACTIVE',
-          lastLoginAt: new Date(),
+          status: user.status || 'ACTIVE',
+          lastLoginAt: user.lastLoginAt || null,
           failedLoginAttempts: 0,
-          isLocked: false,
+          isLocked: user.isLocked || false,
           twoFactorEnabled: false,
-          systemRoles: ['USER'],
+          systemRoles: user.systemRoles || ['USER'],
           permissions: [],
           activeSessions: [],
           activityLog: []
@@ -235,7 +266,7 @@ export const resolvers: any = {
     // Создание пользователя IAM
     async createIAMUser(_: unknown, { input }: { input: any }, { dl }: Context) {
       try {
-        logger.info('Creating user', { email: input.email });
+        logger.info('Creating user', { email: input.email, orgId: input.orgId });
         
         // Хэшируем пароль
         const hashedPassword = await bcrypt.hash(input.password, 12);
@@ -247,8 +278,31 @@ export const resolvers: any = {
           password: hashedPassword
         });
         
+        // Если указана организация, добавляем пользователя в неё
+        if (input.orgId) {
+          await dl.addMember({
+            userId: user.id,
+            orgId: input.orgId,
+            role: 'STAFF' // По умолчанию роль STAFF
+          });
+          logger.info('User added to organization', { userId: user.id, orgId: input.orgId });
+        }
+        
         logger.info('User created successfully', { userId: user.id });
-        return user;
+        
+        // Преобразуем в IAMUser формат
+        return {
+          ...user,
+          status: user.status || 'ACTIVE',
+          lastLoginAt: user.lastLoginAt || null,
+          failedLoginAttempts: 0,
+          isLocked: user.isLocked || false,
+          twoFactorEnabled: false,
+          systemRoles: input.systemRoles || ['USER'],
+          permissions: [],
+          activeSessions: [],
+          activityLog: []
+        };
       } catch (error: any) {
         logger.error('Failed to create user', { error: error.message, email: input.email });
         throw error;
@@ -258,14 +312,30 @@ export const resolvers: any = {
     // Обновление пользователя IAM
     async updateIAMUser(_: unknown, { id, input }: { id: string; input: any }, { dl }: Context) {
       try {
-        logger.info('Updating user', { userId: id });
+        logger.info('Updating user', { userId: id, input });
         
         const user = await dl.updateUser(id, {
-          name: input.name
+          name: input.name,
+          systemRoles: input.systemRoles,
+          status: input.status,
+          isLocked: input.lockUser
         });
         
         logger.info('User updated successfully', { userId: id });
-        return user;
+        
+        // Преобразуем в IAMUser формат
+        return {
+          ...user,
+          status: user.status || 'ACTIVE',
+          lastLoginAt: user.lastLoginAt || new Date(),
+          failedLoginAttempts: 0,
+          isLocked: user.isLocked || false,
+          twoFactorEnabled: false,
+          systemRoles: user.systemRoles || ['USER'],
+          permissions: [],
+          activeSessions: [],
+          activityLog: []
+        };
       } catch (error: any) {
         logger.error('Failed to update user', { error: error.message, userId: id });
         throw error;

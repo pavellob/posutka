@@ -35,10 +35,9 @@ cd packages/datalayer-prisma && pnpm prisma db push --accept-data-loss || echo "
 echo "🔧 Генерация Prisma клиента..."
 cd packages/datalayer-prisma && pnpm prisma generate
 
-# Заполняем базу тестовыми данными
-echo "🌱 Заполнение базы тестовыми данными..."
-cd packages/datalayer-prisma && pnpm tsx prisma/prisma-seed-mock.ts || echo "Seeding failed, continuing..."
-cd "$(dirname "$0")/.."
+# Сиды отключены для production деплоя
+# Для локальной разработки запускайте вручную: pnpm seed:ts
+echo "ℹ️  Сиды отключены. Запустите вручную при необходимости."
 
 echo "🎯 Запуск всех сервисов..."
 
