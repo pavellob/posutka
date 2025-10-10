@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  url      =  env("DATABASE_URL")
+  url      =  "postgresql://_3c15a9b2c69d3f84:_79b90f83e54afae114e6de1be059d6@primary.posutka-db--nxf2xdqnnrcn.addon.code.run:5432/_8822989d4979?sslmode=require"
 }
 
 generator client {
