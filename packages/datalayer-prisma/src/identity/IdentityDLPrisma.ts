@@ -50,8 +50,8 @@ export class IdentityDLPrisma implements IIdentityDL {
 
     const hasNextPage = users.length > first;
     const edges = hasNextPage ? users.slice(0, -1) : users;
-    const startCursor = edges.length > 0 ? edges[0].id : null;
-    const endCursor = edges.length > 0 ? edges[edges.length - 1].id : null;
+    const startCursor = edges.length > 0 ? edges[0].id : undefined;
+    const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
     const totalCount = await this.prisma.user.count();
 
     return {
@@ -121,8 +121,8 @@ export class IdentityDLPrisma implements IIdentityDL {
 
     const hasNextPage = orgs.length > first;
     const edges = hasNextPage ? orgs.slice(0, -1) : orgs;
-    const startCursor = edges.length > 0 ? edges[0].id : null;
-    const endCursor = edges.length > 0 ? edges[edges.length - 1].id : null;
+    const startCursor = edges.length > 0 ? edges[0].id : undefined;
+    const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
     const totalCount = await this.prisma.organization.count();
 
     return {

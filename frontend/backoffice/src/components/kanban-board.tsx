@@ -56,19 +56,17 @@ interface KanbanBoardProps {
   onUpdateStatus: (taskId: string, status: TaskStatus) => void
   onEdit: (task: Task) => void
   onAssign: (task: Task) => void
-  onAssignTask: (taskId: string, providerId: string) => void
+  onAssignTask: (taskId: string, assigneeId: string, taskType: string) => void
   onDragToAssign: (task: Task) => void
-  onExecuteCleaning?: (task: Task) => void
 }
 
 // Компонент карточки задачи для канбана
-function KanbanTaskCard({ task, onEdit, onAssign, onUpdateStatus, onAssignTask, onExecuteCleaning }: {
+function KanbanTaskCard({ task, onEdit, onAssign, onUpdateStatus, onAssignTask }: {
   task: Task
   onEdit: (task: Task) => void
   onAssign: (task: Task) => void
   onUpdateStatus: (taskId: string, status: TaskStatus) => void
-  onAssignTask: (taskId: string, providerId: string) => void
-  onExecuteCleaning?: (task: Task) => void
+  onAssignTask: (taskId: string, assigneeId: string, taskType: string) => void
 }) {
   const {
     attributes,
@@ -193,14 +191,6 @@ function KanbanTaskCard({ task, onEdit, onAssign, onUpdateStatus, onAssignTask, 
               <EllipsisVerticalIcon className="w-4 h-4" />
             </DropdownButton>
             <DropdownMenu className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg z-[9999] [&>*]:hover:!bg-gray-100 [&>*]:dark:hover:!bg-zinc-700 [&>*]:focus:!bg-gray-100 [&>*]:dark:focus:!bg-zinc-700 [&>*]:hover:!text-gray-900 [&>*]:dark:hover:!text-white [&>*]:focus:!text-gray-900 [&>*]:dark:focus:!text-white">
-              {task.type === 'CLEANING' && onExecuteCleaning && (
-                <DropdownItem onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation()
-                  onExecuteCleaning(task)
-                }}>
-                  ✨ Выполнить уборку
-                </DropdownItem>
-              )}
               <DropdownItem onClick={(e: React.MouseEvent) => {
                 e.stopPropagation()
                 onEdit(task)
@@ -264,7 +254,7 @@ function KanbanColumn({ column, tasks, onEdit, onAssign, onUpdateStatus, onAssig
   onEdit: (task: Task) => void
   onAssign: (task: Task) => void
   onUpdateStatus: (taskId: string, status: TaskStatus) => void
-  onAssignTask: (taskId: string, providerId: string) => void
+  onAssignTask: (taskId: string, assigneeId: string, taskType: string) => void
 }) {
   const getColumnColor = (color: string) => {
     const colorMap = {
@@ -310,7 +300,6 @@ function KanbanColumn({ column, tasks, onEdit, onAssign, onUpdateStatus, onAssig
                 onAssign={onAssign}
                 onUpdateStatus={onUpdateStatus}
                 onAssignTask={onAssignTask}
-                onExecuteCleaning={onExecuteCleaning}
               />
             ))}
             {tasks.length === 0 ? (
@@ -324,7 +313,7 @@ function KanbanColumn({ column, tasks, onEdit, onAssign, onUpdateStatus, onAssig
 }
 
 // Основной компонент канбан-доски
-export function KanbanBoard({ tasks, onUpdateStatus, onEdit, onAssign, onAssignTask, onDragToAssign, onExecuteCleaning }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onUpdateStatus, onEdit, onAssign, onAssignTask, onDragToAssign }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null)
 
   // Определяем колонки канбана

@@ -44,6 +44,15 @@ query GetTasks(
           rating
           contact
         }
+        assignedCleaner {
+          id
+          firstName
+          lastName
+          phone
+          email
+          rating
+          isActive
+        }
         checklist
       }
       cursor
@@ -96,6 +105,15 @@ query GetTaskById($id: UUID!) {
       rating
       contact
       serviceTypes
+    }
+    assignedCleaner {
+      id
+      firstName
+      lastName
+      phone
+      email
+      rating
+      isActive
     }
     checklist
   }
@@ -198,6 +216,15 @@ mutation AssignTask($input: AssignTaskInput!) {
       id
       name
       contact
+    }
+    assignedCleaner {
+      id
+      firstName
+      lastName
+      phone
+      email
+      rating
+      isActive
     }
   }
 }

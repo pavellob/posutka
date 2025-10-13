@@ -26,7 +26,7 @@ export default function CleanersPage() {
   const orgId = currentOrgId
 
   // Запрос уборщиков
-  const { data: cleanersData, isLoading: cleanersLoading } = useQuery({
+  const { data: cleanersData, isLoading: cleanersLoading } = useQuery<any>({
     queryKey: ['cleaners', orgId],
     queryFn: () => graphqlClient.request(GET_CLEANERS, {
       orgId: orgId!,
@@ -131,7 +131,7 @@ export default function CleanersPage() {
           </Text>
           <div className="space-y-2 text-sm text-blue-700 dark:text-blue-300">
             <p><strong>Шаг 1:</strong> Убедитесь, что у вас есть пользователь в системе (страница IAM)</p>
-            <p><strong>Шаг 2:</strong> Нажмите кнопку "Добавить уборщика"</p>
+            <p><strong>Шаг 2:</strong> Нажмите кнопку &ldquo;Добавить уборщика&rdquo;</p>
             <p><strong>Шаг 3:</strong> Выберите пользователя и заполните данные</p>
           </div>
         </div>

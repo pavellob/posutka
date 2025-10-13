@@ -5,7 +5,10 @@ export interface Edge<T> {
 }
 export interface PageInfo {
     hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    startCursor?: string;
     endCursor?: string;
+    totalCount?: number;
 }
 export interface Connection<T> {
     edges: Edge<T>[];

@@ -199,7 +199,7 @@ export default function TasksPage() {
   })
 
   // Запрос уборщиков (для задач CLEANING)
-  const { data: cleanersData } = useQuery({
+  const { data: cleanersData } = useQuery<any>({
     queryKey: ['cleaners', orgId],
     queryFn: () => graphqlClient.request(GET_CLEANERS, {
       orgId: orgId!,
