@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  url      =  "postgresql://_3c15a9b2c69d3f84:_79b90f83e54afae114e6de1be059d6@primary.posutka-db--nxf2xdqnnrcn.addon.code.run:27528/_8822989d4979?sslmode=require"
+  url      =  env("DATABASE_URL")
 }
 
 generator client {
@@ -235,12 +235,16 @@ model Task {
   status             TaskStatus       @default(TODO)
   dueAt              DateTime?
   assignedProviderId String?
+  assignedCleanerId  String?          // Для задач типа CLEANING
   checklist          String[]
   note               String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   assignedProvider   ServiceProvider? @relation(fields: [assignedProviderId], references: [id])
+  assignedCleaner    Cleaner?         @relation(fields: [assignedCleanerId], references: [id])
   serviceOrders      ServiceOrder[]
+
+  @@index([assignedCleanerId])
 }
 
 model ServiceOrder {
@@ -456,21 +460,32 @@ model LegalDepositTransaction {
 // ===== Cleaning Models =====
 
 model Cleaner {
-  id        String     @id @default(cuid())
-  userId    String
+  id        String      @id @default(cuid())
+  type      CleanerType @default(EXTERNAL)
+  userId    String?     // Для сотрудников (internal)
   orgId     String
   firstName String
   lastName  String
   phone     String?
   email     String?
-  rating    Float?     @default(0)
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  rating    Float?      @default(0)
+  isActive  Boolean     @default(true)
+  deletedAt DateTime?   // Soft delete - дата деактивации
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
   cleanings Cleaning[]
+  tasks     Task[]      // Задачи, назначенные на уборщика
 
   @@index([orgId])
   @@index([userId])
+  @@index([type])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+enum CleanerType {
+  INTERNAL  // Сотрудник компании (User)
+  EXTERNAL  // Внешний подрядчик
 }
 
 model CleaningTemplate {
