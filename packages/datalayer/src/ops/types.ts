@@ -24,6 +24,7 @@ export interface Task {
   status: TaskStatus;
   dueAt?: DateTime;
   assignedProviderId?: UUID;
+  assignedCleanerId?: UUID;
   checklist: string[];
   createdAt: DateTime;
   updatedAt: DateTime;
@@ -70,6 +71,7 @@ export interface CreateTaskInput {
 export interface AssignTaskInput {
   taskId: UUID;
   providerId?: UUID;
+  cleanerId?: UUID;
   status?: TaskStatus;
   note?: string;
 }

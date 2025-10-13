@@ -62,6 +62,11 @@ export const composeConfig = defineConfig({
           Authorization: '{context.headers.authorization}'
         }
       })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('cleaning-subgraph', {
+        endpoint: 'http://localhost:4010/graphql'
+      })
     }
   ],
   additionalTypeDefs: baseSchema

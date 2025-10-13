@@ -1,0 +1,467 @@
+# Запросы для получения данных
+query GetCleaners($orgId: UUID!, $isActive: Boolean, $first: Int, $after: String) {
+  cleaners(orgId: $orgId, isActive: $isActive, first: $first, after: $after) {
+    edges {
+      node {
+        id
+        user {
+          id
+        }
+        org {
+          id
+        }
+        firstName
+        lastName
+        phone
+        email
+        rating
+        isActive
+        createdAt
+        updatedAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+      totalCount
+    }
+  }
+}
+
+query GetCleaner($id: UUID!) {
+  cleaner(id: $id) {
+    id
+    user {
+      id
+    }
+    org {
+      id
+    }
+    firstName
+    lastName
+    phone
+    email
+    rating
+    isActive
+    createdAt
+    updatedAt
+    cleanings {
+      id
+      status
+      scheduledAt
+      unit {
+        id
+        name
+      }
+    }
+  }
+}
+
+query GetCleaningTemplates($unitId: UUID!) {
+  cleaningTemplates(unitId: $unitId) {
+    id
+    unit {
+      id
+    }
+    name
+    description
+    requiresLinenChange
+    estimatedDuration
+    checklistItems {
+      id
+      label
+      order
+      isRequired
+      createdAt
+      updatedAt
+    }
+    createdAt
+    updatedAt
+  }
+}
+
+query GetCleaningTemplate($id: UUID!) {
+  cleaningTemplate(id: $id) {
+    id
+    unit {
+      id
+    }
+    name
+    description
+    requiresLinenChange
+    estimatedDuration
+    checklistItems {
+      id
+      label
+      order
+      isRequired
+      createdAt
+      updatedAt
+    }
+    createdAt
+    updatedAt
+  }
+}
+
+query GetCleanings(
+  $orgId: UUID
+  $unitId: UUID
+  $cleanerId: UUID
+  $bookingId: UUID
+  $status: CleaningStatus
+  $from: DateTime
+  $to: DateTime
+  $first: Int
+  $after: String
+) {
+  cleanings(
+    orgId: $orgId
+    unitId: $unitId
+    cleanerId: $cleanerId
+    bookingId: $bookingId
+    status: $status
+    from: $from
+    to: $to
+    first: $first
+    after: $after
+  ) {
+    edges {
+      node {
+        id
+        org {
+          id
+        }
+        cleaner {
+          id
+          firstName
+          lastName
+          phone
+          email
+          rating
+        }
+        unit {
+          id
+          name
+        }
+        booking {
+          id
+        }
+        status
+        scheduledAt
+        startedAt
+        completedAt
+        notes
+        requiresLinenChange
+        checklistItems {
+          id
+          label
+          isChecked
+          order
+          createdAt
+          updatedAt
+        }
+        documents {
+          id
+          type
+          notes
+          photos {
+            id
+            url
+            caption
+            order
+            createdAt
+            updatedAt
+          }
+          createdAt
+          updatedAt
+        }
+        createdAt
+        updatedAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+      totalCount
+    }
+  }
+}
+
+query GetCleaning($id: UUID!) {
+  cleaning(id: $id) {
+    id
+    org {
+      id
+    }
+    cleaner {
+      id
+      firstName
+      lastName
+      phone
+      email
+      rating
+    }
+    unit {
+      id
+      name
+    }
+    booking {
+      id
+    }
+    status
+    scheduledAt
+    startedAt
+    completedAt
+    notes
+    requiresLinenChange
+    checklistItems {
+      id
+      label
+      isChecked
+      order
+      createdAt
+      updatedAt
+    }
+    documents {
+      id
+      type
+      notes
+      photos {
+        id
+        url
+        caption
+        order
+        createdAt
+        updatedAt
+      }
+      createdAt
+      updatedAt
+    }
+    createdAt
+    updatedAt
+  }
+}
+
+# Мутации для создания и изменения данных
+mutation CreateCleaner($input: CreateCleanerInput!) {
+  createCleaner(input: $input) {
+    id
+    user {
+      id
+    }
+    org {
+      id
+    }
+    firstName
+    lastName
+    phone
+    email
+    rating
+    isActive
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateCleaner($id: UUID!, $input: UpdateCleanerInput!) {
+  updateCleaner(id: $id, input: $input) {
+    id
+    firstName
+    lastName
+    phone
+    email
+    rating
+    isActive
+    updatedAt
+  }
+}
+
+mutation DeactivateCleaner($id: UUID!) {
+  deactivateCleaner(id: $id) {
+    id
+    isActive
+    updatedAt
+  }
+}
+
+mutation CreateCleaningTemplate($input: CreateCleaningTemplateInput!) {
+  createCleaningTemplate(input: $input) {
+    id
+    unit {
+      id
+    }
+    name
+    description
+    requiresLinenChange
+    estimatedDuration
+    checklistItems {
+      id
+      label
+      order
+      isRequired
+    }
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateCleaningTemplate($id: UUID!, $input: UpdateCleaningTemplateInput!) {
+  updateCleaningTemplate(id: $id, input: $input) {
+    id
+    name
+    description
+    requiresLinenChange
+    estimatedDuration
+    checklistItems {
+      id
+      label
+      order
+      isRequired
+    }
+    updatedAt
+  }
+}
+
+mutation DeleteCleaningTemplate($id: UUID!) {
+  deleteCleaningTemplate(id: $id)
+}
+
+mutation ScheduleCleaning($input: ScheduleCleaningInput!) {
+  scheduleCleaning(input: $input) {
+    id
+    org {
+      id
+    }
+    cleaner {
+      id
+      firstName
+      lastName
+    }
+    unit {
+      id
+      name
+    }
+    booking {
+      id
+    }
+    status
+    scheduledAt
+    notes
+    requiresLinenChange
+    checklistItems {
+      id
+      label
+      isChecked
+      order
+    }
+    createdAt
+    updatedAt
+  }
+}
+
+mutation StartCleaning($id: UUID!) {
+  startCleaning(id: $id) {
+    id
+    status
+    startedAt
+    updatedAt
+  }
+}
+
+mutation CompleteCleaning($id: UUID!, $input: CompleteCleaningInput!) {
+  completeCleaning(id: $id, input: $input) {
+    id
+    status
+    completedAt
+    notes
+    checklistItems {
+      id
+      label
+      isChecked
+      order
+    }
+    updatedAt
+  }
+}
+
+mutation CancelCleaning($id: UUID!, $reason: String) {
+  cancelCleaning(id: $id, reason: $reason) {
+    id
+    status
+    notes
+    updatedAt
+  }
+}
+
+mutation UpdateCleaningChecklist($id: UUID!, $items: [ChecklistItemInput!]!) {
+  updateCleaningChecklist(id: $id, items: $items) {
+    id
+    checklistItems {
+      id
+      label
+      isChecked
+      order
+    }
+    updatedAt
+  }
+}
+
+mutation CreatePreCleaningDocument($cleaningId: UUID!, $input: CreateCleaningDocumentInput!) {
+  createPreCleaningDocument(cleaningId: $cleaningId, input: $input) {
+    id
+    cleaning {
+      id
+    }
+    type
+    notes
+    photos {
+      id
+      url
+      caption
+      order
+    }
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CreatePostCleaningDocument($cleaningId: UUID!, $input: CreateCleaningDocumentInput!) {
+  createPostCleaningDocument(cleaningId: $cleaningId, input: $input) {
+    id
+    cleaning {
+      id
+    }
+    type
+    notes
+    photos {
+      id
+      url
+      caption
+      order
+    }
+    createdAt
+    updatedAt
+  }
+}
+
+mutation AddPhotoToDocument($documentId: UUID!, $input: AddPhotoInput!) {
+  addPhotoToDocument(documentId: $documentId, input: $input) {
+    id
+    url
+    caption
+    order
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeletePhotoFromDocument($photoId: UUID!) {
+  deletePhotoFromDocument(photoId: $photoId)
+}
+

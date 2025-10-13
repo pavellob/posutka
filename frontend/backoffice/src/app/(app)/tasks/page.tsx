@@ -12,7 +12,7 @@ import { Input } from '@/components/input'
 import { Dialog } from '@/components/dialog'
 import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
 import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon, ViewColumnsIcon } from '@heroicons/react/24/outline'
-import { GET_TASKS, GET_SERVICE_PROVIDERS, ASSIGN_TASK, UPDATE_TASK_STATUS } from '@/lib/graphql-queries'
+import { GET_TASKS, GET_SERVICE_PROVIDERS, GET_CLEANERS, ASSIGN_TASK, UPDATE_TASK_STATUS, SCHEDULE_CLEANING } from '@/lib/graphql-queries'
 
 // Компонент карточки задачи
 function TaskCard({ task, onAssign, onUpdateStatus, onEdit }: { 
@@ -198,12 +198,31 @@ export default function TasksPage() {
     })
   })
 
+  // Запрос уборщиков (для задач CLEANING)
+  const { data: cleanersData } = useQuery({
+    queryKey: ['cleaners', orgId],
+    queryFn: () => graphqlClient.request(GET_CLEANERS, {
+      orgId: orgId!,
+      isActive: true,
+      first: 100
+    }),
+    enabled: !!orgId
+  })
+
   // Мутации
   const assignTaskMutation = useMutation<AssignTaskMutation, Error, any>({
     mutationFn: (input: any) => graphqlClient.request(ASSIGN_TASK, { input }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setShowAssignDialog(false)
+    }
+  })
+
+  const scheduleCleaningMutation = useMutation({
+    mutationFn: (input: any) => graphqlClient.request(SCHEDULE_CLEANING, { input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cleanings'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     }
   })
 
@@ -215,11 +234,59 @@ export default function TasksPage() {
     }
   })
 
-  const handleAssignTask = async (taskId: string, providerId: string) => {
-    assignTaskMutation.mutate({
-      taskId,
-      providerId
-    })
+  const handleAssignTask = async (taskId: string, assigneeId: string, taskType: string) => {
+    // Для задач типа CLEANING назначаем уборщика и сразу создаем запись Cleaning
+    if (taskType === 'CLEANING') {
+      // Сначала назначаем уборщика на задачу
+      await assignTaskMutation.mutateAsync({
+        taskId,
+        cleanerId: assigneeId
+      })
+      
+      // Затем автоматически создаем запись Cleaning
+      const task = tasks.find(t => t.id === taskId)
+      if (task) {
+        try {
+          const cleaningResult = await scheduleCleaningMutation.mutateAsync({
+            orgId: orgId!,
+            cleanerId: assigneeId,
+            unitId: task.unit?.id,
+            bookingId: task.booking?.id,
+            taskId: taskId,
+            scheduledAt: task.dueAt || new Date().toISOString(),
+            notes: task.note || 'Создано автоматически при назначении уборщика',
+            requiresLinenChange: false,
+            checklistItems: [
+              { label: 'Пропылесосить все комнаты', isChecked: false, order: 0 },
+              { label: 'Помыть полы', isChecked: false, order: 1 },
+              { label: 'Протереть пыль', isChecked: false, order: 2 },
+              { label: 'Убрать в ванной', isChecked: false, order: 3 },
+              { label: 'Убрать на кухне', isChecked: false, order: 4 },
+              { label: 'Сменить постельное белье', isChecked: false, order: 5 },
+              { label: 'Проверить все приборы', isChecked: false, order: 6 },
+              { label: 'Вынести мусор', isChecked: false, order: 7 }
+            ]
+          })
+          
+          // Показываем уведомление об успешном создании с возможностью перейти к уборкам
+          const cleanerName = cleanersData?.cleaners?.edges?.find((edge: any) => edge.node.id === assigneeId)?.node
+          const cleanerFullName = cleanerName ? `${cleanerName.firstName} ${cleanerName.lastName}` : 'уборщик'
+          
+          if (confirm(`✅ Успешно!\n\n• Уборщик ${cleanerFullName} назначен на задачу\n• Уборка создана и добавлена в список со статусом "Запланирована"\n\nПерейти на страницу уборок?`)) {
+            window.location.href = '/cleanings'
+          }
+        } catch (error) {
+          console.error('Ошибка при создании уборки:', error)
+          alert('⚠️ Уборщик назначен на задачу, но не удалось автоматически создать запись уборки.\n\nПожалуйста, создайте уборку вручную через страницу /cleanings или кнопку "Выполнить уборку".')
+        }
+      }
+    } else {
+      // Для остальных типов задач просто назначаем провайдера
+      assignTaskMutation.mutate({
+        taskId,
+        providerId: assigneeId
+      })
+    }
   }
 
   const handleUpdateStatus = async (taskId: string, status: string) => {
@@ -478,7 +545,9 @@ export default function TasksPage() {
               setSelectedTask(task as any)
               setShowAssignDialog(true)
             }}
-            onAssignTask={handleAssignTask}
+            onAssignTask={(taskId: string, assigneeId: string, taskType: string) => 
+              handleAssignTask(taskId, assigneeId, taskType)
+            }
             onDragToAssign={(task) => {
               setSelectedTask(task as any)
               setShowAssignDialog(true)
@@ -531,7 +600,23 @@ export default function TasksPage() {
                       )}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap">
-                      {task.assignedTo ? (
+                      {task.type === 'CLEANING' && task.assignedCleaner ? (
+                        <div>
+                          <Text className="font-medium text-gray-900 dark:text-white">
+                            🧹 {task.assignedCleaner.firstName} {task.assignedCleaner.lastName}
+                          </Text>
+                          {task.assignedCleaner.rating && (
+                            <Text className="text-sm text-yellow-600">
+                              ⭐ {task.assignedCleaner.rating.toFixed(1)}
+                            </Text>
+                          )}
+                          {task.assignedCleaner.phone && (
+                            <Text className="text-xs text-gray-500 dark:text-gray-400">
+                              {task.assignedCleaner.phone}
+                            </Text>
+                          )}
+                        </div>
+                      ) : task.assignedTo ? (
                         <div>
                           <Text className="font-medium text-gray-900 dark:text-white">{task.assignedTo.name}</Text>
                           <Text className="text-sm text-gray-500 dark:text-gray-400">{task.assignedTo.contact}</Text>
@@ -607,29 +692,79 @@ export default function TasksPage() {
         <div className="p-6">
           <Heading level={2} className="mb-4">Назначить задачу</Heading>
           <Text className="mb-4">
-            Выберите поставщика услуг для задачи
+            {selectedTask?.type === 'CLEANING' 
+              ? 'Выберите уборщика для выполнения уборки' 
+              : 'Выберите поставщика услуг для задачи'}
           </Text>
           <div className="space-y-3">
-            {providersData?.serviceProviders?.map((provider) => (
-              <div
-                key={provider.id}
-                className="p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700"
-                onClick={() => {
-                  if (selectedTask) {
-                    handleAssignTask(selectedTask.id, provider.id)
-                    setShowAssignDialog(false)
-                  }
-                }}
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <Text className="font-medium">{provider.name}</Text>
-                    <Text className="text-sm text-zinc-500">{provider.contact}</Text>
+            {selectedTask?.type === 'CLEANING' ? (
+              // Показываем уборщиков для задач типа CLEANING
+              cleanersData?.cleaners?.edges?.map((edge: any) => {
+                const cleaner = edge.node
+                return (
+                  <div
+                    key={cleaner.id}
+                    className="p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                    onClick={() => {
+                      if (selectedTask) {
+                        handleAssignTask(selectedTask.id, cleaner.id, selectedTask.type)
+                        setShowAssignDialog(false)
+                      }
+                    }}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <Text className="font-medium">
+                          🧹 {cleaner.firstName} {cleaner.lastName}
+                        </Text>
+                        {cleaner.phone && (
+                          <Text className="text-sm text-zinc-500">{cleaner.phone}</Text>
+                        )}
+                      </div>
+                      {cleaner.rating && (
+                        <Badge color="yellow">⭐ {cleaner.rating.toFixed(1)}</Badge>
+                      )}
+                    </div>
                   </div>
-                  <Badge color="blue">Рейтинг: {provider.rating}</Badge>
+                )
+              })
+            ) : (
+              // Показываем поставщиков услуг для остальных типов задач
+              providersData?.serviceProviders?.map((provider) => (
+                <div
+                  key={provider.id}
+                  className="p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                  onClick={() => {
+                    if (selectedTask) {
+                      handleAssignTask(selectedTask.id, provider.id, selectedTask.type)
+                      setShowAssignDialog(false)
+                    }
+                  }}
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <Text className="font-medium">{provider.name}</Text>
+                      <Text className="text-sm text-zinc-500">{provider.contact}</Text>
+                    </div>
+                    <Badge color="blue">Рейтинг: {provider.rating}</Badge>
+                  </div>
                 </div>
+              ))
+            )}
+            {selectedTask?.type === 'CLEANING' && (!cleanersData?.cleaners?.edges || cleanersData.cleaners.edges.length === 0) && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <Text className="text-yellow-800 dark:text-yellow-200">
+                  Нет доступных уборщиков. Добавьте уборщиков на странице <a href="/cleanings" className="underline">Уборки</a>.
+                </Text>
               </div>
-            ))}
+            )}
+            {selectedTask?.type !== 'CLEANING' && (!providersData?.serviceProviders || providersData.serviceProviders.length === 0) && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <Text className="text-yellow-800 dark:text-yellow-200">
+                  Нет доступных поставщиков услуг для этого типа задачи.
+                </Text>
+              </div>
+            )}
           </div>
         </div>
       </Dialog>

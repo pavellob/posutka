@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  url      =  "postgresql://_3c15a9b2c69d3f84:_79b90f83e54afae114e6de1be059d6@primary.posutka-db--nxf2xdqnnrcn.addon.code.run:5432/_8822989d4979?sslmode=require"
+  url      =  env("DATABASE_URL")
 }
 
 generator client {
@@ -235,12 +235,16 @@ model Task {
   status             TaskStatus       @default(TODO)
   dueAt              DateTime?
   assignedProviderId String?
+  assignedCleanerId  String?          // Для задач типа CLEANING
   checklist          String[]
   note               String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   assignedProvider   ServiceProvider? @relation(fields: [assignedProviderId], references: [id])
+  assignedCleaner    Cleaner?         @relation(fields: [assignedCleanerId], references: [id])
   serviceOrders      ServiceOrder[]
+
+  @@index([assignedCleanerId])
 }
 
 model ServiceOrder {
@@ -451,4 +455,140 @@ model LegalDepositTransaction {
   status           String
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+// ===== Cleaning Models =====
+
+model Cleaner {
+  id        String      @id @default(cuid())
+  type      CleanerType @default(EXTERNAL)
+  userId    String?     // Для сотрудников (internal)
+  orgId     String
+  firstName String
+  lastName  String
+  phone     String?
+  email     String?
+  rating    Float?      @default(0)
+  isActive  Boolean     @default(true)
+  deletedAt DateTime?   // Soft delete - дата деактивации
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  cleanings Cleaning[]
+  tasks     Task[]      // Задачи, назначенные на уборщика
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([type])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+enum CleanerType {
+  INTERNAL  // Сотрудник компании (User)
+  EXTERNAL  // Внешний подрядчик
+}
+
+model CleaningTemplate {
+  id                   String                     @id @default(cuid())
+  unitId               String
+  name                 String
+  description          String?
+  requiresLinenChange  Boolean                    @default(false)
+  estimatedDuration    Int?                       // minutes
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  checklistItems       CleaningTemplateCheckbox[]
+
+  @@index([unitId])
+}
+
+model CleaningTemplateCheckbox {
+  id         String           @id @default(cuid())
+  templateId String
+  label      String
+  order      Int              @default(0)
+  isRequired Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  template   CleaningTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+model Cleaning {
+  id                String             @id @default(cuid())
+  orgId             String
+  cleanerId         String
+  unitId            String
+  bookingId         String?
+  taskId            String?            // Связь с Task из ops-subgraph
+  status            CleaningStatus     @default(SCHEDULED)
+  scheduledAt       DateTime
+  startedAt         DateTime?
+  completedAt       DateTime?
+  notes             String?
+  requiresLinenChange Boolean          @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  cleaner           Cleaner            @relation(fields: [cleanerId], references: [id])
+  documents         CleaningDocument[]
+  checklistItems    CleaningChecklist[]
+
+  @@index([orgId])
+  @@index([cleanerId])
+  @@index([unitId])
+  @@index([bookingId])
+  @@index([taskId])
+  @@index([scheduledAt])
+}
+
+model CleaningChecklist {
+  id         String   @id @default(cuid())
+  cleaningId String
+  label      String
+  isChecked  Boolean  @default(false)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  cleaning   Cleaning @relation(fields: [cleaningId], references: [id], onDelete: Cascade)
+
+  @@index([cleaningId])
+}
+
+model CleaningDocument {
+  id         String                 @id @default(cuid())
+  cleaningId String
+  type       CleaningDocumentType
+  notes      String?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  cleaning   Cleaning               @relation(fields: [cleaningId], references: [id], onDelete: Cascade)
+  photos     CleaningDocumentPhoto[]
+
+  @@index([cleaningId])
+}
+
+model CleaningDocumentPhoto {
+  id         String           @id @default(cuid())
+  documentId String
+  url        String
+  caption    String?
+  order      Int              @default(0)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  document   CleaningDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+enum CleaningStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CleaningDocumentType {
+  PRE_CLEANING_ACCEPTANCE
+  POST_CLEANING_HANDOVER
 }

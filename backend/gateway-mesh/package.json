@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "echo \"(not used)\"",
-    "compose": "hive dev --registry.accessToken \"$HIVE_TOKEN\" --target \"$HIVE_TARGET\" --watch --service inventory --url http://localhost:4001/graphql --service bookings --url http://localhost:4002/graphql --service ops --url http://localhost:4003/graphql --service billing --url http://localhost:4004/graphql --service identity --url http://localhost:4005/graphql --service listings --url http://localhost:4006/graphql --service legal --url http://localhost:4007/graphql --service ai --url http://localhost:4008/graphql",
+    "compose": "hive dev --registry.accessToken \"$HIVE_TOKEN\" --target \"$HIVE_TARGET\" --watch --service inventory --url http://localhost:4001/graphql --service bookings --url http://localhost:4002/graphql --service ops --url http://localhost:4003/graphql --service billing --url http://localhost:4004/graphql --service identity --url http://localhost:4005/graphql --service listings --url http://localhost:4006/graphql --service legal --url http://localhost:4007/graphql --service ai --url http://localhost:4008/graphql --service cleaning --url http://localhost:4010/graphql",
     "gateway": "mesh dev",
     "mesh:dev": "mesh dev",
     "mesh:build": "mesh build",
@@ -16,7 +16,7 @@
     "hive:check": "hive schema:check --service=ai-subgraph ../../ai-subgraph/src/schema/index.gql",
     "hive:delete": "hive schema:delete --service=ai-subgraph --author=\"AI Assistant\" --commit=\"Delete schema\"",
     "hive:list": "hive schema:list --service=ai-subgraph",
-    "gateway:dev": "hive dev --service inventory --url http://localhost:4001/graphql --service bookings --url http://localhost:4002/graphql --service ops --url http://localhost:4003/graphql --service billing --url http://localhost:4004/graphql --service identity --url http://localhost:4005/graphql --service listings --url http://localhost:4006/graphql --service legal --url http://localhost:4007/graphql --service ai --url http://localhost:4008/graphql",
+    "gateway:dev": "hive dev --service inventory --url http://localhost:4001/graphql --service bookings --url http://localhost:4002/graphql --service ops --url http://localhost:4003/graphql --service billing --url http://localhost:4004/graphql --service identity --url http://localhost:4005/graphql --service listings --url http://localhost:4006/graphql --service legal --url http://localhost:4007/graphql --service ai --url http://localhost:4008/graphql --service cleaning --url http://localhost:4010/graphql",
     "gateway:start": "hive-gateway supergraph"
   },
   "dependencies": {

@@ -15,4 +15,6 @@ export * from './legal/types.js';
 export * from './legal/ILegalDL.js';
 export * from './ai/types.js';
 export * from './ai/IAIOrchestrator.js';
+export * from './cleaning/types.js';
+export * from './cleaning/ICleaningDL.js';
 export * from './errors.js';

@@ -87,6 +87,7 @@ export class OpsDLPrisma implements IOpsDL {
     const updateData: any = {};
     
     if (input.providerId) updateData.assignedProviderId = input.providerId;
+    if (input.cleanerId) updateData.assignedCleanerId = input.cleanerId;
     if (input.status) updateData.status = input.status;
     if (input.note) updateData.note = input.note;
 
@@ -230,6 +231,7 @@ export class OpsDLPrisma implements IOpsDL {
       status: task.status,
       dueAt: task.dueAt?.toISOString(),
       assignedProviderId: task.assignedProviderId,
+      assignedCleanerId: task.assignedCleanerId,
       checklist: task.checklist,
       note: task.note,
       createdAt: task.createdAt.toISOString(),

@@ -1,0 +1,566 @@
+# Cleaning Subgraph - Управление уборками
+# Отвечает за создание уборщиков, шаблонов уборки, планирование и выполнение уборок
+
+scalar UUID
+scalar DateTime
+
+"""
+Информация о пагинации для соединений (connections).
+"""
+type PageInfo {
+  """Есть ли следующая страница результатов"""
+  hasNextPage: Boolean!
+  """Есть ли предыдущая страница результатов"""
+  hasPreviousPage: Boolean!
+  """Курсор для начала текущей страницы"""
+  startCursor: String
+  """Курсор для конца текущей страницы"""
+  endCursor: String
+  """Общее количество элементов"""
+  totalCount: Int
+}
+
+"""
+Запросы для работы с уборками.
+"""
+type Query {
+  """Получить уборщика по ID"""
+  cleaner(id: UUID!): Cleaner
+  
+  """Получить список уборщиков"""
+  cleaners(
+    """ID организации для фильтрации"""
+    orgId: UUID!
+    """Только активные уборщики"""
+    isActive: Boolean
+    """Количество элементов на странице"""
+    first: Int
+    """Курсор для пагинации"""
+    after: String
+  ): CleanerConnection!
+  
+  """Получить шаблон уборки по ID"""
+  cleaningTemplate(id: UUID!): CleaningTemplate
+  
+  """Получить шаблоны уборки для квартиры"""
+  cleaningTemplates(
+    """ID единицы недвижимости"""
+    unitId: UUID!
+  ): [CleaningTemplate!]!
+  
+  """Получить уборку по ID"""
+  cleaning(id: UUID!): Cleaning
+  
+  """Получить уборку по ID задачи"""
+  cleaningByTask(taskId: UUID!): Cleaning
+  
+  """Получить список уборок с фильтрацией"""
+  cleanings(
+    """ID организации для фильтрации"""
+    orgId: UUID
+    """ID единицы недвижимости для фильтрации"""
+    unitId: UUID
+    """ID уборщика для фильтрации"""
+    cleanerId: UUID
+    """ID бронирования для фильтрации"""
+    bookingId: UUID
+    """ID связанной задачи для фильтрации"""
+    taskId: UUID
+    """Статус уборки для фильтрации"""
+    status: CleaningStatus
+    """Начальная дата для фильтрации"""
+    from: DateTime
+    """Конечная дата для фильтрации"""
+    to: DateTime
+    """Количество элементов на странице"""
+    first: Int
+    """Курсор для пагинации"""
+    after: String
+  ): CleaningConnection!
+}
+
+"""
+Мутации для управления уборками.
+"""
+type Mutation {
+  # Уборщики
+  """Создать нового уборщика"""
+  createCleaner(input: CreateCleanerInput!): Cleaner!
+  
+  """Обновить данные уборщика"""
+  updateCleaner(id: UUID!, input: UpdateCleanerInput!): Cleaner!
+  
+  """Деактивировать уборщика (soft delete)"""
+  deactivateCleaner(id: UUID!): Cleaner!
+  
+  """Активировать уборщика (отменить деактивацию)"""
+  activateCleaner(id: UUID!): Cleaner!
+  
+  # Шаблоны уборки
+  """Создать шаблон уборки для квартиры"""
+  createCleaningTemplate(input: CreateCleaningTemplateInput!): CleaningTemplate!
+  
+  """Обновить шаблон уборки"""
+  updateCleaningTemplate(id: UUID!, input: UpdateCleaningTemplateInput!): CleaningTemplate!
+  
+  """Удалить шаблон уборки"""
+  deleteCleaningTemplate(id: UUID!): Boolean!
+  
+  # Уборки
+  """Запланировать уборку"""
+  scheduleCleaning(input: ScheduleCleaningInput!): Cleaning!
+  
+  """Начать уборку"""
+  startCleaning(id: UUID!): Cleaning!
+  
+  """Завершить уборку"""
+  completeCleaning(id: UUID!, input: CompleteCleaningInput!): Cleaning!
+  
+  """Отменить уборку"""
+  cancelCleaning(id: UUID!, reason: String): Cleaning!
+  
+  """Обновить чеклист уборки"""
+  updateCleaningChecklist(id: UUID!, items: [ChecklistItemInput!]!): Cleaning!
+  
+  # Документы уборки
+  """Создать документ приемки квартиры перед уборкой"""
+  createPreCleaningDocument(cleaningId: UUID!, input: CreateCleaningDocumentInput!): CleaningDocument!
+  
+  """Создать документ сдачи квартиры после уборки"""
+  createPostCleaningDocument(cleaningId: UUID!, input: CreateCleaningDocumentInput!): CleaningDocument!
+  
+  """Добавить фото к документу"""
+  addPhotoToDocument(documentId: UUID!, input: AddPhotoInput!): CleaningDocumentPhoto!
+  
+  """Удалить фото из документа"""
+  deletePhotoFromDocument(photoId: UUID!): Boolean!
+}
+
+# ===== Типы =====
+
+"""
+Пользователь системы (ссылка на identity-subgraph).
+"""
+type User {
+  """Уникальный идентификатор пользователя"""
+  id: UUID!
+}
+
+"""
+Организация (ссылка на identity-subgraph).
+"""
+type Organization {
+  """Уникальный идентификатор организации"""
+  id: UUID!
+}
+
+"""
+Единица недвижимости (ссылка на inventory-subgraph).
+"""
+type Unit {
+  """Уникальный идентификатор единицы недвижимости"""
+  id: UUID!
+}
+
+"""
+Бронирование (ссылка на bookings-subgraph).
+"""
+type Booking {
+  """Уникальный идентификатор бронирования"""
+  id: UUID!
+}
+
+"""
+Уборщик - сотрудник, выполняющий уборку.
+Содержит ссылку на пользователя системы.
+"""
+type Cleaner {
+  """Уникальный идентификатор уборщика"""
+  id: UUID!
+  """Пользователь системы"""
+  user: User!
+  """Организация"""
+  org: Organization!
+  """Имя"""
+  firstName: String!
+  """Фамилия"""
+  lastName: String!
+  """Телефон"""
+  phone: String
+  """Email"""
+  email: String
+  """Рейтинг уборщика"""
+  rating: Float
+  """Активен ли уборщик"""
+  isActive: Boolean!
+  """Дата деактивации (soft delete)"""
+  deletedAt: DateTime
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+  """Выполненные уборки"""
+  cleanings: [Cleaning!]!
+}
+
+"""
+Шаблон уборки для квартиры.
+Содержит описание и чеклист для выполнения уборки.
+"""
+type CleaningTemplate {
+  """Уникальный идентификатор шаблона"""
+  id: UUID!
+  """Единица недвижимости"""
+  unit: Unit!
+  """Название шаблона"""
+  name: String!
+  """Текстовое описание"""
+  description: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean!
+  """Расчетная продолжительность в минутах"""
+  estimatedDuration: Int
+  """Чек-боксы для проверки"""
+  checklistItems: [CleaningTemplateCheckbox!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Чек-бокс в шаблоне уборки.
+"""
+type CleaningTemplateCheckbox {
+  """Уникальный идентификатор чек-бокса"""
+  id: UUID!
+  """Текст пункта"""
+  label: String!
+  """Порядок отображения"""
+  order: Int!
+  """Обязателен ли пункт"""
+  isRequired: Boolean!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Уборка - процесс очистки квартиры.
+Обязательно привязана к объекту недвижимости.
+Опционально может быть привязана к бронированию и задаче.
+"""
+type Cleaning {
+  """Уникальный идентификатор уборки"""
+  id: UUID!
+  """Организация"""
+  org: Organization!
+  """Уборщик"""
+  cleaner: Cleaner!
+  """Единица недвижимости (обязательно)"""
+  unit: Unit!
+  """Бронирование (опционально)"""
+  booking: Booking
+  """Связанная задача (опционально)"""
+  taskId: UUID
+  """Статус уборки"""
+  status: CleaningStatus!
+  """Запланированное время"""
+  scheduledAt: DateTime!
+  """Время начала"""
+  startedAt: DateTime
+  """Время завершения"""
+  completedAt: DateTime
+  """Заметки"""
+  notes: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean!
+  """Чеклист уборки"""
+  checklistItems: [CleaningChecklist!]!
+  """Документы уборки (приемка и сдача)"""
+  documents: [CleaningDocument!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Пункт чеклиста уборки.
+"""
+type CleaningChecklist {
+  """Уникальный идентификатор пункта"""
+  id: UUID!
+  """Текст пункта"""
+  label: String!
+  """Отмечен ли пункт"""
+  isChecked: Boolean!
+  """Порядок отображения"""
+  order: Int!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Документ уборки.
+Два типа: приемка квартиры перед уборкой и сдача после уборки.
+По первому возвращается залог гостю.
+"""
+type CleaningDocument {
+  """Уникальный идентификатор документа"""
+  id: UUID!
+  """Уборка"""
+  cleaning: Cleaning!
+  """Тип документа"""
+  type: CleaningDocumentType!
+  """Заметки к документу"""
+  notes: String
+  """Фотографии"""
+  photos: [CleaningDocumentPhoto!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Фотография в документе уборки.
+"""
+type CleaningDocumentPhoto {
+  """Уникальный идентификатор фото"""
+  id: UUID!
+  """URL фотографии"""
+  url: String!
+  """Описание фото"""
+  caption: String
+  """Порядок отображения"""
+  order: Int!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+# ===== Connections =====
+
+"""
+Соединение уборщиков с пагинацией.
+"""
+type CleanerConnection {
+  """Список уборщиков с курсорами"""
+  edges: [CleanerEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""
+Элемент списка уборщиков для пагинации.
+"""
+type CleanerEdge {
+  """Уборщик"""
+  node: Cleaner!
+  """Курсор для пагинации"""
+  cursor: String!
+}
+
+"""
+Соединение уборок с пагинацией.
+"""
+type CleaningConnection {
+  """Список уборок с курсорами"""
+  edges: [CleaningEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""
+Элемент списка уборок для пагинации.
+"""
+type CleaningEdge {
+  """Уборка"""
+  node: Cleaning!
+  """Курсор для пагинации"""
+  cursor: String!
+}
+
+# ===== Enums =====
+
+"""
+Статус уборки.
+"""
+enum CleaningStatus {
+  """Запланирована"""
+  SCHEDULED
+  """В процессе выполнения"""
+  IN_PROGRESS
+  """Завершена"""
+  COMPLETED
+  """Отменена"""
+  CANCELLED
+}
+
+"""
+Тип документа уборки.
+"""
+enum CleaningDocumentType {
+  """Приемка квартиры перед уборкой"""
+  PRE_CLEANING_ACCEPTANCE
+  """Сдача убранной квартиры"""
+  POST_CLEANING_HANDOVER
+}
+
+# ===== Inputs =====
+
+"""
+Входные данные для создания уборщика.
+"""
+input CreateCleanerInput {
+  """ID пользователя системы"""
+  userId: UUID!
+  """ID организации"""
+  orgId: UUID!
+  """Имя"""
+  firstName: String!
+  """Фамилия"""
+  lastName: String!
+  """Телефон"""
+  phone: String
+  """Email"""
+  email: String
+}
+
+"""
+Входные данные для обновления уборщика.
+"""
+input UpdateCleanerInput {
+  """Имя"""
+  firstName: String
+  """Фамилия"""
+  lastName: String
+  """Телефон"""
+  phone: String
+  """Email"""
+  email: String
+  """Рейтинг"""
+  rating: Float
+}
+
+"""
+Входные данные для создания шаблона уборки.
+"""
+input CreateCleaningTemplateInput {
+  """ID единицы недвижимости"""
+  unitId: UUID!
+  """Название шаблона"""
+  name: String!
+  """Текстовое описание"""
+  description: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean
+  """Расчетная продолжительность в минутах"""
+  estimatedDuration: Int
+  """Чек-боксы"""
+  checklistItems: [ChecklistTemplateItemInput!]
+}
+
+"""
+Входные данные для обновления шаблона уборки.
+"""
+input UpdateCleaningTemplateInput {
+  """Название шаблона"""
+  name: String
+  """Текстовое описание"""
+  description: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean
+  """Расчетная продолжительность в минутах"""
+  estimatedDuration: Int
+  """Чек-боксы"""
+  checklistItems: [ChecklistTemplateItemInput!]
+}
+
+"""
+Входные данные для чек-бокса в шаблоне.
+"""
+input ChecklistTemplateItemInput {
+  """Текст пункта"""
+  label: String!
+  """Порядок отображения"""
+  order: Int
+  """Обязателен ли пункт"""
+  isRequired: Boolean
+}
+
+"""
+Входные данные для планирования уборки.
+"""
+input ScheduleCleaningInput {
+  """ID организации"""
+  orgId: UUID!
+  """ID уборщика"""
+  cleanerId: UUID!
+  """ID единицы недвижимости (обязательно)"""
+  unitId: UUID!
+  """ID бронирования (опционально)"""
+  bookingId: UUID
+  """ID связанной задачи (опционально)"""
+  taskId: UUID
+  """Запланированное время"""
+  scheduledAt: DateTime!
+  """Заметки"""
+  notes: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean
+  """Чеклист (если не задан, берется из шаблона)"""
+  checklistItems: [ChecklistItemInput!]
+}
+
+"""
+Входные данные для завершения уборки.
+"""
+input CompleteCleaningInput {
+  """Заметки о завершении"""
+  notes: String
+  """Финальный чеклист"""
+  checklistItems: [ChecklistItemInput!]
+}
+
+"""
+Входные данные для пункта чеклиста.
+"""
+input ChecklistItemInput {
+  """ID пункта (для обновления существующего)"""
+  id: UUID
+  """Текст пункта"""
+  label: String!
+  """Отмечен ли пункт"""
+  isChecked: Boolean!
+  """Порядок отображения"""
+  order: Int
+}
+
+"""
+Входные данные для создания документа уборки.
+"""
+input CreateCleaningDocumentInput {
+  """Заметки к документу"""
+  notes: String
+  """Фотографии"""
+  photos: [AddPhotoInput!]
+}
+
+"""
+Входные данные для добавления фото.
+"""
+input AddPhotoInput {
+  """URL фотографии"""
+  url: String!
+  """Описание фото"""
+  caption: String
+  """Порядок отображения"""
+  order: Int
+}
+

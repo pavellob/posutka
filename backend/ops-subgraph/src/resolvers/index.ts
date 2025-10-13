@@ -98,6 +98,10 @@ export const resolvers = {
       if (!parent.assignedProviderId) return null;
       return dl.getProviderById(parent.assignedProviderId);
     },
+    assignedCleaner: (parent: any) => {
+      // Возвращаем ссылку на уборщика для федерации с cleaning-subgraph
+      return parent.assignedCleanerId ? { id: parent.assignedCleanerId } : null;
+    },
   },
   ServiceOrder: {
     org: (parent: any) => ({ id: parent.orgId }),

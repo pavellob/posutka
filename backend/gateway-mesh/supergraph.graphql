@@ -42,6 +42,7 @@ enum join__Graph {
   AI_SUBGRAPH @join__graph(name: "ai-subgraph", url: "http://localhost:4008/graphql")
   BILLING_SUBGRAPH @join__graph(name: "billing-subgraph", url: "http://localhost:4004/graphql")
   BOOKINGS_SUBGRAPH @join__graph(name: "bookings-subgraph", url: "http://localhost:4002/graphql")
+  CLEANING_SUBGRAPH @join__graph(name: "cleaning-subgraph", url: "http://localhost:4010/graphql")
   IAM_SUBGRAPH @join__graph(name: "iam-subgraph", url: "http://localhost:4009/graphql")
   IDENTITY_SUBGRAPH @join__graph(name: "identity-subgraph", url: "http://localhost:4005/graphql")
   INVENTORY_SUBGRAPH @join__graph(name: "inventory-subgraph", url: "http://localhost:4001/graphql")
@@ -55,13 +56,13 @@ enum join__Graph {
 Используется для всех сущностей в системе.
 Пример: "550e8400-e29b-41d4-a716-446655440000"
 """
-scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
 """
 Дата и время в формате ISO 8601 с часовым поясом.
 Пример: "2024-01-15T14:30:00Z" или "2024-01-15T14:30:00+03:00"
 """
-scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
 """
 Произвольный JSON объект для хранения метаданных и дополнительной информации.
@@ -70,7 +71,7 @@ scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGR
 """
 scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH)
 
-scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
 scalar _DirectiveExtensions @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH)
 
@@ -78,7 +79,7 @@ scalar _DirectiveExtensions @join__type(graph: IAM_SUBGRAPH) @join__type(graph: 
 Организация (компания, отель, хостел и т.д.).
 Ссылка на основную сущность из identity-subgraph.
 """
-type Organization @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH, key: "id") @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Organization @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH, key: "id") @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Уникальный идентификатор организации"""
   id: UUID!
   """Название организации"""
@@ -125,7 +126,7 @@ type GraphQLQueryResult @join__type(graph: AI_SUBGRAPH) {
 }
 
 """Запросы для работы с AI-функциональностью."""
-type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Пустой запрос (требуется для GraphQL схемы)"""
   _empty: Boolean @join__field(graph: AI_SUBGRAPH)
   """Получить счет по ID"""
@@ -155,6 +156,53 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
     """Курсор для пагинации"""
     after: String
   ): BookingConnection! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Получить уборщика по ID"""
+  cleaner(id: UUID!): Cleaner @merge(subgraph: "cleaning-subgraph", keyField: "id", keyArg: "id") @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить список уборщиков"""
+  cleaners(
+    """ID организации для фильтрации"""
+    orgId: UUID!
+    """Только активные уборщики"""
+    isActive: Boolean
+    """Количество элементов на странице"""
+    first: Int
+    """Курсор для пагинации"""
+    after: String
+  ): CleanerConnection! @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить шаблон уборки по ID"""
+  cleaningTemplate(id: UUID!): CleaningTemplate @merge(subgraph: "cleaning-subgraph", keyField: "id", keyArg: "id") @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить шаблоны уборки для квартиры"""
+  cleaningTemplates(
+    """ID единицы недвижимости"""
+    unitId: UUID!
+  ): [CleaningTemplate!]! @merge(subgraph: "cleaning-subgraph", keyField: "id", keyArg: "unitId") @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить уборку по ID"""
+  cleaning(id: UUID!): Cleaning @merge(subgraph: "cleaning-subgraph", keyField: "id", keyArg: "id") @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить уборку по ID задачи"""
+  cleaningByTask(taskId: UUID!): Cleaning @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить список уборок с фильтрацией"""
+  cleanings(
+    """ID организации для фильтрации"""
+    orgId: UUID
+    """ID единицы недвижимости для фильтрации"""
+    unitId: UUID
+    """ID уборщика для фильтрации"""
+    cleanerId: UUID
+    """ID бронирования для фильтрации"""
+    bookingId: UUID
+    """ID связанной задачи для фильтрации"""
+    taskId: UUID
+    """Статус уборки для фильтрации"""
+    status: CleaningStatus
+    """Начальная дата для фильтрации"""
+    from: DateTime
+    """Конечная дата для фильтрации"""
+    to: DateTime
+    """Количество элементов на странице"""
+    first: Int
+    """Курсор для пагинации"""
+    after: String
+  ): CleaningConnection! @join__field(graph: CLEANING_SUBGRAPH)
   """Получить статистику пользователей"""
   userStats: UserStats! @join__field(graph: IAM_SUBGRAPH)
   """Получить список пользователей с расширенными фильтрами"""
@@ -233,7 +281,7 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
 }
 
 """Мутации для выполнения AI-команд."""
-type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Выполнить AI-команду на естественном языке"""
   aiCommand(
     """ID организации, для которой выполняется команда"""
@@ -281,6 +329,38 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   cancelBooking(id: UUID!, reason: String): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
   """Изменить даты заезда и выезда в бронировании"""
   changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Создать нового уборщика"""
+  createCleaner(input: CreateCleanerInput!): Cleaner! @join__field(graph: CLEANING_SUBGRAPH)
+  """Обновить данные уборщика"""
+  updateCleaner(id: UUID!, input: UpdateCleanerInput!): Cleaner! @join__field(graph: CLEANING_SUBGRAPH)
+  """Деактивировать уборщика (soft delete)"""
+  deactivateCleaner(id: UUID!): Cleaner! @join__field(graph: CLEANING_SUBGRAPH)
+  """Активировать уборщика (отменить деактивацию)"""
+  activateCleaner(id: UUID!): Cleaner! @join__field(graph: CLEANING_SUBGRAPH)
+  """Создать шаблон уборки для квартиры"""
+  createCleaningTemplate(input: CreateCleaningTemplateInput!): CleaningTemplate! @join__field(graph: CLEANING_SUBGRAPH)
+  """Обновить шаблон уборки"""
+  updateCleaningTemplate(id: UUID!, input: UpdateCleaningTemplateInput!): CleaningTemplate! @join__field(graph: CLEANING_SUBGRAPH)
+  """Удалить шаблон уборки"""
+  deleteCleaningTemplate(id: UUID!): Boolean! @join__field(graph: CLEANING_SUBGRAPH)
+  """Запланировать уборку"""
+  scheduleCleaning(input: ScheduleCleaningInput!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
+  """Начать уборку"""
+  startCleaning(id: UUID!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
+  """Завершить уборку"""
+  completeCleaning(id: UUID!, input: CompleteCleaningInput!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
+  """Отменить уборку"""
+  cancelCleaning(id: UUID!, reason: String): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
+  """Обновить чеклист уборки"""
+  updateCleaningChecklist(id: UUID!, items: [ChecklistItemInput!]!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
+  """Создать документ приемки квартиры перед уборкой"""
+  createPreCleaningDocument(cleaningId: UUID!, input: CreateCleaningDocumentInput!): CleaningDocument! @join__field(graph: CLEANING_SUBGRAPH)
+  """Создать документ сдачи квартиры после уборки"""
+  createPostCleaningDocument(cleaningId: UUID!, input: CreateCleaningDocumentInput!): CleaningDocument! @join__field(graph: CLEANING_SUBGRAPH)
+  """Добавить фото к документу"""
+  addPhotoToDocument(documentId: UUID!, input: AddPhotoInput!): CleaningDocumentPhoto! @join__field(graph: CLEANING_SUBGRAPH)
+  """Удалить фото из документа"""
+  deletePhotoFromDocument(photoId: UUID!): Boolean! @join__field(graph: CLEANING_SUBGRAPH)
   """Создать пользователя IAM (только для админов)"""
   createIAMUser(input: CreateIAMUserInput!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
   """Обновить пользователя IAM"""
@@ -397,7 +477,7 @@ type Money @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBG
 Информация о пагинации для соединений (connections).
 Используется в GraphQL для реализации cursor-based пагинации.
 """
-type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Есть ли следующая страница результатов"""
   hasNextPage: Boolean!
   """Есть ли предыдущая страница результатов"""
@@ -634,7 +714,7 @@ type Property @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: INVENTORY
 Единица недвижимости (номер, квартира, дом и т.д.).
 Ссылка на основную сущность из inventory-subgraph.
 """
-type Unit @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH, key: "id") @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Unit @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH, key: "id") @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Уникальный идентификатор единицы недвижимости"""
   id: UUID!
   """Объект недвижимости, к которому относится единица"""
@@ -657,7 +737,7 @@ type Unit @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: INVENTORY_SUB
 Бронирование недвижимости.
 Представляет зарезервированный период проживания гостя в единице недвижимости.
 """
-type Booking @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Booking @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Уникальный идентификатор бронирования"""
   id: UUID!
   """Организация, владеющая недвижимостью"""
@@ -755,6 +835,222 @@ type BookingConnection @join__type(graph: BOOKINGS_SUBGRAPH) {
 type BookingEdge @join__type(graph: BOOKINGS_SUBGRAPH) {
   """Бронирование"""
   node: Booking!
+  """Курсор для пагинации"""
+  cursor: String!
+}
+
+"""Пользователь системы (ссылка на identity-subgraph)."""
+type User @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор пользователя"""
+  id: UUID!
+  """Email адрес пользователя (уникальный)"""
+  email: String! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Полное имя пользователя (опционально)"""
+  name: String @join__field(graph: IDENTITY_SUBGRAPH)
+  """Дата и время создания аккаунта"""
+  createdAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Дата и время последнего обновления"""
+  updatedAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Список организаций, в которых состоит пользователь"""
+  organizations: [Organization!]! @join__field(graph: IDENTITY_SUBGRAPH)
+}
+
+"""
+Уборщик - сотрудник, выполняющий уборку.
+Содержит ссылку на пользователя системы.
+"""
+type Cleaner @join__type(graph: CLEANING_SUBGRAPH, key: "id") @join__type(graph: OPS_SUBGRAPH) {
+  """Уникальный идентификатор уборщика"""
+  id: UUID!
+  """Пользователь системы"""
+  user: User! @join__field(graph: CLEANING_SUBGRAPH)
+  """Организация"""
+  org: Organization! @join__field(graph: CLEANING_SUBGRAPH)
+  """Имя"""
+  firstName: String! @join__field(graph: CLEANING_SUBGRAPH)
+  """Фамилия"""
+  lastName: String! @join__field(graph: CLEANING_SUBGRAPH)
+  """Телефон"""
+  phone: String @join__field(graph: CLEANING_SUBGRAPH)
+  """Email"""
+  email: String @join__field(graph: CLEANING_SUBGRAPH)
+  """Рейтинг уборщика"""
+  rating: Float @join__field(graph: CLEANING_SUBGRAPH)
+  """Активен ли уборщик"""
+  isActive: Boolean! @join__field(graph: CLEANING_SUBGRAPH)
+  """Дата деактивации (soft delete)"""
+  deletedAt: DateTime @join__field(graph: CLEANING_SUBGRAPH)
+  """Дата создания"""
+  createdAt: DateTime! @join__field(graph: CLEANING_SUBGRAPH)
+  """Дата обновления"""
+  updatedAt: DateTime! @join__field(graph: CLEANING_SUBGRAPH)
+  """Выполненные уборки"""
+  cleanings: [Cleaning!]! @join__field(graph: CLEANING_SUBGRAPH)
+}
+
+"""
+Шаблон уборки для квартиры.
+Содержит описание и чеклист для выполнения уборки.
+"""
+type CleaningTemplate @join__type(graph: CLEANING_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор шаблона"""
+  id: UUID!
+  """Единица недвижимости"""
+  unit: Unit!
+  """Название шаблона"""
+  name: String!
+  """Текстовое описание"""
+  description: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean!
+  """Расчетная продолжительность в минутах"""
+  estimatedDuration: Int
+  """Чек-боксы для проверки"""
+  checklistItems: [CleaningTemplateCheckbox!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Чек-бокс в шаблоне уборки."""
+type CleaningTemplateCheckbox @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор чек-бокса"""
+  id: UUID!
+  """Текст пункта"""
+  label: String!
+  """Порядок отображения"""
+  order: Int!
+  """Обязателен ли пункт"""
+  isRequired: Boolean!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Уборка - процесс очистки квартиры.
+Обязательно привязана к объекту недвижимости.
+Опционально может быть привязана к бронированию и задаче.
+"""
+type Cleaning @join__type(graph: CLEANING_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор уборки"""
+  id: UUID!
+  """Организация"""
+  org: Organization!
+  """Уборщик"""
+  cleaner: Cleaner!
+  """Единица недвижимости (обязательно)"""
+  unit: Unit!
+  """Бронирование (опционально)"""
+  booking: Booking
+  """Связанная задача (опционально)"""
+  taskId: UUID
+  """Статус уборки"""
+  status: CleaningStatus!
+  """Запланированное время"""
+  scheduledAt: DateTime!
+  """Время начала"""
+  startedAt: DateTime
+  """Время завершения"""
+  completedAt: DateTime
+  """Заметки"""
+  notes: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean!
+  """Чеклист уборки"""
+  checklistItems: [CleaningChecklist!]!
+  """Документы уборки (приемка и сдача)"""
+  documents: [CleaningDocument!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Пункт чеклиста уборки."""
+type CleaningChecklist @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор пункта"""
+  id: UUID!
+  """Текст пункта"""
+  label: String!
+  """Отмечен ли пункт"""
+  isChecked: Boolean!
+  """Порядок отображения"""
+  order: Int!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Документ уборки.
+Два типа: приемка квартиры перед уборкой и сдача после уборки.
+По первому возвращается залог гостю.
+"""
+type CleaningDocument @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор документа"""
+  id: UUID!
+  """Уборка"""
+  cleaning: Cleaning!
+  """Тип документа"""
+  type: CleaningDocumentType!
+  """Заметки к документу"""
+  notes: String
+  """Фотографии"""
+  photos: [CleaningDocumentPhoto!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Фотография в документе уборки."""
+type CleaningDocumentPhoto @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор фото"""
+  id: UUID!
+  """URL фотографии"""
+  url: String!
+  """Описание фото"""
+  caption: String
+  """Порядок отображения"""
+  order: Int!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Соединение уборщиков с пагинацией."""
+type CleanerConnection @join__type(graph: CLEANING_SUBGRAPH) {
+  """Список уборщиков с курсорами"""
+  edges: [CleanerEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""Элемент списка уборщиков для пагинации."""
+type CleanerEdge @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уборщик"""
+  node: Cleaner!
+  """Курсор для пагинации"""
+  cursor: String!
+}
+
+"""Соединение уборок с пагинацией."""
+type CleaningConnection @join__type(graph: CLEANING_SUBGRAPH) {
+  """Список уборок с курсорами"""
+  edges: [CleaningEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""Элемент списка уборок для пагинации."""
+type CleaningEdge @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уборка"""
+  node: Cleaning!
   """Курсор для пагинации"""
   cursor: String!
 }
@@ -887,25 +1183,6 @@ type IAMUserEdge @join__type(graph: IAM_SUBGRAPH) {
   node: IAMUser!
   """Курсор"""
   cursor: String!
-}
-
-"""
-Пользователь системы.
-Представляет физическое лицо, которое может работать с платформой.
-"""
-type User @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
-  """Уникальный идентификатор пользователя"""
-  id: UUID!
-  """Email адрес пользователя (уникальный)"""
-  email: String!
-  """Полное имя пользователя (опционально)"""
-  name: String
-  """Дата и время создания аккаунта"""
-  createdAt: DateTime!
-  """Дата и время последнего обновления"""
-  updatedAt: DateTime!
-  """Список организаций, в которых состоит пользователь"""
-  organizations: [Organization!]!
 }
 
 """
@@ -1139,6 +1416,10 @@ type Task @join__type(graph: OPS_SUBGRAPH, key: "id") {
   dueAt: DateTime
   """Поставщик услуг, назначенный на задачу (опционально)"""
   assignedTo: ServiceProvider
+  """
+  Уборщик, назначенный на задачу уборки (опционально, только для CLEANING)
+  """
+  assignedCleaner: Cleaner
   """Чек-лист для выполнения задачи"""
   checklist: [String!]!
   """Дата и время создания задачи"""
@@ -1286,6 +1567,26 @@ enum BookingSource @join__type(graph: BOOKINGS_SUBGRAPH) {
   AVITO @join__enumValue(graph: BOOKINGS_SUBGRAPH)
   """Другие каналы продаж"""
   OTHER @join__enumValue(graph: BOOKINGS_SUBGRAPH)
+}
+
+"""Статус уборки."""
+enum CleaningStatus @join__type(graph: CLEANING_SUBGRAPH) {
+  """Запланирована"""
+  SCHEDULED @join__enumValue(graph: CLEANING_SUBGRAPH)
+  """В процессе выполнения"""
+  IN_PROGRESS @join__enumValue(graph: CLEANING_SUBGRAPH)
+  """Завершена"""
+  COMPLETED @join__enumValue(graph: CLEANING_SUBGRAPH)
+  """Отменена"""
+  CANCELLED @join__enumValue(graph: CLEANING_SUBGRAPH)
+}
+
+"""Тип документа уборки."""
+enum CleaningDocumentType @join__type(graph: CLEANING_SUBGRAPH) {
+  """Приемка квартиры перед уборкой"""
+  PRE_CLEANING_ACCEPTANCE @join__enumValue(graph: CLEANING_SUBGRAPH)
+  """Сдача убранной квартиры"""
+  POST_CLEANING_HANDOVER @join__enumValue(graph: CLEANING_SUBGRAPH)
 }
 
 """Статус пользователя"""
@@ -1548,6 +1849,136 @@ input PriceBreakdownInput @join__type(graph: BOOKINGS_SUBGRAPH) {
   total: MoneyInput!
 }
 
+"""Входные данные для создания уборщика."""
+input CreateCleanerInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID пользователя системы"""
+  userId: UUID!
+  """ID организации"""
+  orgId: UUID!
+  """Имя"""
+  firstName: String!
+  """Фамилия"""
+  lastName: String!
+  """Телефон"""
+  phone: String
+  """Email"""
+  email: String
+}
+
+"""Входные данные для обновления уборщика."""
+input UpdateCleanerInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """Имя"""
+  firstName: String
+  """Фамилия"""
+  lastName: String
+  """Телефон"""
+  phone: String
+  """Email"""
+  email: String
+  """Рейтинг"""
+  rating: Float
+}
+
+"""Входные данные для создания шаблона уборки."""
+input CreateCleaningTemplateInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID единицы недвижимости"""
+  unitId: UUID!
+  """Название шаблона"""
+  name: String!
+  """Текстовое описание"""
+  description: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean
+  """Расчетная продолжительность в минутах"""
+  estimatedDuration: Int
+  """Чек-боксы"""
+  checklistItems: [ChecklistTemplateItemInput!]
+}
+
+"""Входные данные для обновления шаблона уборки."""
+input UpdateCleaningTemplateInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """Название шаблона"""
+  name: String
+  """Текстовое описание"""
+  description: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean
+  """Расчетная продолжительность в минутах"""
+  estimatedDuration: Int
+  """Чек-боксы"""
+  checklistItems: [ChecklistTemplateItemInput!]
+}
+
+"""Входные данные для чек-бокса в шаблоне."""
+input ChecklistTemplateItemInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """Текст пункта"""
+  label: String!
+  """Порядок отображения"""
+  order: Int
+  """Обязателен ли пункт"""
+  isRequired: Boolean
+}
+
+"""Входные данные для планирования уборки."""
+input ScheduleCleaningInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID организации"""
+  orgId: UUID!
+  """ID уборщика"""
+  cleanerId: UUID!
+  """ID единицы недвижимости (обязательно)"""
+  unitId: UUID!
+  """ID бронирования (опционально)"""
+  bookingId: UUID
+  """ID связанной задачи (опционально)"""
+  taskId: UUID
+  """Запланированное время"""
+  scheduledAt: DateTime!
+  """Заметки"""
+  notes: String
+  """Требуется ли смена белья"""
+  requiresLinenChange: Boolean
+  """Чеклист (если не задан, берется из шаблона)"""
+  checklistItems: [ChecklistItemInput!]
+}
+
+"""Входные данные для завершения уборки."""
+input CompleteCleaningInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """Заметки о завершении"""
+  notes: String
+  """Финальный чеклист"""
+  checklistItems: [ChecklistItemInput!]
+}
+
+"""Входные данные для пункта чеклиста."""
+input ChecklistItemInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID пункта (для обновления существующего)"""
+  id: UUID
+  """Текст пункта"""
+  label: String!
+  """Отмечен ли пункт"""
+  isChecked: Boolean!
+  """Порядок отображения"""
+  order: Int
+}
+
+"""Входные данные для создания документа уборки."""
+input CreateCleaningDocumentInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """Заметки к документу"""
+  notes: String
+  """Фотографии"""
+  photos: [AddPhotoInput!]
+}
+
+"""Входные данные для добавления фото."""
+input AddPhotoInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """URL фотографии"""
+  url: String!
+  """Описание фото"""
+  caption: String
+  """Порядок отображения"""
+  order: Int
+}
+
 """Фильтры для поиска пользователей"""
 input UserFilters @join__type(graph: IAM_SUBGRAPH) {
   """Поиск по имени или email"""
@@ -1730,8 +2161,10 @@ input CreateTaskInput @join__type(graph: OPS_SUBGRAPH) {
 input AssignTaskInput @join__type(graph: OPS_SUBGRAPH) {
   """ID задачи для назначения"""
   taskId: UUID!
-  """ID поставщика услуг (опционально)"""
+  """ID поставщика услуг (опционально, используется для не-CLEANING задач)"""
   providerId: UUID
+  """ID уборщика (опционально, используется для CLEANING задач)"""
+  cleanerId: UUID
   """Новый статус задачи (опционально)"""
   status: TaskStatus
   """Дополнительные заметки (опционально)"""

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Список URL подграфов для проверки
-SUBDGRAPHS="http://localhost:4001/graphql http://localhost:4002/graphql http://localhost:4003/graphql http://localhost:4004/graphql http://localhost:4005/graphql http://localhost:4006/graphql http://localhost:4007/graphql http://localhost:4008/graphql"
+SUBDGRAPHS="http://localhost:4001/graphql http://localhost:4002/graphql http://localhost:4003/graphql http://localhost:4004/graphql http://localhost:4005/graphql http://localhost:4006/graphql http://localhost:4007/graphql http://localhost:4008/graphql http://localhost:4010/graphql"
 
 echo "⏳ Ожидание готовности подграфов..."
 

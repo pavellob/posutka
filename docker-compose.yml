@@ -30,6 +30,7 @@ services:
       - "4006:4006"  # Listings Subgraph (GraphQL)
       - "4007:4007"  # Legal Subgraph (GraphQL)
       - "4008:4008"  # AI Subgraph (GraphQL)
+      - "4010:4010"  # Cleaning Subgraph (GraphQL)
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/posutka
       - NODE_ENV=development

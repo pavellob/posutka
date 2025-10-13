@@ -1,0 +1,34 @@
+import { PrismaClient } from '@prisma/client';
+import type { ICleaningDL, Cleaner, CleanerConnection, Cleaning, CleaningConnection, CleaningTemplate, CleaningDocument, CleaningDocumentPhoto, CreateCleanerInput, UpdateCleanerInput, CreateCleaningTemplateInput, UpdateCleaningTemplateInput, ScheduleCleaningInput, CompleteCleaningInput, ChecklistItemInput, CreateCleaningDocumentInput, AddPhotoInput, ListCleanersParams, ListCleaningsParams } from '@repo/datalayer';
+export declare class CleaningDLPrisma implements ICleaningDL {
+    private readonly prisma;
+    constructor(prisma: PrismaClient);
+    getCleanerById(id: string): Promise<Cleaner | null>;
+    listCleaners(params: ListCleanersParams): Promise<CleanerConnection>;
+    createCleaner(input: CreateCleanerInput): Promise<Cleaner>;
+    updateCleaner(id: string, input: UpdateCleanerInput): Promise<Cleaner>;
+    deactivateCleaner(id: string): Promise<Cleaner>;
+    getCleaningTemplateById(id: string): Promise<CleaningTemplate | null>;
+    getCleaningTemplatesByUnitId(unitId: string): Promise<CleaningTemplate[]>;
+    createCleaningTemplate(input: CreateCleaningTemplateInput): Promise<CleaningTemplate>;
+    updateCleaningTemplate(id: string, input: UpdateCleaningTemplateInput): Promise<CleaningTemplate>;
+    deleteCleaningTemplate(id: string): Promise<boolean>;
+    getCleaningById(id: string): Promise<Cleaning | null>;
+    listCleanings(params: ListCleaningsParams): Promise<CleaningConnection>;
+    scheduleCleaning(input: ScheduleCleaningInput): Promise<Cleaning>;
+    startCleaning(id: string): Promise<Cleaning>;
+    completeCleaning(id: string, input: CompleteCleaningInput): Promise<Cleaning>;
+    cancelCleaning(id: string, reason?: string): Promise<Cleaning>;
+    updateCleaningChecklist(id: string, items: ChecklistItemInput[]): Promise<Cleaning>;
+    getCleaningDocumentById(id: string): Promise<CleaningDocument | null>;
+    createPreCleaningDocument(cleaningId: string, input: CreateCleaningDocumentInput): Promise<CleaningDocument>;
+    createPostCleaningDocument(cleaningId: string, input: CreateCleaningDocumentInput): Promise<CleaningDocument>;
+    private createDocument;
+    addPhotoToDocument(documentId: string, input: AddPhotoInput): Promise<CleaningDocumentPhoto>;
+    deletePhotoFromDocument(photoId: string): Promise<boolean>;
+    private mapCleanerFromPrisma;
+    private mapCleaningTemplateFromPrisma;
+    private mapCleaningFromPrisma;
+    private mapCleaningDocumentFromPrisma;
+    private mapCleaningDocumentPhotoFromPrisma;
+}

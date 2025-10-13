@@ -50,7 +50,9 @@ export class IdentityDLPrisma implements IIdentityDL {
 
     const hasNextPage = users.length > first;
     const edges = hasNextPage ? users.slice(0, -1) : users;
-    const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
+    const startCursor = edges.length > 0 ? edges[0].id : null;
+    const endCursor = edges.length > 0 ? edges[edges.length - 1].id : null;
+    const totalCount = await this.prisma.user.count();
 
     return {
       edges: edges.map((user: any) => ({
@@ -59,7 +61,10 @@ export class IdentityDLPrisma implements IIdentityDL {
       })),
       pageInfo: {
         hasNextPage,
-        endCursor
+        hasPreviousPage: !!params.after,
+        startCursor,
+        endCursor,
+        totalCount
       }
     };
   }
@@ -116,7 +121,9 @@ export class IdentityDLPrisma implements IIdentityDL {
 
     const hasNextPage = orgs.length > first;
     const edges = hasNextPage ? orgs.slice(0, -1) : orgs;
-    const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
+    const startCursor = edges.length > 0 ? edges[0].id : null;
+    const endCursor = edges.length > 0 ? edges[edges.length - 1].id : null;
+    const totalCount = await this.prisma.organization.count();
 
     return {
       edges: edges.map((org: any) => ({
@@ -125,7 +132,10 @@ export class IdentityDLPrisma implements IIdentityDL {
       })),
       pageInfo: {
         hasNextPage,
-        endCursor
+        hasPreviousPage: !!params.after,
+        startCursor,
+        endCursor,
+        totalCount
       }
     };
   }

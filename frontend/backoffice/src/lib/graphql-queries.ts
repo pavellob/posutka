@@ -504,6 +504,15 @@ export const GET_TASKS = gql`
             rating
             contact
           }
+          assignedCleaner {
+            id
+            firstName
+            lastName
+            phone
+            email
+            rating
+            isActive
+          }
           checklist
         }
         cursor
@@ -558,6 +567,15 @@ export const GET_TASK_BY_ID = gql`
         rating
         contact
         serviceTypes
+      }
+      assignedCleaner {
+        id
+        firstName
+        lastName
+        phone
+        email
+        rating
+        isActive
       }
       checklist
     }
@@ -894,6 +912,15 @@ export const ASSIGN_TASK = gql`
         name
         contact
       }
+      assignedCleaner {
+        id
+        firstName
+        lastName
+        phone
+        email
+        rating
+        isActive
+      }
     }
   }
 `
@@ -905,5 +932,564 @@ export const UPDATE_TASK_STATUS = gql`
       status
       updatedAt
     }
+  }
+`
+
+// ===== ЗАПРОСЫ ДЛЯ УБОРОК (CLEANING) =====
+
+export const GET_CLEANERS = gql`
+  query GetCleaners($orgId: UUID!, $isActive: Boolean, $first: Int, $after: String) {
+    cleaners(orgId: $orgId, isActive: $isActive, first: $first, after: $after) {
+      edges {
+        node {
+          id
+          user {
+            id
+          }
+          org {
+            id
+          }
+          firstName
+          lastName
+          phone
+          email
+          rating
+          isActive
+          createdAt
+          updatedAt
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+        totalCount
+      }
+    }
+  }
+`
+
+export const GET_CLEANER = gql`
+  query GetCleaner($id: UUID!) {
+    cleaner(id: $id) {
+      id
+      user {
+        id
+      }
+      org {
+        id
+      }
+      firstName
+      lastName
+      phone
+      email
+      rating
+      isActive
+      createdAt
+      updatedAt
+      cleanings {
+        id
+        status
+        scheduledAt
+        unit {
+          id
+          name
+        }
+      }
+    }
+  }
+`
+
+export const GET_CLEANING_TEMPLATES = gql`
+  query GetCleaningTemplates($unitId: UUID!) {
+    cleaningTemplates(unitId: $unitId) {
+      id
+      unit {
+        id
+      }
+      name
+      description
+      requiresLinenChange
+      estimatedDuration
+      checklistItems {
+        id
+        label
+        order
+        isRequired
+        createdAt
+        updatedAt
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const GET_CLEANING_TEMPLATE = gql`
+  query GetCleaningTemplate($id: UUID!) {
+    cleaningTemplate(id: $id) {
+      id
+      unit {
+        id
+      }
+      name
+      description
+      requiresLinenChange
+      estimatedDuration
+      checklistItems {
+        id
+        label
+        order
+        isRequired
+        createdAt
+        updatedAt
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const GET_CLEANINGS = gql`
+  query GetCleanings(
+    $orgId: UUID
+    $unitId: UUID
+    $cleanerId: UUID
+    $bookingId: UUID
+    $status: CleaningStatus
+    $from: DateTime
+    $to: DateTime
+    $first: Int
+    $after: String
+  ) {
+    cleanings(
+      orgId: $orgId
+      unitId: $unitId
+      cleanerId: $cleanerId
+      bookingId: $bookingId
+      status: $status
+      from: $from
+      to: $to
+      first: $first
+      after: $after
+    ) {
+      edges {
+        node {
+          id
+          org {
+            id
+          }
+          cleaner {
+            id
+            firstName
+            lastName
+            phone
+            email
+            rating
+          }
+          unit {
+            id
+            name
+          }
+          booking {
+            id
+          }
+          taskId
+          status
+          scheduledAt
+          startedAt
+          completedAt
+          notes
+          requiresLinenChange
+          checklistItems {
+            id
+            label
+            isChecked
+            order
+            createdAt
+            updatedAt
+          }
+          documents {
+            id
+            type
+            notes
+            photos {
+              id
+              url
+              caption
+              order
+              createdAt
+              updatedAt
+            }
+            createdAt
+            updatedAt
+          }
+          createdAt
+          updatedAt
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+        totalCount
+      }
+    }
+  }
+`
+
+export const GET_CLEANING = gql`
+  query GetCleaning($id: UUID!) {
+    cleaning(id: $id) {
+      id
+      org {
+        id
+      }
+      cleaner {
+        id
+        firstName
+        lastName
+        phone
+        email
+        rating
+      }
+      unit {
+        id
+        name
+      }
+      booking {
+        id
+      }
+      taskId
+      status
+      scheduledAt
+      startedAt
+      completedAt
+      notes
+      requiresLinenChange
+      checklistItems {
+        id
+        label
+        isChecked
+        order
+        createdAt
+        updatedAt
+      }
+      documents {
+        id
+        type
+        notes
+        photos {
+          id
+          url
+          caption
+          order
+          createdAt
+          updatedAt
+        }
+        createdAt
+        updatedAt
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+// ===== МУТАЦИИ ДЛЯ УБОРОК =====
+
+export const CREATE_CLEANER = gql`
+  mutation CreateCleaner($input: CreateCleanerInput!) {
+    createCleaner(input: $input) {
+      id
+      user {
+        id
+      }
+      org {
+        id
+      }
+      firstName
+      lastName
+      phone
+      email
+      rating
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const UPDATE_CLEANER = gql`
+  mutation UpdateCleaner($id: UUID!, $input: UpdateCleanerInput!) {
+    updateCleaner(id: $id, input: $input) {
+      id
+      firstName
+      lastName
+      phone
+      email
+      rating
+      isActive
+      updatedAt
+    }
+  }
+`
+
+export const DEACTIVATE_CLEANER = gql`
+  mutation DeactivateCleaner($id: UUID!) {
+    deactivateCleaner(id: $id) {
+      id
+      isActive
+      deletedAt
+      updatedAt
+    }
+  }
+`
+
+export const ACTIVATE_CLEANER = gql`
+  mutation ActivateCleaner($id: UUID!) {
+    activateCleaner(id: $id) {
+      id
+      isActive
+      deletedAt
+      updatedAt
+    }
+  }
+`
+
+export const CREATE_CLEANING_TEMPLATE = gql`
+  mutation CreateCleaningTemplate($input: CreateCleaningTemplateInput!) {
+    createCleaningTemplate(input: $input) {
+      id
+      unit {
+        id
+      }
+      name
+      description
+      requiresLinenChange
+      estimatedDuration
+      checklistItems {
+        id
+        label
+        order
+        isRequired
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const UPDATE_CLEANING_TEMPLATE = gql`
+  mutation UpdateCleaningTemplate($id: UUID!, $input: UpdateCleaningTemplateInput!) {
+    updateCleaningTemplate(id: $id, input: $input) {
+      id
+      name
+      description
+      requiresLinenChange
+      estimatedDuration
+      checklistItems {
+        id
+        label
+        order
+        isRequired
+      }
+      updatedAt
+    }
+  }
+`
+
+export const DELETE_CLEANING_TEMPLATE = gql`
+  mutation DeleteCleaningTemplate($id: UUID!) {
+    deleteCleaningTemplate(id: $id)
+  }
+`
+
+export const SCHEDULE_CLEANING = gql`
+  mutation ScheduleCleaning($input: ScheduleCleaningInput!) {
+    scheduleCleaning(input: $input) {
+      id
+      org {
+        id
+      }
+      cleaner {
+        id
+        firstName
+        lastName
+      }
+      unit {
+        id
+        name
+      }
+      booking {
+        id
+      }
+      taskId
+      status
+      scheduledAt
+      notes
+      requiresLinenChange
+      checklistItems {
+        id
+        label
+        isChecked
+        order
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const GET_CLEANING_BY_TASK = gql`
+  query GetCleaningByTask($taskId: UUID!) {
+    cleaningByTask(taskId: $taskId) {
+      id
+      status
+      scheduledAt
+      startedAt
+      completedAt
+      cleaner {
+        id
+        firstName
+        lastName
+      }
+      checklistItems {
+        id
+        label
+        isChecked
+        order
+      }
+      documents {
+        id
+        type
+        notes
+        photos {
+          id
+          url
+          caption
+        }
+      }
+    }
+  }
+`
+
+export const START_CLEANING = gql`
+  mutation StartCleaning($id: UUID!) {
+    startCleaning(id: $id) {
+      id
+      status
+      startedAt
+      updatedAt
+    }
+  }
+`
+
+export const COMPLETE_CLEANING = gql`
+  mutation CompleteCleaning($id: UUID!, $input: CompleteCleaningInput!) {
+    completeCleaning(id: $id, input: $input) {
+      id
+      status
+      completedAt
+      notes
+      checklistItems {
+        id
+        label
+        isChecked
+        order
+      }
+      updatedAt
+    }
+  }
+`
+
+export const CANCEL_CLEANING = gql`
+  mutation CancelCleaning($id: UUID!, $reason: String) {
+    cancelCleaning(id: $id, reason: $reason) {
+      id
+      status
+      notes
+      updatedAt
+    }
+  }
+`
+
+export const UPDATE_CLEANING_CHECKLIST = gql`
+  mutation UpdateCleaningChecklist($id: UUID!, $items: [ChecklistItemInput!]!) {
+    updateCleaningChecklist(id: $id, items: $items) {
+      id
+      checklistItems {
+        id
+        label
+        isChecked
+        order
+      }
+      updatedAt
+    }
+  }
+`
+
+export const CREATE_PRE_CLEANING_DOCUMENT = gql`
+  mutation CreatePreCleaningDocument($cleaningId: UUID!, $input: CreateCleaningDocumentInput!) {
+    createPreCleaningDocument(cleaningId: $cleaningId, input: $input) {
+      id
+      cleaning {
+        id
+      }
+      type
+      notes
+      photos {
+        id
+        url
+        caption
+        order
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const CREATE_POST_CLEANING_DOCUMENT = gql`
+  mutation CreatePostCleaningDocument($cleaningId: UUID!, $input: CreateCleaningDocumentInput!) {
+    createPostCleaningDocument(cleaningId: $cleaningId, input: $input) {
+      id
+      cleaning {
+        id
+      }
+      type
+      notes
+      photos {
+        id
+        url
+        caption
+        order
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const ADD_PHOTO_TO_DOCUMENT = gql`
+  mutation AddPhotoToDocument($documentId: UUID!, $input: AddPhotoInput!) {
+    addPhotoToDocument(documentId: $documentId, input: $input) {
+      id
+      url
+      caption
+      order
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const DELETE_PHOTO_FROM_DOCUMENT = gql`
+  mutation DeletePhotoFromDocument($photoId: UUID!) {
+    deletePhotoFromDocument(photoId: $photoId)
   }
 `
