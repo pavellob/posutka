@@ -39,6 +39,10 @@ export {
   Channel as NotificationChannel,
   NotificationRequest,
   NotificationResponse,
+  BulkNotificationRequest,
+  BulkNotificationResponse,
+  NotificationStatusRequest,
+  NotificationStatusResponse,
   NotificationsServiceDefinition
 } from './generated/notifications.js';
 

@@ -77,14 +77,14 @@ export class NotificationsGrpcService implements NotificationsService {
       // Сохраняем уведомление в БД
       logger.info('Creating notification in DB via gRPC', {
         orgId: request.orgId,
-        userId: request.userId,
+        recipientIds: request.recipientIds,
         eventType: this.mapEventType(request.eventType),
         deliveryTargetsCount: deliveryTargets.length,
       });
       
       const notification = await this.notificationService.createNotification({
         orgId: request.orgId || undefined,
-        userId: request.userId || undefined,
+        userId: undefined, // userId не передается в gRPC, используем recipientIds
         eventType: this.mapEventType(request.eventType),
         deliveryTargets,
         priority: message.priority,
@@ -171,11 +171,11 @@ export class NotificationsGrpcService implements NotificationsService {
    */
   async SendBulkNotifications(request: BulkNotificationRequest): Promise<BulkNotificationResponse> {
     const responses = await Promise.all(
-      request.notifications.map((notif: any) => this.SendNotification(notif))
+      request.notifications.map((notif) => this.SendNotification(notif))
     );
     
-    const totalSent = responses.reduce((sum, r) => sum + r.sentCount, 0);
-    const totalFailed = responses.reduce((sum, r) => sum + r.failedCount, 0);
+    const totalSent = responses.reduce((sum: number, r) => sum + r.sentCount, 0);
+    const totalFailed = responses.reduce((sum: number, r) => sum + r.failedCount, 0);
     
     return {
       responses,
