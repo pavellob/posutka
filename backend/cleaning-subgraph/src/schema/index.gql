@@ -172,13 +172,15 @@ type Booking {
 
 """
 Уборщик - сотрудник, выполняющий уборку.
-Содержит ссылку на пользователя системы.
+Может быть INTERNAL (сотрудник с User) или EXTERNAL (подрядчик без User).
 """
 type Cleaner {
   """Уникальный идентификатор уборщика"""
   id: UUID!
-  """Пользователь системы"""
-  user: User!
+  """Тип уборщика"""
+  type: CleanerType!
+  """Пользователь системы (только для INTERNAL)"""
+  user: User
   """Организация"""
   org: Organization!
   """Имя"""
@@ -189,6 +191,8 @@ type Cleaner {
   phone: String
   """Email"""
   email: String
+  """Telegram username (без @)"""
+  telegramUsername: String
   """Рейтинг уборщика"""
   rating: Float
   """Активен ли уборщик"""
@@ -415,21 +419,24 @@ enum CleaningDocumentType {
 # ===== Inputs =====
 
 """
+Тип уборщика.
+"""
+enum CleanerType {
+  """Сотрудник компании (связан с User)"""
+  INTERNAL
+  """Внешний подрядчик (не связан с User)"""
+  EXTERNAL
+}
+
+"""
 Входные данные для создания уборщика.
+Все данные (имя, email, телефон) берутся из User.
 """
 input CreateCleanerInput {
   """ID пользователя системы"""
   userId: UUID!
   """ID организации"""
   orgId: UUID!
-  """Имя"""
-  firstName: String!
-  """Фамилия"""
-  lastName: String!
-  """Телефон"""
-  phone: String
-  """Email"""
-  email: String
 }
 
 """

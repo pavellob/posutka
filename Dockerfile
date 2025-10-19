@@ -99,7 +99,17 @@ EXPOSE 4006
 # Legal Subgraph (GraphQL)
 EXPOSE 4007  
 # AI Subgraph (GraphQL)
-EXPOSE 4008  
+EXPOSE 4008
+# IAM Subgraph (GraphQL)
+EXPOSE 4009
+# Cleaning Subgraph (GraphQL)
+EXPOSE 4010
+# Notifications Subgraph (GraphQL)
+EXPOSE 4011
+# Notifications Subgraph (gRPC)
+EXPOSE 4111
+# Notifications WebSocket
+EXPOSE 4020  
 
 # Запускаем скрипт
 CMD ["./start.sh"]

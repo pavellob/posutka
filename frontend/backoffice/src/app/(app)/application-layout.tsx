@@ -41,6 +41,7 @@ import {
 } from '@heroicons/react/20/solid'
 import { usePathname } from 'next/navigation'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { NotificationsBell } from '@/components/notifications-bell'
 
 function AccountDropdownMenu({ anchor }: { anchor: 'top start' | 'bottom end' }) {
   const { user, loading } = useCurrentUser()
@@ -86,6 +87,7 @@ export function ApplicationLayout({
         <Navbar>
           <NavbarSpacer />
           <NavbarSection>
+            {/* <NotificationsBell /> */}
             <Dropdown>
               <DropdownButton as={NavbarItem}>
                 <Avatar src="/users/erica.jpg" square />

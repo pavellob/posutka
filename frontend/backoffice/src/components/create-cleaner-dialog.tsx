@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from './dialog'
 import { Button } from './button'
-import { Input } from './input'
 import { Heading } from './heading'
 import { Text } from './text'
 import { Select } from './select'
@@ -23,10 +22,6 @@ export function CreateCleanerDialog({
   orgId
 }: CreateCleanerDialogProps) {
   const [selectedUserId, setSelectedUserId] = useState('')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
   
   const queryClient = useQueryClient()
 
@@ -53,10 +48,6 @@ export function CreateCleanerDialog({
 
   const handleClose = () => {
     setSelectedUserId('')
-    setFirstName('')
-    setLastName('')
-    setPhone('')
-    setEmail('')
     onClose()
   }
 
@@ -66,29 +57,16 @@ export function CreateCleanerDialog({
       return
     }
 
-    if (!firstName.trim()) {
-      alert('Введите имя')
-      return
-    }
-
-    if (!lastName.trim()) {
-      alert('Введите фамилию')
-      return
-    }
-
     const input = {
       userId: selectedUserId,
       orgId,
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      phone: phone.trim() || undefined,
-      email: email.trim() || undefined
     }
 
     createCleanerMutation.mutate(input)
   }
 
   const users = usersData?.users?.edges?.map((edge: any) => edge.node) || []
+  const selectedUser = users.find((u: any) => u.id === selectedUserId)
 
   return (
     <Dialog open={isOpen} onClose={handleClose} size="2xl">
@@ -100,19 +78,18 @@ export function CreateCleanerDialog({
         {/* Информационный блок */}
         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
           <Heading level={4} className="text-blue-900 dark:text-blue-100 mb-2">
-            ℹ️ Как это работает
+            ℹ️ Создание уборщика
           </Heading>
           <Text className="text-sm text-blue-800 dark:text-blue-200">
-            Уборщик - это профиль, который связывается с пользователем системы. 
-            Сначала нужно создать пользователя через страницу IAM, 
-            затем создать для него профиль уборщика здесь.
+            Просто выберите пользователя из системы. Все данные (имя, email) будут взяты 
+            из профиля пользователя автоматически, и ему будет добавлена роль <strong>CLEANER</strong>.
           </Text>
         </div>
 
         {/* Выбор пользователя */}
         <div>
           <label className="block text-sm font-medium mb-2">
-            Пользователь <span className="text-red-500">*</span>
+            Выберите пользователя <span className="text-red-500">*</span>
           </label>
           <Select
             value={selectedUserId}
@@ -125,7 +102,7 @@ export function CreateCleanerDialog({
             </option>
             {users.map((user: any) => (
               <option key={user.id} value={user.id}>
-                {user.email || user.username || user.id}
+                {user.name || user.email || user.id}
               </option>
             ))}
           </Select>
@@ -136,69 +113,51 @@ export function CreateCleanerDialog({
           )}
         </div>
 
-        {/* Имя */}
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Имя <span className="text-red-500">*</span>
-          </label>
-          <Input
-            type="text"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            placeholder="Иван"
-            className="w-full"
-          />
-        </div>
-
-        {/* Фамилия */}
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Фамилия <span className="text-red-500">*</span>
-          </label>
-          <Input
-            type="text"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            placeholder="Петров"
-            className="w-full"
-          />
-        </div>
-
-        {/* Телефон */}
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Телефон
-          </label>
-          <Input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+7 (999) 123-45-67"
-            className="w-full"
-          />
-        </div>
-
-        {/* Email */}
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Email
-          </label>
-          <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="cleaner@example.com"
-            className="w-full"
-          />
-        </div>
+        {/* Предпросмотр выбранного пользователя */}
+        {selectedUser && (
+          <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-700">
+            <Heading level={4} className="text-green-900 dark:text-green-100 mb-3">
+              ✅ Выбранный пользователь
+            </Heading>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-start gap-2">
+                <span className="text-gray-500 dark:text-gray-400 min-w-[80px]">Имя:</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {selectedUser.name || '(не указано)'}
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-gray-500 dark:text-gray-400 min-w-[80px]">Email:</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {selectedUser.email}
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-gray-500 dark:text-gray-400 min-w-[80px]">Роли:</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {selectedUser.systemRoles?.join(', ') || 'USER'}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-700">
+              <Text className="text-xs text-green-700 dark:text-green-300">
+                После создания пользователю будет добавлена роль <strong>CLEANER</strong>
+              </Text>
+            </div>
+          </div>
+        )}
 
         {/* Примечание */}
         <div className="bg-gray-50 dark:bg-zinc-800 p-4 rounded-lg">
           <Text className="text-sm text-gray-700 dark:text-gray-300">
-            <strong>Примечание:</strong> После создания уборщик будет активен (isActive: true) 
-            и сможет получать назначения на уборки. Рейтинг уборщика рассчитывается 
-            автоматически на основе завершенных уборок.
+            <strong>📝 Что происходит:</strong>
           </Text>
+          <ul className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
+            <li>• Создается запись Cleaner с типом INTERNAL</li>
+            <li>• Имя и email берутся из профиля User</li>
+            <li>• Пользователю добавляется роль CLEANER</li>
+            <li>• Настройки уведомлений берутся из UserNotificationSettings</li>
+          </ul>
         </div>
       </DialogBody>
       <DialogActions>

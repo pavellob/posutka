@@ -1,5 +1,6 @@
 import type { Context } from '../context.js';
 import { createGraphQLLogger } from '@repo/shared-logger';
+import { notificationClient } from '../services/notification-client.js';
 
 const logger = createGraphQLLogger('cleaning-subgraph-resolvers');
 
@@ -69,24 +70,235 @@ export const resolvers = {
     },
     
     // Cleaning mutations
-    scheduleCleaning: async (_: unknown, { input }: { input: any }, { dl }: Context) => {
+    scheduleCleaning: async (_: unknown, { input }: { input: any }, { dl, prisma }: Context) => {
       logger.info('Scheduling cleaning', { input });
-      return dl.scheduleCleaning(input);
+      const cleaning = await dl.scheduleCleaning(input);
+      
+      // Отправляем уведомление уборщику
+      try {
+        logger.info('🔔 Starting notification flow for cleaning', { cleaningId: cleaning.id, cleanerId: cleaning.cleanerId });
+        
+        const cleaner = await prisma.cleaner.findUnique({
+          where: { id: cleaning.cleanerId },
+          include: { cleanings: false }
+        });
+        
+        if (!cleaner) {
+          logger.warn('❌ Cleaner not found', { cleanerId: cleaning.cleanerId });
+          return cleaning;
+        }
+        
+        logger.info('✅ Cleaner found', { 
+          cleanerId: cleaner.id, 
+          userId: cleaner.userId,
+          type: cleaner.type,
+          firstName: cleaner.firstName,
+          lastName: cleaner.lastName 
+        });
+        
+        const unit = await prisma.unit.findUnique({
+          where: { id: cleaning.unitId },
+          include: { property: true }
+        });
+        
+        if (!unit) {
+          logger.warn('❌ Unit not found', { unitId: cleaning.unitId });
+          return cleaning;
+        }
+        
+        logger.info('✅ Unit found', { unitId: unit.id, unitName: unit.name });
+        
+        // Получаем настройки уведомлений пользователя, ассоциированного с уборщиком
+        // Для INTERNAL cleaner используем userId, для EXTERNAL - используем id уборщика как userId
+        const targetUserId = cleaner.userId || cleaner.id;
+        logger.info('🎯 Target userId determined', { targetUserId, cleanerUserId: cleaner.userId, cleanerId: cleaner.id });
+        
+        const settings = targetUserId 
+          ? await prisma.userNotificationSettings.findUnique({
+              where: { userId: targetUserId },
+            }).catch((err) => {
+              logger.error('❌ Error fetching notification settings', { error: err });
+              return null;
+            })
+          : null;
+        
+        if (!settings) {
+          logger.warn('⚠️ No notification settings found for user', { 
+            targetUserId,
+            hint: 'User needs to set up notification settings first. They can do this in /settings/notifications'
+          });
+          return cleaning;
+        }
+        
+        logger.info('✅ Notification settings found', { 
+          userId: settings.userId,
+          enabled: settings.enabled,
+          telegramChatId: settings.telegramChatId ? '***' + settings.telegramChatId.slice(-4) : null,
+          enabledChannels: settings.enabledChannels,
+          subscribedEvents: settings.subscribedEvents
+        });
+        
+        if (!settings.enabled) {
+          logger.warn('⚠️ Notifications disabled for user', { targetUserId });
+          return cleaning;
+        }
+        
+        if (!settings.telegramChatId) {
+          logger.warn('⚠️ No Telegram chat ID configured', { 
+            targetUserId,
+            hint: 'User needs to connect Telegram bot via /start command'
+          });
+          return cleaning;
+        }
+        
+        if (!settings.enabledChannels.includes('TELEGRAM')) {
+          logger.warn('⚠️ Telegram channel not enabled', { 
+            targetUserId,
+            enabledChannels: settings.enabledChannels 
+          });
+          return cleaning;
+        }
+        
+        if (!settings.subscribedEvents.includes('CLEANING_ASSIGNED')) {
+          logger.warn('⚠️ User not subscribed to CLEANING_ASSIGNED events', { 
+            targetUserId,
+            subscribedEvents: settings.subscribedEvents 
+          });
+          return cleaning;
+        }
+        
+        logger.info('📤 Sending notification...', { 
+          cleaningId: cleaning.id,
+          userId: targetUserId,
+          telegramChatId: settings?.telegramChatId ? '***' + settings.telegramChatId.slice(-4) : 'none'
+        });
+        
+        await notificationClient.notifyCleaningAssigned({
+          userId: targetUserId,
+          telegramChatId: settings?.telegramChatId,
+          cleanerId: cleaning.cleanerId,
+          cleaningId: cleaning.id,
+          unitName: `${unit.property?.title || ''} - ${unit.name}`,
+          scheduledAt: cleaning.scheduledAt,
+          requiresLinenChange: cleaning.requiresLinenChange,
+          orgId: cleaning.orgId,
+        });
+        
+        logger.info('✅ Notification sent successfully!', { cleaningId: cleaning.id });
+      } catch (error) {
+        logger.error('❌ Failed to send notification for scheduled cleaning:', error);
+        // Не прерываем основной flow
+      }
+      
+      return cleaning;
     },
     
-    startCleaning: async (_: unknown, { id }: { id: string }, { dl }: Context) => {
+    startCleaning: async (_: unknown, { id }: { id: string }, { dl, prisma }: Context) => {
       logger.info('Starting cleaning', { id });
-      return dl.startCleaning(id);
+      const cleaning = await dl.startCleaning(id);
+      
+      // Отправляем уведомление менеджерам (опционально)
+      try {
+        const cleaner = await prisma.cleaner.findUnique({
+          where: { id: cleaning.cleanerId }
+        });
+        
+        const unit = await prisma.unit.findUnique({
+          where: { id: cleaning.unitId },
+          include: { property: true }
+        });
+        
+        // TODO: Получить telegram ID менеджера организации
+        // и отправить уведомление о начале уборки
+        
+        logger.info('Cleaning started, notification logic executed', { cleaningId: id });
+      } catch (error) {
+        logger.error('Failed to send start notification:', error);
+      }
+      
+      return cleaning;
     },
     
-    completeCleaning: async (_: unknown, { id, input }: { id: string; input: any }, { dl }: Context) => {
+    completeCleaning: async (_: unknown, { id, input }: { id: string; input: any }, { dl, prisma }: Context) => {
       logger.info('Completing cleaning', { id, input });
-      return dl.completeCleaning(id, input);
+      const cleaning = await dl.completeCleaning(id, input);
+      
+      // Отправляем уведомление уборщику о завершении
+      try {
+        const cleaner = await prisma.cleaner.findUnique({
+          where: { id: cleaning.cleanerId }
+        });
+        
+        const unit = await prisma.unit.findUnique({
+          where: { id: cleaning.unitId },
+          include: { property: true }
+        });
+        
+        const targetUserId = cleaner?.userId || cleaner?.id;
+        const settings = targetUserId 
+          ? await prisma.userNotificationSettings.findUnique({
+              where: { userId: targetUserId },
+            }).catch(() => null)
+          : null;
+        
+        if (cleaner && unit) {
+          // Вычисляем длительность
+          const duration = cleaning.startedAt && cleaning.completedAt
+            ? Math.floor((new Date(cleaning.completedAt).getTime() - new Date(cleaning.startedAt).getTime()) / 60000)
+            : undefined;
+          
+          await notificationClient.notifyCleaningCompleted({
+            userId: targetUserId!,
+            telegramChatId: settings?.telegramChatId || undefined,
+            cleaningId: cleaning.id,
+            unitName: `${unit.property?.title || ''} - ${unit.name}`,
+            cleanerName: `${cleaner.firstName} ${cleaner.lastName}`,
+            duration,
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to send completion notification:', error);
+      }
+      
+      return cleaning;
     },
     
-    cancelCleaning: async (_: unknown, { id, reason }: { id: string; reason?: string }, { dl }: Context) => {
+    cancelCleaning: async (_: unknown, { id, reason }: { id: string; reason?: string }, { dl, prisma }: Context) => {
       logger.info('Cancelling cleaning', { id, reason });
-      return dl.cancelCleaning(id, reason);
+      const cleaning = await dl.cancelCleaning(id, reason);
+      
+      // Отправляем уведомление об отмене
+      try {
+        const cleaner = await prisma.cleaner.findUnique({
+          where: { id: cleaning.cleanerId }
+        });
+        
+        const unit = await prisma.unit.findUnique({
+          where: { id: cleaning.unitId },
+          include: { property: true }
+        });
+        
+        const targetUserId = cleaner?.userId || cleaner?.id;
+        const settings = targetUserId 
+          ? await prisma.userNotificationSettings.findUnique({
+              where: { userId: targetUserId },
+            }).catch(() => null)
+          : null;
+        
+        if (unit) {
+          await notificationClient.notifyCleaningCancelled({
+            userId: targetUserId!,
+            telegramChatId: settings?.telegramChatId || undefined,
+            cleaningId: cleaning.id,
+            unitName: `${unit.property?.title || ''} - ${unit.name}`,
+            reason,
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to send cancellation notification:', error);
+      }
+      
+      return cleaning;
     },
     
     updateCleaningChecklist: async (_: unknown, { id, items }: { id: string; items: any[] }, { dl }: Context) => {

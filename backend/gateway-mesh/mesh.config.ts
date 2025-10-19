@@ -67,6 +67,11 @@ export const composeConfig = defineConfig({
       sourceHandler: loadGraphQLHTTPSubgraph('cleaning-subgraph', {
         endpoint: 'http://localhost:4010/graphql'
       })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('notifications-subgraph', {
+        endpoint: 'http://localhost:4011/graphql'
+      })
     }
   ],
   additionalTypeDefs: baseSchema

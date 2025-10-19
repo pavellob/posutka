@@ -228,6 +228,35 @@ export function EditCleanerDialog({
             Оставьте поле пустым, чтобы сохранить текущий рейтинг.
           </Text>
         </div>
+
+        {/* Информация о связанном пользователе */}
+        {cleaner?.userId && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+            <div className="flex items-start justify-between">
+              <div>
+                <Text className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  📱 Настройки уведомлений
+                </Text>
+                <Text className="text-xs text-blue-800 dark:text-blue-200 mt-1">
+                  Этот уборщик связан с пользователем системы.<br />
+                  Настройки уведомлений управляются в профиле пользователя.
+                </Text>
+                <Text className="text-xs text-blue-700 dark:text-blue-300 mt-2 font-mono">
+                  User ID: {cleaner.userId}
+                </Text>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!cleaner?.userId && (
+          <div className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-lg">
+            <Text className="text-sm text-gray-700 dark:text-gray-300">
+              <strong>ℹ️ Внешний подрядчик:</strong> Этот уборщик не связан с пользователем системы. 
+              Настройки уведомлений будут использовать ID уборщика как userId.
+            </Text>
+          </div>
+        )}
       </DialogBody>
       <DialogActions>
         <Button 

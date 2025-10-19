@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
@@ -30,7 +31,10 @@ import {
   ACTIVATE_CLEANER
 } from '@/lib/graphql-queries'
 
-export default function CleaningsPage() {
+function CleaningsPageContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
   const [activeTab, setActiveTab] = useState<'cleanings' | 'cleaners'>('cleanings')
   const [filters, setFilters] = useState({
     status: '',
@@ -49,6 +53,15 @@ export default function CleaningsPage() {
   const queryClient = useQueryClient()
   const { currentOrgId, isLoading: orgLoading } = useCurrentOrganization()
   const orgId = currentOrgId
+
+  // Открываем диалог деталей при наличии id в URL
+  useEffect(() => {
+    const cleaningId = searchParams.get('id')
+    if (cleaningId) {
+      setSelectedCleaningId(cleaningId)
+      setIsDetailsDialogOpen(true)
+    }
+  }, [searchParams])
 
   // Запрос уборок
   const { data: cleaningsData, isLoading: cleaningsLoading } = useQuery({
@@ -691,6 +704,8 @@ export default function CleaningsPage() {
         onClose={() => {
           setIsDetailsDialogOpen(false)
           setSelectedCleaningId(null)
+          // Удаляем id из URL при закрытии диалога
+          router.push('/cleanings')
         }}
         cleaningId={selectedCleaningId}
       />
@@ -734,6 +749,14 @@ export default function CleaningsPage() {
         cleanerId={selectedCleanerId}
       />
     </div>
+  )
+}
+
+export default function CleaningsPage() {
+  return (
+    <Suspense fallback={<div>Загрузка...</div>}>
+      <CleaningsPageContent />
+    </Suspense>
   )
 }
 

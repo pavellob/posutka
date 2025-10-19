@@ -51,5 +51,7 @@ npm-run-all --parallel \
   "pnpm -C backend/listings-subgraph start" \
   "pnpm -C backend/legal-subgraph start" \
   "pnpm -C backend/ai-subgraph start" \
+  "pnpm -C backend/iam-subgraph start" \
   "pnpm -C backend/cleaning-subgraph start" \
+  "pnpm -C backend/notifications-subgraph start" \
   "pnpm -C backend/gateway-mesh mesh:dev"

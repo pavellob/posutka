@@ -33,11 +33,25 @@ services:
                protocol: http
              - port: 4008  # AI Subgraph
                protocol: http
+             - port: 4009  # IAM Subgraph
+               protocol: http
+             - port: 4010  # Cleaning Subgraph
+               protocol: http
+             - port: 4011  # Notifications Subgraph (GraphQL)
+               protocol: http
+             - port: 4111  # Notifications Subgraph (gRPC)
+               protocol: http
+             - port: 4020  # Notifications WebSocket
+               protocol: http
     environment:
       - name: NODE_ENV
         value: production
       - name: DATABASE_URL
         fromSecret: database-url
+      - name: FRONTEND_URL
+        value: https://posutka-backoffice.vercel.app
+      - name: TELEGRAM_BOT_TOKEN
+        fromSecret: telegram-bot-token
     healthCheck:
       path: /graphql
       port: 4000

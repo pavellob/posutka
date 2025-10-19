@@ -1,3 +1,5 @@
+'use client'
+
 import { Button } from '@/components/button'
 import { Checkbox, CheckboxField } from '@/components/checkbox'
 import { Divider } from '@/components/divider'
@@ -7,14 +9,13 @@ import { Input } from '@/components/input'
 import { Select } from '@/components/select'
 import { Text } from '@/components/text'
 import { Textarea } from '@/components/textarea'
-import type { Metadata } from 'next'
 import { Address } from './address'
-
-export const metadata: Metadata = {
-  title: 'Settings',
-}
+import { NotificationSettingsCompact } from '@/components/notification-settings-compact'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 export default function Settings() {
+  const { user } = useCurrentUser()
+
   return (
     <form method="post" className="mx-auto max-w-4xl">
       <Heading>Settings</Heading>
@@ -84,6 +85,23 @@ export default function Settings() {
       </section>
 
       <Divider className="my-10" soft />
+
+      {/* Настройки уведомлений */}
+      {user && (
+        <>
+          <section className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Subheading>Уведомления</Subheading>
+              <Text>Настройте каналы доставки и типы уведомлений, которые вы хотите получать.</Text>
+            </div>
+            <div>
+              <NotificationSettingsCompact userId={user.id} showTitle={false} />
+            </div>
+          </section>
+
+          <Divider className="my-10" soft />
+        </>
+      )}
 
       <div className="flex justify-end gap-4">
         <Button type="reset" plain>

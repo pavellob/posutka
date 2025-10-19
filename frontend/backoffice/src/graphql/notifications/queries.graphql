@@ -1,0 +1,82 @@
+# Запросы для работы с уведомлениями
+
+query GetUserNotificationSettings($userId: UUID!) {
+  userNotificationSettings(userId: $userId) {
+    userId
+    telegramChatId
+    email
+    phone
+    enabled
+    enabledChannels
+    subscribedEvents
+    createdAt
+    updatedAt
+  }
+}
+
+query GetNotifications(
+  $userId: UUID
+  $status: NotificationStatus
+  $unreadOnly: Boolean
+  $first: Int
+  $after: String
+) {
+  notifications(
+    userId: $userId
+    status: $status
+    unreadOnly: $unreadOnly
+    first: $first
+    after: $after
+  ) {
+    edges {
+      node {
+        id
+        eventType
+        priority
+        status
+        title
+        message
+        actionUrl
+        actionText
+        createdAt
+        readAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+      totalCount
+    }
+  }
+}
+
+# Мутации
+
+mutation UpdateNotificationSettings($input: UpdateNotificationSettingsInput!) {
+  updateNotificationSettings(input: $input) {
+    userId
+    telegramChatId
+    email
+    phone
+    enabled
+    enabledChannels
+    subscribedEvents
+    updatedAt
+  }
+}
+
+mutation MarkAsRead($id: UUID!) {
+  markAsRead(id: $id) {
+    id
+    status
+    readAt
+  }
+}
+
+mutation MarkAllAsRead($userId: UUID!) {
+  markAllAsRead(userId: $userId)
+}
+

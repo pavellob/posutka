@@ -81,16 +81,46 @@ export class CleaningDLPrisma implements ICleaningDL {
   }
 
   async createCleaner(input: CreateCleanerInput): Promise<Cleaner> {
+    // Получаем данные пользователя
+    const user = await this.prisma.user.findUnique({
+      where: { id: input.userId },
+    });
+    
+    if (!user) {
+      throw new Error(`User with id ${input.userId} not found`);
+    }
+    
+    // Парсим имя пользователя (если полное имя в одном поле)
+    const nameParts = user.name?.split(' ') || [];
+    const firstName = nameParts[0] || 'Unknown';
+    const lastName = nameParts.slice(1).join(' ') || 'User';
+    
+    // Создаем уборщика с данными из User
     const cleaner = await this.prisma.cleaner.create({
       data: {
+        type: 'INTERNAL',  // Всегда INTERNAL, так как связан с User
         userId: input.userId,
         orgId: input.orgId,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        phone: input.phone,
-        email: input.email,
+        firstName,
+        lastName,
+        phone: null,  // Можно добавить в User если нужно
+        email: user.email,
+        telegramUsername: null,  // Можно добавить в User если нужно
       },
     });
+    
+    // Добавляем роль CLEANER пользователю (если еще нет)
+    const hasCleanerRole = user.systemRoles.includes('CLEANER');
+    if (!hasCleanerRole) {
+      await this.prisma.user.update({
+        where: { id: input.userId },
+        data: {
+          systemRoles: {
+            push: 'CLEANER',
+          },
+        },
+      });
+    }
 
     return this.mapCleanerFromPrisma(cleaner);
   }

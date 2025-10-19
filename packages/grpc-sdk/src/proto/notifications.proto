@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package notifications;
+
+// Сервис для отправки уведомлений
+service NotificationsService {
+  // Отправить уведомление о событии
+  rpc SendNotification(NotificationRequest) returns (NotificationResponse);
+  
+  // Массовая отправка уведомлений
+  rpc SendBulkNotifications(BulkNotificationRequest) returns (BulkNotificationResponse);
+  
+  // Получить статус уведомления
+  rpc GetNotificationStatus(NotificationStatusRequest) returns (NotificationStatusResponse);
+}
+
+// Типы событий
+enum EventType {
+  EVENT_TYPE_UNKNOWN = 0;
+  
+  // Booking events
+  EVENT_TYPE_BOOKING_CREATED = 1;
+  EVENT_TYPE_BOOKING_CONFIRMED = 2;
+  EVENT_TYPE_BOOKING_CANCELLED = 3;
+  EVENT_TYPE_BOOKING_CHECKIN = 4;
+  EVENT_TYPE_BOOKING_CHECKOUT = 5;
+  
+  // Cleaning events
+  EVENT_TYPE_CLEANING_SCHEDULED = 10;
+  EVENT_TYPE_CLEANING_STARTED = 11;
+  EVENT_TYPE_CLEANING_COMPLETED = 12;
+  EVENT_TYPE_CLEANING_CANCELLED = 13;
+  EVENT_TYPE_CLEANING_ASSIGNED = 14;
+  
+  // Task events
+  EVENT_TYPE_TASK_CREATED = 20;
+  EVENT_TYPE_TASK_ASSIGNED = 21;
+  EVENT_TYPE_TASK_STATUS_CHANGED = 22;
+  EVENT_TYPE_TASK_COMPLETED = 23;
+  
+  // Payment events
+  EVENT_TYPE_PAYMENT_RECEIVED = 30;
+  EVENT_TYPE_PAYMENT_FAILED = 31;
+  EVENT_TYPE_INVOICE_CREATED = 32;
+  EVENT_TYPE_INVOICE_OVERDUE = 33;
+  
+  // System events
+  EVENT_TYPE_USER_REGISTERED = 40;
+  EVENT_TYPE_USER_LOGIN = 41;
+  EVENT_TYPE_SYSTEM_ALERT = 42;
+}
+
+// Приоритет уведомления
+enum Priority {
+  PRIORITY_LOW = 0;
+  PRIORITY_NORMAL = 1;
+  PRIORITY_HIGH = 2;
+  PRIORITY_URGENT = 3;
+}
+
+// Канал доставки уведомления
+enum Channel {
+  CHANNEL_TELEGRAM = 0;
+  CHANNEL_EMAIL = 1;
+  CHANNEL_SMS = 2;
+  CHANNEL_PUSH = 3;
+  CHANNEL_WEBSOCKET = 4;
+  CHANNEL_IN_APP = 5;
+}
+
+// Запрос на отправку уведомления
+message NotificationRequest {
+  // Тип события
+  EventType event_type = 1;
+  
+  // ID организации (опционально)
+  string org_id = 2;
+  
+  // ID получателя (userId, telegramId и т.д.)
+  repeated string recipient_ids = 3;
+  
+  // Каналы доставки
+  repeated Channel channels = 4;
+  
+  // Приоритет
+  Priority priority = 5;
+  
+  // Заголовок уведомления
+  string title = 6;
+  
+  // Текст сообщения
+  string message = 7;
+  
+  // Дополнительные данные (JSON)
+  string metadata = 8;
+  
+  // Запланированное время отправки (Unix timestamp, опционально)
+  int64 scheduled_at = 9;
+  
+  // URL для action button (опционально)
+  string action_url = 10;
+  
+  // Текст кнопки действия
+  string action_text = 11;
+}
+
+// Ответ на отправку уведомления
+message NotificationResponse {
+  // ID созданного уведомления
+  string notification_id = 1;
+  
+  // Статус отправки
+  string status = 2;
+  
+  // Сообщение об ошибке (если есть)
+  string error = 3;
+  
+  // Количество успешных отправок
+  int32 sent_count = 4;
+  
+  // Количество неудачных отправок
+  int32 failed_count = 5;
+}
+
+// Запрос на массовую отправку
+message BulkNotificationRequest {
+  repeated NotificationRequest notifications = 1;
+}
+
+// Ответ на массовую отправку
+message BulkNotificationResponse {
+  repeated NotificationResponse responses = 1;
+  int32 total_sent = 2;
+  int32 total_failed = 3;
+}
+
+// Запрос статуса уведомления
+message NotificationStatusRequest {
+  string notification_id = 1;
+}
+
+// Ответ со статусом уведомления
+message NotificationStatusResponse {
+  string notification_id = 1;
+  string status = 2;
+  int64 created_at = 3;
+  int64 sent_at = 4;
+  string error = 5;
+  repeated DeliveryStatus delivery_statuses = 6;
+}
+
+// Статус доставки по каждому каналу
+message DeliveryStatus {
+  Channel channel = 1;
+  string status = 2;
+  int64 delivered_at = 3;
+  string error = 4;
+}
+

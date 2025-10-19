@@ -228,6 +228,39 @@ mutation {
 }
 ```
 
+## Конфигурация
+
+Создайте `.env` файл (или скопируйте из `env.example`):
+
+```env
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/posutka
+
+# Server Port
+PORT=4010
+
+# Frontend URL (для ссылок в уведомлениях)
+# Development: http://localhost:3000
+# Production: https://posutka-backoffice.vercel.app
+FRONTEND_URL=http://localhost:3000
+
+# Notifications Service
+NOTIFICATIONS_ENDPOINT=http://localhost:4011/graphql
+
+# Logging
+LOG_LEVEL=info
+NODE_ENV=development
+```
+
+### Настройка ссылок в уведомлениях
+
+Cleaning Subgraph отправляет уведомления через Telegram при создании, начале, завершении и отмене уборок. Ссылки в уведомлениях формируются динамически на основе переменной `FRONTEND_URL`:
+
+- **Локально**: `http://localhost:3000/cleanings/{id}`
+- **Production**: `https://posutka-backoffice.vercel.app/cleanings/{id}`
+
+Подробнее см. [NOTIFICATION_LINKS_SETUP.md](../../NOTIFICATION_LINKS_SETUP.md) в корне проекта.
+
 ## Разработка
 
 ### Запуск в режиме разработки

@@ -1,3 +1,7 @@
+// Загружаем переменные окружения в самом начале
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { readFileSync } from 'fs';
 import path from 'path';
 import { makeExecutableSchema } from '@graphql-tools/schema';

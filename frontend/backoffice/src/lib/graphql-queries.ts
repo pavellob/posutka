@@ -1261,6 +1261,72 @@ export const ACTIVATE_CLEANER = gql`
   }
 `
 
+// ===== ЗАПРОСЫ ДЛЯ УВЕДОМЛЕНИЙ =====
+
+export const GET_NOTIFICATIONS = gql`
+  query GetNotifications(
+    $userId: UUID
+    $orgId: UUID
+    $status: NotificationStatus
+    $unreadOnly: Boolean
+    $first: Int
+  ) {
+    notifications(
+      userId: $userId
+      orgId: $orgId
+      status: $status
+      unreadOnly: $unreadOnly
+      first: $first
+    ) {
+      edges {
+        node {
+          id
+          eventType
+          priority
+          status
+          title
+          message
+          actionUrl
+          actionText
+          createdAt
+          readAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        totalCount
+      }
+    }
+  }
+`
+
+export const MARK_AS_READ = gql`
+  mutation MarkAsRead($id: UUID!) {
+    markAsRead(id: $id) {
+      id
+      status
+      readAt
+    }
+  }
+`
+
+export const MARK_ALL_AS_READ = gql`
+  mutation MarkAllAsRead($userId: UUID!) {
+    markAllAsRead(userId: $userId)
+  }
+`
+
+export const UPDATE_NOTIFICATION_SETTINGS = gql`
+  mutation UpdateNotificationSettings($input: UpdateNotificationSettingsInput!) {
+    updateNotificationSettings(input: $input) {
+      userId
+      telegramChatId
+      enabled
+      enabledChannels
+    }
+  }
+`
+
 export const CREATE_CLEANING_TEMPLATE = gql`
   mutation CreateCleaningTemplate($input: CreateCleaningTemplateInput!) {
     createCleaningTemplate(input: $input) {

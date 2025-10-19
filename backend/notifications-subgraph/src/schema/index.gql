@@ -1,0 +1,472 @@
+# Notifications Subgraph - Управление уведомлениями
+# Получает события через gRPC и рассылает через провайдеры (Telegram, WebSocket и т.д.)
+
+scalar UUID
+scalar DateTime
+
+"""
+Информация о пагинации для соединений (connections).
+"""
+type PageInfo {
+  """Есть ли следующая страница результатов"""
+  hasNextPage: Boolean!
+  """Есть ли предыдущая страница результатов"""
+  hasPreviousPage: Boolean!
+  """Курсор для начала текущей страницы"""
+  startCursor: String
+  """Курсор для конца текущей страницы"""
+  endCursor: String
+  """Общее количество элементов"""
+  totalCount: Int
+}
+
+"""
+Пользователь системы (ссылка на identity-subgraph).
+"""
+type User {
+  """Уникальный идентификатор пользователя"""
+  id: UUID!
+}
+
+"""
+Организация (ссылка на identity-subgraph).
+"""
+type Organization {
+  """Уникальный идентификатор организации"""
+  id: UUID!
+}
+
+"""
+Тип события для уведомления.
+"""
+enum EventType {
+  """Создано бронирование"""
+  BOOKING_CREATED
+  """Бронирование подтверждено"""
+  BOOKING_CONFIRMED
+  """Бронирование отменено"""
+  BOOKING_CANCELLED
+  """Заселение гостя"""
+  BOOKING_CHECKIN
+  """Выселение гостя"""
+  BOOKING_CHECKOUT
+  
+  """Уборка запланирована"""
+  CLEANING_SCHEDULED
+  """Уборка начата"""
+  CLEANING_STARTED
+  """Уборка завершена"""
+  CLEANING_COMPLETED
+  """Уборка отменена"""
+  CLEANING_CANCELLED
+  """Уборщик назначен"""
+  CLEANING_ASSIGNED
+  
+  """Задача создана"""
+  TASK_CREATED
+  """Задача назначена"""
+  TASK_ASSIGNED
+  """Статус задачи изменен"""
+  TASK_STATUS_CHANGED
+  """Задача завершена"""
+  TASK_COMPLETED
+  
+  """Платеж получен"""
+  PAYMENT_RECEIVED
+  """Платеж не прошел"""
+  PAYMENT_FAILED
+  """Счет создан"""
+  INVOICE_CREATED
+  """Счет просрочен"""
+  INVOICE_OVERDUE
+  
+  """Пользователь зарегистрирован"""
+  USER_REGISTERED
+  """Вход пользователя"""
+  USER_LOGIN
+  """Системное оповещение"""
+  SYSTEM_ALERT
+}
+
+"""
+Приоритет уведомления.
+"""
+enum Priority {
+  """Низкий приоритет"""
+  LOW
+  """Нормальный приоритет"""
+  NORMAL
+  """Высокий приоритет"""
+  HIGH
+  """Срочно"""
+  URGENT
+}
+
+"""
+Канал доставки уведомления.
+"""
+enum NotificationChannel {
+  """Telegram бот"""
+  TELEGRAM
+  """Email"""
+  EMAIL
+  """SMS"""
+  SMS
+  """Push уведомления"""
+  PUSH
+  """WebSocket (real-time)"""
+  WEBSOCKET
+  """Внутри приложения"""
+  IN_APP
+}
+
+"""
+Статус уведомления.
+"""
+enum NotificationStatus {
+  """Создано, ожидает отправки"""
+  PENDING
+  """Запланировано на будущее"""
+  SCHEDULED
+  """Отправлено успешно"""
+  SENT
+  """Ошибка при отправке"""
+  FAILED
+  """Доставлено получателю"""
+  DELIVERED
+  """Прочитано получателем"""
+  READ
+  """Отменено"""
+  CANCELLED
+}
+
+"""
+Уведомление - сообщение для пользователя.
+"""
+type Notification {
+  """Уникальный идентификатор уведомления"""
+  id: UUID!
+  """Организация (опционально)"""
+  org: Organization
+  """Пользователь-получатель"""
+  user: User
+  """Тип события"""
+  eventType: EventType!
+  """Приоритет"""
+  priority: Priority!
+  """Статус"""
+  status: NotificationStatus!
+  """Заголовок"""
+  title: String!
+  """Текст сообщения"""
+  message: String!
+  """Дополнительные данные (JSON)"""
+  metadata: String
+  """URL для действия"""
+  actionUrl: String
+  """Текст кнопки действия"""
+  actionText: String
+  """Запланировано на"""
+  scheduledAt: DateTime
+  """Отправлено в"""
+  sentAt: DateTime
+  """Доставлено в"""
+  deliveredAt: DateTime
+  """Прочитано в"""
+  readAt: DateTime
+  """Статусы доставки по каналам"""
+  deliveryStatuses: [DeliveryStatus!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Статус доставки по конкретному каналу.
+"""
+type DeliveryStatus {
+  """ID записи доставки"""
+  id: UUID!
+  """Канал доставки"""
+  channel: NotificationChannel!
+  """Тип получателя"""
+  recipientType: RecipientType!
+  """ID получателя"""
+  recipientId: String!
+  """Статус доставки"""
+  status: DeliveryStatusEnum!
+  """ID в системе провайдера"""
+  externalId: String
+  """Доставлено в"""
+  deliveredAt: DateTime
+  """Ошибка (если есть)"""
+  error: String
+}
+
+"""
+Тип получателя для доставки.
+"""
+enum RecipientType {
+  """User ID"""
+  USER_ID
+  """Telegram Chat ID"""
+  TELEGRAM_CHAT_ID
+  """Email адрес"""
+  EMAIL
+  """Номер телефона"""
+  PHONE
+}
+
+"""
+Статус доставки.
+"""
+enum DeliveryStatusEnum {
+  """Ожидает отправки"""
+  PENDING
+  """Отправляется"""
+  SENDING
+  """Отправлено"""
+  SENT
+  """Доставлено"""
+  DELIVERED
+  """Ошибка доставки"""
+  FAILED
+  """Отклонено получателем"""
+  BOUNCED
+}
+
+"""
+Настройки уведомлений пользователя.
+"""
+type UserNotificationSettings {
+  """ID пользователя"""
+  userId: UUID!
+  """Telegram Chat ID"""
+  telegramChatId: String
+  """Email"""
+  email: String
+  """Телефон"""
+  phone: String
+  """Включены ли уведомления"""
+  enabled: Boolean!
+  """Включенные каналы"""
+  enabledChannels: [NotificationChannel!]!
+  """Типы событий, на которые подписан"""
+  subscribedEvents: [EventType!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Шаблон уведомления.
+"""
+type NotificationTemplate {
+  """ID шаблона"""
+  id: UUID!
+  """Тип события"""
+  eventType: EventType!
+  """Название шаблона"""
+  name: String!
+  """Заголовок (с переменными)"""
+  titleTemplate: String!
+  """Текст сообщения (с переменными)"""
+  messageTemplate: String!
+  """Каналы по умолчанию"""
+  defaultChannels: [NotificationChannel!]!
+  """Приоритет по умолчанию"""
+  defaultPriority: Priority!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+# ===== Connections =====
+
+"""
+Соединение уведомлений с пагинацией.
+"""
+type NotificationConnection {
+  """Список уведомлений с курсорами"""
+  edges: [NotificationEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""
+Элемент списка уведомлений для пагинации.
+"""
+type NotificationEdge {
+  """Уведомление"""
+  node: Notification!
+  """Курсор для пагинации"""
+  cursor: String!
+}
+
+# ===== Queries =====
+
+"""
+Запросы для работы с уведомлениями.
+"""
+type Query {
+  """Получить уведомление по ID"""
+  notification(id: UUID!): Notification
+  
+  """Получить список уведомлений с фильтрацией"""
+  notifications(
+    """ID пользователя для фильтрации"""
+    userId: UUID
+    """ID организации для фильтрации"""
+    orgId: UUID
+    """Статус для фильтрации"""
+    status: NotificationStatus
+    """Тип события для фильтрации"""
+    eventType: EventType
+    """Только непрочитанные"""
+    unreadOnly: Boolean
+    """Количество элементов на странице"""
+    first: Int
+    """Курсор для пагинации"""
+    after: String
+  ): NotificationConnection!
+  
+  """Получить настройки уведомлений пользователя"""
+  userNotificationSettings(userId: UUID!): UserNotificationSettings
+  
+  """Получить шаблон уведомления"""
+  notificationTemplate(id: UUID!): NotificationTemplate
+  
+  """Получить все шаблоны"""
+  notificationTemplates(eventType: EventType): [NotificationTemplate!]!
+}
+
+# ===== Mutations =====
+
+"""
+Мутации для управления уведомлениями.
+"""
+type Mutation {
+  """Отправить уведомление"""
+  sendNotification(input: SendNotificationInput!): Notification!
+  
+  """Отметить уведомление как прочитанное"""
+  markAsRead(id: UUID!): Notification!
+  
+  """Отметить все уведомления пользователя как прочитанные"""
+  markAllAsRead(userId: UUID!): Boolean!
+  
+  """Удалить уведомление"""
+  deleteNotification(id: UUID!): Boolean!
+  
+  """Обновить настройки уведомлений пользователя"""
+  updateNotificationSettings(input: UpdateNotificationSettingsInput!): UserNotificationSettings!
+  
+  """Создать или обновить шаблон уведомления"""
+  upsertNotificationTemplate(input: UpsertNotificationTemplateInput!): NotificationTemplate!
+  
+  """Удалить шаблон уведомления"""
+  deleteNotificationTemplate(id: UUID!): Boolean!
+}
+
+# ===== Subscriptions =====
+
+"""
+Подписки на уведомления в реальном времени.
+"""
+type Subscription {
+  """Подписаться на уведомления пользователя"""
+  notificationReceived(userId: UUID!): Notification!
+  
+  """Подписаться на уведомления организации"""
+  organizationNotifications(orgId: UUID!): Notification!
+}
+
+# ===== Inputs =====
+
+"""
+Цель доставки уведомления (канал + получатель).
+"""
+input DeliveryTargetInput {
+  """Канал доставки"""
+  channel: NotificationChannel!
+  """Тип получателя"""
+  recipientType: RecipientType!
+  """ID получателя"""
+  recipientId: String!
+}
+
+"""
+Входные данные для отправки уведомления.
+"""
+input SendNotificationInput {
+  """Тип события"""
+  eventType: EventType!
+  """ID организации (опционально)"""
+  orgId: UUID
+  """ID пользователя-получателя (опционально)"""
+  userId: UUID
+  """Цели доставки (новый формат)"""
+  deliveryTargets: [DeliveryTargetInput!]
+  """ID получателей (старый формат, для обратной совместимости)"""
+  recipientIds: [String!]
+  """Каналы доставки (старый формат, для обратной совместимости)"""
+  channels: [NotificationChannel!]
+  """Приоритет"""
+  priority: Priority
+  """Заголовок"""
+  title: String!
+  """Сообщение"""
+  message: String!
+  """Метаданные (JSON)"""
+  metadata: String
+  """Запланированное время (опционально)"""
+  scheduledAt: DateTime
+  """URL действия"""
+  actionUrl: String
+  """Текст кнопки"""
+  actionText: String
+}
+
+"""
+Входные данные для обновления настроек уведомлений.
+"""
+input UpdateNotificationSettingsInput {
+  """ID пользователя"""
+  userId: UUID!
+  """Telegram Chat ID"""
+  telegramChatId: String
+  """Email"""
+  email: String
+  """Телефон"""
+  phone: String
+  """Включены ли уведомления"""
+  enabled: Boolean
+  """Включенные каналы"""
+  enabledChannels: [NotificationChannel!]
+  """Подписка на события"""
+  subscribedEvents: [EventType!]
+}
+
+"""
+Входные данные для создания/обновления шаблона.
+"""
+input UpsertNotificationTemplateInput {
+  """ID шаблона (для обновления)"""
+  id: UUID
+  """Тип события"""
+  eventType: EventType!
+  """Название"""
+  name: String!
+  """Шаблон заголовка"""
+  titleTemplate: String!
+  """Шаблон сообщения"""
+  messageTemplate: String!
+  """Каналы по умолчанию"""
+  defaultNotificationChannels: [NotificationChannel!]
+  """Приоритет по умолчанию"""
+  defaultPriority: Priority
+}
+

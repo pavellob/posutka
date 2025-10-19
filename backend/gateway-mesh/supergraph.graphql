@@ -1,6 +1,7 @@
 schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION) @link(url: "https://the-guild.dev/graphql/mesh/spec/v1.0", import: ["@merge", "@transport", "@extraSchemaDefinitionDirective"]) {
   query: Query
   mutation: Mutation
+  subscription: Subscription
 }
 
 directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
@@ -48,6 +49,7 @@ enum join__Graph {
   INVENTORY_SUBGRAPH @join__graph(name: "inventory-subgraph", url: "http://localhost:4001/graphql")
   LEGAL_SUBGRAPH @join__graph(name: "legal-subgraph", url: "http://localhost:4007/graphql")
   LISTINGS_SUBGRAPH @join__graph(name: "listings-subgraph", url: "http://localhost:4006/graphql")
+  NOTIFICATIONS_SUBGRAPH @join__graph(name: "notifications-subgraph", url: "http://localhost:4011/graphql")
   OPS_SUBGRAPH @join__graph(name: "ops-subgraph", url: "http://localhost:4003/graphql")
 }
 
@@ -56,13 +58,13 @@ enum join__Graph {
 Используется для всех сущностей в системе.
 Пример: "550e8400-e29b-41d4-a716-446655440000"
 """
-scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
 """
 Дата и время в формате ISO 8601 с часовым поясом.
 Пример: "2024-01-15T14:30:00Z" или "2024-01-15T14:30:00+03:00"
 """
-scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
 """
 Произвольный JSON объект для хранения метаданных и дополнительной информации.
@@ -71,7 +73,7 @@ scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGR
 """
 scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH)
 
-scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
 scalar _DirectiveExtensions @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH)
 
@@ -79,7 +81,7 @@ scalar _DirectiveExtensions @join__type(graph: IAM_SUBGRAPH) @join__type(graph: 
 Организация (компания, отель, хостел и т.д.).
 Ссылка на основную сущность из identity-subgraph.
 """
-type Organization @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH, key: "id") @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Organization @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH, key: "id") @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Уникальный идентификатор организации"""
   id: UUID!
   """Название организации"""
@@ -126,7 +128,7 @@ type GraphQLQueryResult @join__type(graph: AI_SUBGRAPH) {
 }
 
 """Запросы для работы с AI-функциональностью."""
-type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Пустой запрос (требуется для GraphQL схемы)"""
   _empty: Boolean @join__field(graph: AI_SUBGRAPH)
   """Получить счет по ID"""
@@ -257,6 +259,31 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
   listing(id: UUID!): Listing @merge(subgraph: "listings-subgraph", keyField: "id", keyArg: "id") @join__field(graph: LISTINGS_SUBGRAPH)
   """Получить список объявлений для единицы недвижимости с пагинацией"""
   listings(unitId: UUID!, first: Int, after: String): ListingConnection! @join__field(graph: LISTINGS_SUBGRAPH)
+  """Получить уведомление по ID"""
+  notification(id: UUID!): Notification @merge(subgraph: "notifications-subgraph", keyField: "id", keyArg: "id") @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Получить список уведомлений с фильтрацией"""
+  notifications(
+    """ID пользователя для фильтрации"""
+    userId: UUID
+    """ID организации для фильтрации"""
+    orgId: UUID
+    """Статус для фильтрации"""
+    status: NotificationStatus
+    """Тип события для фильтрации"""
+    eventType: EventType
+    """Только непрочитанные"""
+    unreadOnly: Boolean
+    """Количество элементов на странице"""
+    first: Int
+    """Курсор для пагинации"""
+    after: String
+  ): NotificationConnection! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Получить настройки уведомлений пользователя"""
+  userNotificationSettings(userId: UUID!): UserNotificationSettings @merge(subgraph: "notifications-subgraph", keyField: "userId", keyArg: "userId") @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Получить шаблон уведомления"""
+  notificationTemplate(id: UUID!): NotificationTemplate @merge(subgraph: "notifications-subgraph", keyField: "id", keyArg: "id") @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Получить все шаблоны"""
+  notificationTemplates(eventType: EventType): [NotificationTemplate!]! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
   """Получить задачу по ID"""
   task(id: UUID!): Task @merge(subgraph: "ops-subgraph", keyField: "id", keyArg: "id") @join__field(graph: OPS_SUBGRAPH)
   """Получить список задач с фильтрацией и пагинацией"""
@@ -281,7 +308,7 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
 }
 
 """Мутации для выполнения AI-команд."""
-type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Выполнить AI-команду на естественном языке"""
   aiCommand(
     """ID организации, для которой выполняется команда"""
@@ -445,6 +472,20 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   addDiscountRule(input: DiscountRuleInput!): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
   """Удалить правило скидки"""
   removeDiscountRule(id: UUID!): Listing! @join__field(graph: LISTINGS_SUBGRAPH)
+  """Отправить уведомление"""
+  sendNotification(input: SendNotificationInput!): Notification! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Отметить уведомление как прочитанное"""
+  markAsRead(id: UUID!): Notification! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Отметить все уведомления пользователя как прочитанные"""
+  markAllAsRead(userId: UUID!): Boolean! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Удалить уведомление"""
+  deleteNotification(id: UUID!): Boolean! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Обновить настройки уведомлений пользователя"""
+  updateNotificationSettings(input: UpdateNotificationSettingsInput!): UserNotificationSettings! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Создать или обновить шаблон уведомления"""
+  upsertNotificationTemplate(input: UpsertNotificationTemplateInput!): NotificationTemplate! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Удалить шаблон уведомления"""
+  deleteNotificationTemplate(id: UUID!): Boolean! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
   """Создать новую задачу"""
   createTask(input: CreateTaskInput!): Task! @join__field(graph: OPS_SUBGRAPH)
   """Назначить задачу поставщику услуг"""
@@ -477,7 +518,7 @@ type Money @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBG
 Информация о пагинации для соединений (connections).
 Используется в GraphQL для реализации cursor-based пагинации.
 """
-type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type PageInfo @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Есть ли следующая страница результатов"""
   hasNextPage: Boolean!
   """Есть ли предыдущая страница результатов"""
@@ -840,7 +881,7 @@ type BookingEdge @join__type(graph: BOOKINGS_SUBGRAPH) {
 }
 
 """Пользователь системы (ссылка на identity-subgraph)."""
-type User @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
+type User @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH, key: "id") @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
   """Уникальный идентификатор пользователя"""
   id: UUID!
   """Email адрес пользователя (уникальный)"""
@@ -857,13 +898,15 @@ type User @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBG
 
 """
 Уборщик - сотрудник, выполняющий уборку.
-Содержит ссылку на пользователя системы.
+Может быть INTERNAL (сотрудник с User) или EXTERNAL (подрядчик без User).
 """
 type Cleaner @join__type(graph: CLEANING_SUBGRAPH, key: "id") @join__type(graph: OPS_SUBGRAPH) {
   """Уникальный идентификатор уборщика"""
   id: UUID!
-  """Пользователь системы"""
-  user: User! @join__field(graph: CLEANING_SUBGRAPH)
+  """Тип уборщика"""
+  type: CleanerType! @join__field(graph: CLEANING_SUBGRAPH)
+  """Пользователь системы (только для INTERNAL)"""
+  user: User @join__field(graph: CLEANING_SUBGRAPH)
   """Организация"""
   org: Organization! @join__field(graph: CLEANING_SUBGRAPH)
   """Имя"""
@@ -874,6 +917,8 @@ type Cleaner @join__type(graph: CLEANING_SUBGRAPH, key: "id") @join__type(graph:
   phone: String @join__field(graph: CLEANING_SUBGRAPH)
   """Email"""
   email: String @join__field(graph: CLEANING_SUBGRAPH)
+  """Telegram username (без @)"""
+  telegramUsername: String @join__field(graph: CLEANING_SUBGRAPH)
   """Рейтинг уборщика"""
   rating: Float @join__field(graph: CLEANING_SUBGRAPH)
   """Активен ли уборщик"""
@@ -1374,6 +1419,134 @@ type ListingConnection @join__type(graph: LISTINGS_SUBGRAPH) {
   pageInfo: PageInfo!
 }
 
+"""Уведомление - сообщение для пользователя."""
+type Notification @join__type(graph: NOTIFICATIONS_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор уведомления"""
+  id: UUID!
+  """Организация (опционально)"""
+  org: Organization
+  """Пользователь-получатель"""
+  user: User
+  """Тип события"""
+  eventType: EventType!
+  """Приоритет"""
+  priority: Priority!
+  """Статус"""
+  status: NotificationStatus!
+  """Заголовок"""
+  title: String!
+  """Текст сообщения"""
+  message: String!
+  """Дополнительные данные (JSON)"""
+  metadata: String
+  """URL для действия"""
+  actionUrl: String
+  """Текст кнопки действия"""
+  actionText: String
+  """Запланировано на"""
+  scheduledAt: DateTime
+  """Отправлено в"""
+  sentAt: DateTime
+  """Доставлено в"""
+  deliveredAt: DateTime
+  """Прочитано в"""
+  readAt: DateTime
+  """Статусы доставки по каналам"""
+  deliveryStatuses: [DeliveryStatus!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Статус доставки по конкретному каналу."""
+type DeliveryStatus @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """ID записи доставки"""
+  id: UUID!
+  """Канал доставки"""
+  channel: NotificationChannel!
+  """Тип получателя"""
+  recipientType: RecipientType!
+  """ID получателя"""
+  recipientId: String!
+  """Статус доставки"""
+  status: DeliveryStatusEnum!
+  """ID в системе провайдера"""
+  externalId: String
+  """Доставлено в"""
+  deliveredAt: DateTime
+  """Ошибка (если есть)"""
+  error: String
+}
+
+"""Настройки уведомлений пользователя."""
+type UserNotificationSettings @join__type(graph: NOTIFICATIONS_SUBGRAPH, key: "userId") {
+  """ID пользователя"""
+  userId: UUID!
+  """Telegram Chat ID"""
+  telegramChatId: String
+  """Email"""
+  email: String
+  """Телефон"""
+  phone: String
+  """Включены ли уведомления"""
+  enabled: Boolean!
+  """Включенные каналы"""
+  enabledChannels: [NotificationChannel!]!
+  """Типы событий, на которые подписан"""
+  subscribedEvents: [EventType!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Шаблон уведомления."""
+type NotificationTemplate @join__type(graph: NOTIFICATIONS_SUBGRAPH, key: "id") {
+  """ID шаблона"""
+  id: UUID!
+  """Тип события"""
+  eventType: EventType!
+  """Название шаблона"""
+  name: String!
+  """Заголовок (с переменными)"""
+  titleTemplate: String!
+  """Текст сообщения (с переменными)"""
+  messageTemplate: String!
+  """Каналы по умолчанию"""
+  defaultChannels: [NotificationChannel!]!
+  """Приоритет по умолчанию"""
+  defaultPriority: Priority!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Соединение уведомлений с пагинацией."""
+type NotificationConnection @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Список уведомлений с курсорами"""
+  edges: [NotificationEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""Элемент списка уведомлений для пагинации."""
+type NotificationEdge @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Уведомление"""
+  node: Notification!
+  """Курсор для пагинации"""
+  cursor: String!
+}
+
+"""Подписки на уведомления в реальном времени."""
+type Subscription @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Подписаться на уведомления пользователя"""
+  notificationReceived(userId: UUID!): Notification!
+  """Подписаться на уведомления организации"""
+  organizationNotifications(orgId: UUID!): Notification!
+}
+
 """
 Поставщик услуг.
 Компания или физическое лицо, предоставляющее услуги по обслуживанию недвижимости.
@@ -1581,6 +1754,14 @@ enum CleaningStatus @join__type(graph: CLEANING_SUBGRAPH) {
   CANCELLED @join__enumValue(graph: CLEANING_SUBGRAPH)
 }
 
+"""Тип уборщика."""
+enum CleanerType @join__type(graph: CLEANING_SUBGRAPH) {
+  """Сотрудник компании (связан с User)"""
+  INTERNAL @join__enumValue(graph: CLEANING_SUBGRAPH)
+  """Внешний подрядчик (не связан с User)"""
+  EXTERNAL @join__enumValue(graph: CLEANING_SUBGRAPH)
+}
+
 """Тип документа уборки."""
 enum CleaningDocumentType @join__type(graph: CLEANING_SUBGRAPH) {
   """Приемка квартиры перед уборкой"""
@@ -1611,6 +1792,8 @@ enum SystemRole @join__type(graph: IAM_SUBGRAPH) {
   MANAGER @join__enumValue(graph: IAM_SUBGRAPH)
   """Оператор"""
   OPERATOR @join__enumValue(graph: IAM_SUBGRAPH)
+  """Уборщик"""
+  CLEANER @join__enumValue(graph: IAM_SUBGRAPH)
   """Пользователь"""
   USER @join__enumValue(graph: IAM_SUBGRAPH)
   """Гость"""
@@ -1676,6 +1859,126 @@ enum ListingStatus @join__type(graph: LISTINGS_SUBGRAPH) {
   PUBLISHED @join__enumValue(graph: LISTINGS_SUBGRAPH)
   """Архивировано - объявление скрыто, но не удалено"""
   ARCHIVED @join__enumValue(graph: LISTINGS_SUBGRAPH)
+}
+
+"""Тип события для уведомления."""
+enum EventType @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Создано бронирование"""
+  BOOKING_CREATED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Бронирование подтверждено"""
+  BOOKING_CONFIRMED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Бронирование отменено"""
+  BOOKING_CANCELLED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Заселение гостя"""
+  BOOKING_CHECKIN @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Выселение гостя"""
+  BOOKING_CHECKOUT @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Уборка запланирована"""
+  CLEANING_SCHEDULED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Уборка начата"""
+  CLEANING_STARTED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Уборка завершена"""
+  CLEANING_COMPLETED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Уборка отменена"""
+  CLEANING_CANCELLED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Уборщик назначен"""
+  CLEANING_ASSIGNED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Задача создана"""
+  TASK_CREATED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Задача назначена"""
+  TASK_ASSIGNED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Статус задачи изменен"""
+  TASK_STATUS_CHANGED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Задача завершена"""
+  TASK_COMPLETED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Платеж получен"""
+  PAYMENT_RECEIVED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Платеж не прошел"""
+  PAYMENT_FAILED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Счет создан"""
+  INVOICE_CREATED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Счет просрочен"""
+  INVOICE_OVERDUE @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Пользователь зарегистрирован"""
+  USER_REGISTERED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Вход пользователя"""
+  USER_LOGIN @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Системное оповещение"""
+  SYSTEM_ALERT @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+}
+
+"""Приоритет уведомления."""
+enum Priority @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Низкий приоритет"""
+  LOW @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Нормальный приоритет"""
+  NORMAL @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Высокий приоритет"""
+  HIGH @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Срочно"""
+  URGENT @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+}
+
+"""Канал доставки уведомления."""
+enum NotificationChannel @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Telegram бот"""
+  TELEGRAM @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Email"""
+  EMAIL @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """SMS"""
+  SMS @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Push уведомления"""
+  PUSH @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """WebSocket (real-time)"""
+  WEBSOCKET @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Внутри приложения"""
+  IN_APP @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+}
+
+"""Статус уведомления."""
+enum NotificationStatus @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Создано, ожидает отправки"""
+  PENDING @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Запланировано на будущее"""
+  SCHEDULED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Отправлено успешно"""
+  SENT @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Ошибка при отправке"""
+  FAILED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Доставлено получателю"""
+  DELIVERED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Прочитано получателем"""
+  READ @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Отменено"""
+  CANCELLED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+}
+
+"""Тип получателя для доставки."""
+enum RecipientType @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """User ID"""
+  USER_ID @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Telegram Chat ID"""
+  TELEGRAM_CHAT_ID @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Email адрес"""
+  EMAIL @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Номер телефона"""
+  PHONE @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+}
+
+"""Статус доставки."""
+enum DeliveryStatusEnum @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Ожидает отправки"""
+  PENDING @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Отправляется"""
+  SENDING @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Отправлено"""
+  SENT @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Доставлено"""
+  DELIVERED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Ошибка доставки"""
+  FAILED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Отклонено получателем"""
+  BOUNCED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
 }
 
 """
@@ -1849,20 +2152,15 @@ input PriceBreakdownInput @join__type(graph: BOOKINGS_SUBGRAPH) {
   total: MoneyInput!
 }
 
-"""Входные данные для создания уборщика."""
+"""
+Входные данные для создания уборщика.
+Все данные (имя, email, телефон) берутся из User.
+"""
 input CreateCleanerInput @join__type(graph: CLEANING_SUBGRAPH) {
   """ID пользователя системы"""
   userId: UUID!
   """ID организации"""
   orgId: UUID!
-  """Имя"""
-  firstName: String!
-  """Фамилия"""
-  lastName: String!
-  """Телефон"""
-  phone: String
-  """Email"""
-  email: String
 }
 
 """Входные данные для обновления уборщика."""
@@ -2137,6 +2435,82 @@ input DiscountRuleInput @join__type(graph: LISTINGS_SUBGRAPH) {
   percentOff: Int!
   """Минимальное количество ночей для применения (опционально)"""
   minNights: Int
+}
+
+"""Цель доставки уведомления (канал + получатель)."""
+input DeliveryTargetInput @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Канал доставки"""
+  channel: NotificationChannel!
+  """Тип получателя"""
+  recipientType: RecipientType!
+  """ID получателя"""
+  recipientId: String!
+}
+
+"""Входные данные для отправки уведомления."""
+input SendNotificationInput @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """Тип события"""
+  eventType: EventType!
+  """ID организации (опционально)"""
+  orgId: UUID
+  """ID пользователя-получателя (опционально)"""
+  userId: UUID
+  """Цели доставки (новый формат)"""
+  deliveryTargets: [DeliveryTargetInput!]
+  """ID получателей (старый формат, для обратной совместимости)"""
+  recipientIds: [String!]
+  """Каналы доставки (старый формат, для обратной совместимости)"""
+  channels: [NotificationChannel!]
+  """Приоритет"""
+  priority: Priority
+  """Заголовок"""
+  title: String!
+  """Сообщение"""
+  message: String!
+  """Метаданные (JSON)"""
+  metadata: String
+  """Запланированное время (опционально)"""
+  scheduledAt: DateTime
+  """URL действия"""
+  actionUrl: String
+  """Текст кнопки"""
+  actionText: String
+}
+
+"""Входные данные для обновления настроек уведомлений."""
+input UpdateNotificationSettingsInput @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """ID пользователя"""
+  userId: UUID!
+  """Telegram Chat ID"""
+  telegramChatId: String
+  """Email"""
+  email: String
+  """Телефон"""
+  phone: String
+  """Включены ли уведомления"""
+  enabled: Boolean
+  """Включенные каналы"""
+  enabledChannels: [NotificationChannel!]
+  """Подписка на события"""
+  subscribedEvents: [EventType!]
+}
+
+"""Входные данные для создания/обновления шаблона."""
+input UpsertNotificationTemplateInput @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """ID шаблона (для обновления)"""
+  id: UUID
+  """Тип события"""
+  eventType: EventType!
+  """Название"""
+  name: String!
+  """Шаблон заголовка"""
+  titleTemplate: String!
+  """Шаблон сообщения"""
+  messageTemplate: String!
+  """Каналы по умолчанию"""
+  defaultNotificationChannels: [NotificationChannel!]
+  """Приоритет по умолчанию"""
+  defaultPriority: Priority
 }
 
 """Входные данные для создания задачи."""

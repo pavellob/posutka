@@ -1,6 +1,7 @@
 // Экспорт клиентов
 export * from './clients/ops.client.js';
 export * from './clients/bookings.client.js';
+export * from './clients/notifications.client.js';
 
 // Экспорт сгенерированных типов для ops
 export {
@@ -30,4 +31,14 @@ export {
   BookingResponse,
   BookingsServiceDefinition
 } from './generated/bookings.js';
+
+// Экспорт сгенерированных типов для notifications
+export {
+  EventType,
+  Priority,
+  Channel as NotificationChannel,
+  NotificationRequest,
+  NotificationResponse,
+  NotificationsServiceDefinition
+} from './generated/notifications.js';
 

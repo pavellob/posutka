@@ -10,6 +10,8 @@ import { Badge } from '@/components/badge'
 import { useMutation } from '@tanstack/react-query'
 import { graphqlClient } from '@/lib/graphql-client'
 import { gql } from 'graphql-request'
+import { NotificationSettingsCompact } from '@/components/notification-settings-compact'
+import { Divider } from '@/components/divider'
 
 // GraphQL мутация для обновления пользователя
 const UPDATE_USER = gql`
@@ -235,6 +237,13 @@ export function EditUserDialog({ isOpen, onClose, user, onSuccess }: EditUserDia
               </div>
             </div>
           </Fieldset>
+
+          <Divider className="my-6" soft />
+
+          {/* Настройки уведомлений */}
+          <div className="bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-4">
+            <NotificationSettingsCompact userId={user.id} showTitle={true} />
+          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button 

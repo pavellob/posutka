@@ -64,6 +64,8 @@ enum SystemRole {
   MANAGER
   """Оператор"""
   OPERATOR
+  """Уборщик"""
+  CLEANER
   """Пользователь"""
   USER
   """Гость"""
