@@ -79,12 +79,19 @@ export class WebSocketProvider extends BaseNotificationProvider {
         logger.error('WebSocket server error:', error);
       });
       
-      logger.info(`WebSocket server running on port ${this.port}`);
+      logger.info(`✅ WebSocket server running on port ${this.port}`);
       
       await super.initialize();
     } catch (error) {
-      logger.error('Failed to initialize WebSocket server:', error);
-      throw error;
+      // ⚠️ WebSocket - опциональный провайдер
+      // Если порт занят или недоступен, продолжаем работу без него
+      logger.warn(`⚠️ WebSocket server failed to start on port ${this.port}:`, error instanceof Error ? error.message : error);
+      logger.warn('⚠️ Notifications service will continue without WebSocket support');
+      logger.warn('💡 Real-time notifications via WebSocket will NOT be available');
+      
+      // НЕ бросаем ошибку - позволяем сервису работать без WebSocket
+      // Помечаем провайдер как неинициализированный
+      this.initialized = false;
     }
   }
   

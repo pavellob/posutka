@@ -40,24 +40,40 @@ export class ProviderManager {
   
   /**
    * Инициализировать все провайдеры.
+   * Продолжает работу, даже если некоторые провайдеры не инициализировались.
    */
   async initialize(): Promise<void> {
     logger.info('Initializing all providers...');
     
+    let successCount = 0;
+    let failedCount = 0;
+    
     const initPromises = Array.from(this.providers.values()).map(async (provider) => {
       try {
         await provider.initialize();
-        logger.info(`Provider ${provider.name} initialized successfully`);
+        logger.info(`✅ Provider ${provider.name} initialized successfully`);
+        successCount++;
       } catch (error) {
-        logger.error(`Failed to initialize provider ${provider.name}:`, error);
-        throw error;
+        // Некоторые провайдеры могут быть опциональными (например, WebSocket)
+        // Логируем предупреждение, но не останавливаем инициализацию остальных
+        logger.warn(`⚠️ Provider ${provider.name} failed to initialize:`, error instanceof Error ? error.message : error);
+        failedCount++;
       }
     });
     
     await Promise.all(initPromises);
     
     this.initialized = true;
-    logger.info(`All ${this.providers.size} providers initialized`);
+    
+    if (successCount > 0) {
+      logger.info(`✅ Provider initialization complete: ${successCount} successful, ${failedCount} failed`);
+      if (failedCount > 0) {
+        logger.warn(`⚠️ Some providers failed to initialize, but service will continue with available providers`);
+      }
+    } else {
+      logger.error(`❌ All providers failed to initialize!`);
+      throw new Error('No providers available - cannot start notifications service');
+    }
   }
   
   /**
@@ -107,6 +123,15 @@ export class ProviderManager {
       }
       
       try {
+        // Проверяем, инициализирован ли провайдер
+        if (!(provider as any).initialized) {
+          results.set(channel, {
+            success: false,
+            error: `Provider ${provider.name} is not initialized`,
+          });
+          return;
+        }
+        
         // Проверяем, можем ли отправить
         const canSend = await provider.canSend(message.recipientId);
         
