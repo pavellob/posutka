@@ -59,17 +59,32 @@ export TELEGRAM_POLLING
 export NOTIFICATIONS_GRPC_HOST
 export NOTIFICATIONS_GRPC_PORT
 
-# Запускаем все сабграфы и Mesh Gateway параллельно
-npm-run-all --parallel \
-  "pnpm -C backend/inventory-subgraph start" \
-  "pnpm -C backend/bookings-subgraph start" \
-  "pnpm -C backend/ops-subgraph start" \
-  "pnpm -C backend/billing-subgraph start" \
-  "pnpm -C backend/identity-subgraph start" \
-  "pnpm -C backend/listings-subgraph start" \
-  "pnpm -C backend/legal-subgraph start" \
-  "pnpm -C backend/ai-subgraph start" \
-  "pnpm -C backend/iam-subgraph start" \
-  "pnpm -C backend/cleaning-subgraph start" \
-  "pnpm -C backend/notifications-subgraph start" \
-  "pnpm -C backend/gateway-mesh mesh:dev"
+# Запускаем подграфы через turbo (правильно передает env vars)
+echo "📦 Запуск подграфов..."
+pnpm start:subgraphs &
+
+# Ждем готовности подграфов
+echo "⏳ Ожидание готовности подграфов..."
+./scripts/wait-for-subgraphs.sh
+
+if [ $? -eq 0 ]; then
+    echo "✅ Подграфы готовы!"
+    
+    # Собираем суперграф
+    echo "🔧 Сборка суперграфа..."
+    pnpm mesh:compose
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Суперграф собран!"
+        
+        # Запускаем gateway
+        echo "🌐 Запуск Gateway..."
+        pnpm start:gateway
+    else
+        echo "❌ Ошибка при сборке суперграфа"
+        exit 1
+    fi
+else
+    echo "❌ Подграфы не готовы"
+    exit 1
+fi
