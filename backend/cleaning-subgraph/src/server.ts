@@ -1,13 +1,7 @@
-// Загружаем .env только для локальной разработки
-// В Docker/production переменные уже в process.env
-if (process.env.NODE_ENV !== 'production') {
-  try {
-    const dotenv = await import('dotenv');
-    dotenv.config();
-  } catch (error) {
-    console.log('ℹ️  dotenv not loaded, using environment variables from process.env');
-  }
-}
+// ❌ НЕ ЗАГРУЖАЕМ dotenv в runtime!
+// В Docker переменные передаются через docker-compose.yml environment
+// В Northflank через Environment Variables
+// Локально экспортируйте переменные: export DATABASE_URL=postgresql://...
 
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -30,13 +24,26 @@ import { createGraphQLLogger } from '@repo/shared-logger';
 const logger = createGraphQLLogger('cleaning-subgraph');
 
 // Отладка переменных окружения при старте
+const rawDbUrl = process.env.DATABASE_URL || '';
 logger.info('🔍 Environment variables check:', {
   NODE_ENV: process.env.NODE_ENV,
   FRONTEND_URL: process.env.FRONTEND_URL,
   NOTIFICATIONS_GRPC_HOST: process.env.NOTIFICATIONS_GRPC_HOST || 'localhost (default)',
   NOTIFICATIONS_GRPC_PORT: process.env.NOTIFICATIONS_GRPC_PORT || '4111 (default)',
-  DATABASE_URL: process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET',
+  DATABASE_URL: rawDbUrl ? '✅ SET' : '❌ NOT SET',
+  DATABASE_URL_RAW: rawDbUrl.substring(0, 70),
+  DATABASE_URL_HOST: rawDbUrl.split('@')[1]?.split('/')[0] || 'NO HOST',
 });
+
+// Проверяем, ожидается ли Docker окружение
+const expectedDockerHost = 'db:5432';
+const actualHost = rawDbUrl.split('@')[1]?.split('/')[0];
+if (actualHost && actualHost.includes('localhost')) {
+  logger.warn('⚠️  WARNING: DATABASE_URL uses localhost instead of Docker host!');
+  logger.warn('⚠️  Expected: db:5432, Got: ' + actualHost);
+  logger.warn('⚠️  This usually means .env file is being loaded instead of Docker environment');
+  logger.warn('💡 Check: Is .env file copied into Docker image?');
+}
 
 async function startServer() {
   try {
@@ -52,10 +59,16 @@ async function startServer() {
     const prisma = new PrismaClient({
       datasources: {
         db: {
-          url: dbUrl,
+          url: dbUrl, // Явно передаем URL из process.env, игнорируя .env файлы
         },
       },
       log: ['error', 'warn'],
+    });
+    
+    // Логируем реальный URL который использует Prisma
+    logger.info('🔍 PrismaClient datasource URL:', {
+      fromEnv: dbUrl.substring(0, 60) + '...',
+      host: dbUrl.split('@')[1]?.split('/')[0] || 'UNKNOWN',
     });
     
     // Проверяем подключение к БД

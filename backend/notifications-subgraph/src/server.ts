@@ -1,13 +1,11 @@
-// Загружаем .env только для локальной разработки
-// В Docker/production переменные уже в process.env через docker-compose.yml или Northflank
-if (process.env.NODE_ENV !== 'production') {
-  try {
-    await import('dotenv/config');
-  } catch (error) {
-    // .env файл не найден - используем переменные из process.env
-    console.log('ℹ️  dotenv not loaded, using environment variables from process.env');
-  }
-}
+// ❌ НЕ ЗАГРУЖАЕМ dotenv в runtime!
+// Prisma автоматически читает .env для CLI команд (migrate, generate)
+// Но в runtime приложения используем ТОЛЬКО process.env (установленные Docker/Northflank)
+// 
+// Если нужно локально - создайте .env в ЭТОЙ директории (backend/notifications-subgraph/.env)
+// и установите переменные через export перед запуском:
+// export DATABASE_URL=postgresql://...
+// pnpm dev
 
 import { createYoga } from 'graphql-yoga';
 import { buildSubgraphSchema } from '@apollo/subgraph';
@@ -29,17 +27,29 @@ import { GrpcTransport } from './transport/grpc.transport.js';
 const logger = createGraphQLLogger('notifications-subgraph');
 
 // Отладка переменных окружения при старте
+const rawDbUrl = process.env.DATABASE_URL || '';
 logger.info('🔍 Environment variables check:', {
   NODE_ENV: process.env.NODE_ENV,
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ? '✅ SET' : '❌ NOT SET',
   TELEGRAM_USE_MINIAPP: process.env.TELEGRAM_USE_MINIAPP,
   TELEGRAM_POLLING: process.env.TELEGRAM_POLLING,
   FRONTEND_URL: process.env.FRONTEND_URL,
-  DATABASE_URL: process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET',
+  DATABASE_URL: rawDbUrl ? '✅ SET' : '❌ NOT SET',
+  DATABASE_URL_RAW: rawDbUrl.substring(0, 70),
+  DATABASE_URL_HOST: rawDbUrl.split('@')[1]?.split('/')[0] || 'NO HOST',
   PORT: process.env.PORT || '4011 (default)',
   GRPC_PORT: process.env.GRPC_PORT || '4111 (default)',
   WS_PORT: process.env.WS_PORT || '4020 (default)',
 });
+
+// Проверяем, ожидается ли Docker окружение
+const actualHost = rawDbUrl.split('@')[1]?.split('/')[0];
+if (actualHost && actualHost.includes('localhost')) {
+  logger.warn('⚠️  WARNING: DATABASE_URL uses localhost instead of Docker host!');
+  logger.warn('⚠️  Expected: db:5432, Got: ' + actualHost);
+  logger.warn('⚠️  This usually means .env file is being loaded instead of Docker environment');
+  logger.warn('💡 Check: Is .env file copied into Docker image?');
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -64,10 +74,16 @@ async function start() {
   const prisma = new PrismaClient({
     datasources: {
       db: {
-        url: dbUrl,
+        url: dbUrl, // Явно передаем URL из process.env, игнорируя .env файлы
       },
     },
     log: ['error', 'warn'],
+  });
+  
+  // Логируем реальный URL который использует Prisma
+  logger.info('🔍 PrismaClient datasource URL:', {
+    fromEnv: dbUrl.substring(0, 60) + '...',
+    host: dbUrl.split('@')[1]?.split('/')[0] || 'UNKNOWN',
   });
   
   // Проверяем подключение к БД

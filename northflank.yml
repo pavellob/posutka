@@ -52,6 +52,14 @@ services:
         value: https://posutka-backoffice.vercel.app
       - name: TELEGRAM_BOT_TOKEN
         fromSecret: telegram-bot-token
+      - name: TELEGRAM_USE_MINIAPP
+        value: "true"
+      - name: TELEGRAM_POLLING
+        value: "false"
+      - name: NOTIFICATIONS_GRPC_HOST
+        value: localhost
+      - name: NOTIFICATIONS_GRPC_PORT
+        value: "4111"
     healthCheck:
       path: /graphql
       port: 4000

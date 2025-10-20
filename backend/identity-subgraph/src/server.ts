@@ -29,10 +29,16 @@ logger.info('🔍 Creating PrismaClient:', {
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: dbUrl,
+      url: dbUrl, // Явно передаем URL из process.env, игнорируя .env файлы
     },
   },
   log: ['error', 'warn'],
+});
+
+// Логируем реальный URL который использует Prisma
+logger.info('🔍 PrismaClient datasource URL:', {
+  fromEnv: dbUrl.substring(0, 60) + '...',
+  host: dbUrl.split('@')[1]?.split('/')[0] || 'UNKNOWN',
 });
 
 const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
