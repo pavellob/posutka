@@ -42,6 +42,23 @@ echo "ℹ️  Сиды отключены. Запустите вручную п�
 
 echo "🎯 Запуск всех сервисов..."
 
+# Проверяем и логируем переменные окружения перед запуском
+echo "🔍 Checking environment variables before starting services..."
+echo "DATABASE_URL: ${DATABASE_URL:0:50}..."
+echo "TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:0:20}..."
+echo "FRONTEND_URL: $FRONTEND_URL"
+echo "NODE_ENV: $NODE_ENV"
+
+# Экспортируем переменные явно, чтобы они передались в дочерние процессы
+export DATABASE_URL
+export NODE_ENV
+export FRONTEND_URL
+export TELEGRAM_BOT_TOKEN
+export TELEGRAM_USE_MINIAPP
+export TELEGRAM_POLLING
+export NOTIFICATIONS_GRPC_HOST
+export NOTIFICATIONS_GRPC_PORT
+
 # Запускаем все сабграфы и Mesh Gateway параллельно
 npm-run-all --parallel \
   "pnpm -C backend/inventory-subgraph start" \
