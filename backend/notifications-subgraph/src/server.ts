@@ -54,8 +54,33 @@ const typeDefs = gql(schemaString);
 // Запускаем сервер
 async function start() {
   // ✅ Инициализируем Prisma ВНУТРИ функции, после загрузки переменных
-  logger.info('🔍 Creating PrismaClient with DATABASE_URL:', process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET');
-  const prisma = new PrismaClient();
+  const dbUrl = process.env.DATABASE_URL || '';
+  logger.info('🔍 Creating PrismaClient:', {
+    hasUrl: !!dbUrl,
+    connectionString: dbUrl ? `${dbUrl.split('@')[0].split('://')[0]}://***@${dbUrl.split('@')[1] || 'NO_HOST'}` : '❌ NOT SET',
+    fullUrl: dbUrl.substring(0, 50) + '...',
+  });
+  
+  const prisma = new PrismaClient({
+    datasources: {
+      db: {
+        url: dbUrl,
+      },
+    },
+    log: ['error', 'warn'],
+  });
+  
+  // Проверяем подключение к БД
+  try {
+    await prisma.$connect();
+    logger.info('✅ Successfully connected to database');
+  } catch (error) {
+    logger.error('❌ Failed to connect to database:', {
+      error: error instanceof Error ? error.message : String(error),
+      url: dbUrl ? `${dbUrl.split('@')[0].split('://')[0]}://***@${dbUrl.split('@')[1] || 'NO_HOST'}` : 'NOT SET',
+    });
+    throw error;
+  }
   
   // Инициализируем ProviderManager
   const providerManager = new ProviderManager();

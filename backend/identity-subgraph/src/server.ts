@@ -20,8 +20,20 @@ logger.info('🔍 Environment variables check:', {
 });
 
 // ✅ Создаем PrismaClient внутри, когда переменные уже загружены
-logger.info('🔍 Creating PrismaClient with DATABASE_URL:', process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET');
-const prisma = new PrismaClient();
+const dbUrl = process.env.DATABASE_URL || '';
+logger.info('🔍 Creating PrismaClient:', {
+  hasUrl: !!dbUrl,
+  connectionString: dbUrl ? `${dbUrl.split('@')[0].split('://')[0]}://***@${dbUrl.split('@')[1] || 'NO_HOST'}` : '❌ NOT SET',
+});
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: dbUrl,
+    },
+  },
+  log: ['error', 'warn'],
+});
 
 const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
 const schema = makeExecutableSchema({

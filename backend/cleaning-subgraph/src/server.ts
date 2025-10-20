@@ -43,7 +43,32 @@ async function startServer() {
     logger.info('Starting Cleaning Subgraph');
 
     // Initialize Prisma and data layers
-    const prisma = new PrismaClient();
+    const dbUrl = process.env.DATABASE_URL || '';
+    logger.info('🔍 Creating PrismaClient:', {
+      hasUrl: !!dbUrl,
+      connectionString: dbUrl ? `${dbUrl.split('@')[0].split('://')[0]}://***@${dbUrl.split('@')[1] || 'NO_HOST'}` : '❌ NOT SET',
+    });
+    
+    const prisma = new PrismaClient({
+      datasources: {
+        db: {
+          url: dbUrl,
+        },
+      },
+      log: ['error', 'warn'],
+    });
+    
+    // Проверяем подключение к БД
+    try {
+      await prisma.$connect();
+      logger.info('✅ Successfully connected to database');
+    } catch (error) {
+      logger.error('❌ Failed to connect to database:', {
+        error: error instanceof Error ? error.message : String(error),
+        url: dbUrl ? `${dbUrl.split('@')[0].split('://')[0]}://***@${dbUrl.split('@')[1] || 'NO_HOST'}` : 'NOT SET',
+      });
+      throw error;
+    }
     const dl = new CleaningDLPrisma(prisma);
     const identityDL = new IdentityDLPrisma(prisma);
     const inventoryDL = new InventoryDL(prisma);
