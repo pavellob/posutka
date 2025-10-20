@@ -1,7 +1,4 @@
-// Загружаем переменные окружения
-import dotenv from 'dotenv';
-dotenv.config();
-
+// Переменные окружения уже загружены в server.ts
 import { createGraphQLLogger } from '@repo/shared-logger';
 import {
   createNotificationsGrpcClient,

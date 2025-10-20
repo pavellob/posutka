@@ -1,4 +1,14 @@
-import 'dotenv/config'; // ← Читаем .env файл
+// Загружаем .env только для локальной разработки
+// В Docker/production переменные уже в process.env через docker-compose.yml или Northflank
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    await import('dotenv/config');
+  } catch (error) {
+    // .env файл не найден - используем переменные из process.env
+    console.log('ℹ️  dotenv not loaded, using environment variables from process.env');
+  }
+}
+
 import { createYoga } from 'graphql-yoga';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import { readFileSync } from 'fs';
@@ -17,6 +27,19 @@ import { NotificationService } from './services/notification.service.js';
 import { GrpcTransport } from './transport/grpc.transport.js';
 
 const logger = createGraphQLLogger('notifications-subgraph');
+
+// Отладка переменных окружения при старте
+logger.info('🔍 Environment variables check:', {
+  NODE_ENV: process.env.NODE_ENV,
+  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ? '✅ SET' : '❌ NOT SET',
+  TELEGRAM_USE_MINIAPP: process.env.TELEGRAM_USE_MINIAPP,
+  TELEGRAM_POLLING: process.env.TELEGRAM_POLLING,
+  FRONTEND_URL: process.env.FRONTEND_URL,
+  DATABASE_URL: process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET',
+  PORT: process.env.PORT || '4011 (default)',
+  GRPC_PORT: process.env.GRPC_PORT || '4111 (default)',
+  WS_PORT: process.env.WS_PORT || '4020 (default)',
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

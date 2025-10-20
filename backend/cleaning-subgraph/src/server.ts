@@ -1,6 +1,13 @@
-// Загружаем переменные окружения в самом начале
-import dotenv from 'dotenv';
-dotenv.config();
+// Загружаем .env только для локальной разработки
+// В Docker/production переменные уже в process.env
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const dotenv = await import('dotenv');
+    dotenv.config();
+  } catch (error) {
+    console.log('ℹ️  dotenv not loaded, using environment variables from process.env');
+  }
+}
 
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -21,6 +28,15 @@ import { PrismaClient } from '@prisma/client';
 import { createGraphQLLogger } from '@repo/shared-logger';
 
 const logger = createGraphQLLogger('cleaning-subgraph');
+
+// Отладка переменных окружения при старте
+logger.info('🔍 Environment variables check:', {
+  NODE_ENV: process.env.NODE_ENV,
+  FRONTEND_URL: process.env.FRONTEND_URL,
+  NOTIFICATIONS_GRPC_HOST: process.env.NOTIFICATIONS_GRPC_HOST || 'localhost (default)',
+  NOTIFICATIONS_GRPC_PORT: process.env.NOTIFICATIONS_GRPC_PORT || '4111 (default)',
+  DATABASE_URL: process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET',
+});
 
 async function startServer() {
   try {
