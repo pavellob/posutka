@@ -1,4 +1,4 @@
-import { IdentityDLPrisma, prisma } from '@repo/datalayer-prisma';
+import type { IdentityDLPrisma } from '@repo/datalayer-prisma';
 
 export interface Context {
   dl: IdentityDLPrisma;

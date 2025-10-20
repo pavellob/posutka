@@ -49,8 +49,17 @@ echo "✅ Успешно перешли в packages/datalayer-prisma"
 echo "🔍 Содержимое datalayer-prisma:"
 ls -la
 
-# Теперь выполняем команды Prisma
-until pnpm prisma db push --accept-data-loss; do
+# Проверяем DATABASE_URL
+echo "🔍 Checking DATABASE_URL..."
+if [ -z "$DATABASE_URL" ]; then
+  echo "❌ ERROR: DATABASE_URL is not set!"
+  exit 1
+else
+  echo "✅ DATABASE_URL is set: ${DATABASE_URL:0:30}..."
+fi
+
+# Теперь выполняем команды Prisma с явной передачей DATABASE_URL
+until DATABASE_URL="$DATABASE_URL" pnpm prisma db push --accept-data-loss; do
   echo "⏳ База данных недоступна, ждем..."
   sleep 5
 done

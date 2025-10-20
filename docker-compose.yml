@@ -44,6 +44,8 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_USE_MINIAPP=${TELEGRAM_USE_MINIAPP:-false}
       - TELEGRAM_POLLING=${TELEGRAM_POLLING:-false}
+      - NOTIFICATIONS_GRPC_HOST=localhost
+      - NOTIFICATIONS_GRPC_PORT=4111
     depends_on:
       db:
         condition: service_healthy

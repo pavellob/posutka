@@ -29,11 +29,12 @@ echo "✅ База данных готова!"
 
 # Выполняем миграции
 echo "🔄 Выполнение миграций базы данных..."
-cd packages/datalayer-prisma && pnpm prisma db push --accept-data-loss || echo "Migration failed, continuing..."
+echo "🔍 DATABASE_URL для миграций: ${DATABASE_URL:0:30}..."
+cd packages/datalayer-prisma && DATABASE_URL="$DATABASE_URL" pnpm prisma db push --accept-data-loss || echo "Migration failed, continuing..."
 
 # Генерируем Prisma клиент
 echo "🔧 Генерация Prisma клиента..."
-cd packages/datalayer-prisma && pnpm prisma generate
+cd packages/datalayer-prisma && DATABASE_URL="$DATABASE_URL" pnpm prisma generate
 
 # Сиды отключены для production деплоя
 # Для локальной разработки запускайте вручную: pnpm seed:ts

@@ -51,82 +51,82 @@ const schemaString = readFileSync(
 );
 const typeDefs = gql(schemaString);
 
-// Инициализируем Prisma
-const prisma = new PrismaClient();
-
-// Инициализируем ProviderManager
-const providerManager = new ProviderManager();
-
-// Инициализируем NotificationService
-const notificationService = new NotificationService(prisma);
-
-// Регистрируем провайдеры
-const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-let telegramProvider: TelegramProvider | null = null;
-
-if (telegramToken) {
-  telegramProvider = new TelegramProvider(telegramToken);
-  providerManager.registerProvider(telegramProvider);
-  logger.info('Telegram provider registered');
-} else {
-  logger.warn('TELEGRAM_BOT_TOKEN not set, Telegram notifications disabled');
-}
-
-// Регистрируем WebSocket провайдер
-const wsPort = process.env.WS_PORT ? parseInt(process.env.WS_PORT) : 4020;
-const websocketProvider = new WebSocketProvider(wsPort);
-providerManager.registerProvider(websocketProvider);
-logger.info(`WebSocket provider registered (port: ${wsPort})`);
-
-// Создаем сервис для автопривязки (настроим после инициализации)
-import { TelegramLinkService } from './services/telegram-link.service.js';
-const telegramLinkService = new TelegramLinkService(prisma);
-
-// Создаем схему
-const schema = buildSubgraphSchema([
-  {
-    typeDefs,
-    resolvers,
-  },
-]);
-
-// Создаем Yoga сервер
-const yoga = createYoga<Context>({
-  schema,
-  context: async () => ({
-    prisma,
-    providerManager,
-    notificationService,
-  }),
-  graphiql: {
-    title: 'Notifications Subgraph',
-  },
-  maskedErrors: false,
-  logging: {
-    debug: (...args) => logger.debug(args.join(' ')),
-    info: (...args) => logger.info(args.join(' ')),
-    warn: (...args) => logger.warn(args.join(' ')),
-    error: (...args) => logger.error(args.join(' ')),
-  },
-});
-
-// Создаем HTTP сервер
-const server = createServer(yoga);
-
-const PORT = process.env.PORT || 4011;
-const GRPC_PORT = parseInt(process.env.GRPC_PORT || '4111');
-const GRPC_HOST = process.env.GRPC_HOST || 'localhost';
-
-// Создаем gRPC транспорт
-const grpcTransport = new GrpcTransport(
-  GRPC_HOST,
-  GRPC_PORT,
-  providerManager,
-  notificationService
-);
-
 // Запускаем сервер
 async function start() {
+  // ✅ Инициализируем Prisma ВНУТРИ функции, после загрузки переменных
+  logger.info('🔍 Creating PrismaClient with DATABASE_URL:', process.env.DATABASE_URL ? '✅ SET' : '❌ NOT SET');
+  const prisma = new PrismaClient();
+  
+  // Инициализируем ProviderManager
+  const providerManager = new ProviderManager();
+  
+  // Инициализируем NotificationService
+  const notificationService = new NotificationService(prisma);
+  
+  // Регистрируем провайдеры
+  const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+  let telegramProvider: TelegramProvider | null = null;
+  
+  if (telegramToken) {
+    telegramProvider = new TelegramProvider(telegramToken);
+    providerManager.registerProvider(telegramProvider);
+    logger.info('Telegram provider registered');
+  } else {
+    logger.warn('TELEGRAM_BOT_TOKEN not set, Telegram notifications disabled');
+  }
+  
+  // Регистрируем WebSocket провайдер
+  const wsPort = process.env.WS_PORT ? parseInt(process.env.WS_PORT) : 4020;
+  const websocketProvider = new WebSocketProvider(wsPort);
+  providerManager.registerProvider(websocketProvider);
+  logger.info(`WebSocket provider registered (port: ${wsPort})`);
+  
+  // Создаем сервис для автопривязки (настроим после инициализации)
+  const { TelegramLinkService } = await import('./services/telegram-link.service.js');
+  const telegramLinkService = new TelegramLinkService(prisma);
+  
+  // Создаем схему
+  const schema = buildSubgraphSchema([
+    {
+      typeDefs,
+      resolvers,
+    },
+  ]);
+  
+  // Создаем Yoga сервер
+  const yoga = createYoga<Context>({
+    schema,
+    context: async () => ({
+      prisma,
+      providerManager,
+      notificationService,
+    }),
+    graphiql: {
+      title: 'Notifications Subgraph',
+    },
+    maskedErrors: false,
+    logging: {
+      debug: (...args) => logger.debug(args.join(' ')),
+      info: (...args) => logger.info(args.join(' ')),
+      warn: (...args) => logger.warn(args.join(' ')),
+      error: (...args) => logger.error(args.join(' ')),
+    },
+  });
+  
+  // Создаем HTTP сервер
+  const server = createServer(yoga);
+  
+  const PORT = process.env.PORT || 4011;
+  const GRPC_PORT = parseInt(process.env.GRPC_PORT || '4111');
+  const GRPC_HOST = process.env.GRPC_HOST || 'localhost';
+  
+  // Создаем gRPC транспорт
+  const grpcTransport = new GrpcTransport(
+    GRPC_HOST,
+    GRPC_PORT,
+    providerManager,
+    notificationService
+  );
   try {
     // Инициализируем провайдеры
     logger.info('Initializing notification providers...');
