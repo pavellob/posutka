@@ -43,6 +43,22 @@ export class NotificationClient {
       frontendUrl: this.frontendUrl,
       envFrontendUrl: process.env.FRONTEND_URL,
     });
+    
+    // Проверяем HTTPS для production
+    if (process.env.NODE_ENV === 'production' && this.frontendUrl.startsWith('http://')) {
+      logger.error('❌ CRITICAL: FRONTEND_URL uses HTTP in production!');
+      logger.error('❌ Telegram Web App requires HTTPS links');
+      logger.error(`❌ Current FRONTEND_URL: ${this.frontendUrl}`);
+      logger.error('💡 Set FRONTEND_URL to your production HTTPS URL in Northflank Environment Variables');
+      logger.error('💡 Example: https://posutka-backoffice.vercel.app');
+    }
+    
+    // Предупреждение если используется localhost
+    if (this.frontendUrl.includes('localhost')) {
+      logger.warn('⚠️  FRONTEND_URL uses localhost - links will not work in production!');
+      logger.warn(`⚠️  Current: ${this.frontendUrl}`);
+      logger.warn('💡 For production set FRONTEND_URL in Northflank Environment Variables');
+    }
   }
   
   private async connect(): Promise<void> {
