@@ -1,5 +1,21 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "DATABASE_URL",
+    "NODE_ENV",
+    "FRONTEND_URL",
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_USE_MINIAPP",
+    "TELEGRAM_POLLING",
+    "NOTIFICATIONS_GRPC_HOST",
+    "NOTIFICATIONS_GRPC_PORT",
+    "PORT",
+    "GRPC_PORT",
+    "GRPC_HOST",
+    "WS_PORT",
+    "OPS_GRPC_HOST",
+    "OPS_GRPC_PORT"
+  ],
   "tasks": {
     "lint": { "outputs": [] },
     "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
