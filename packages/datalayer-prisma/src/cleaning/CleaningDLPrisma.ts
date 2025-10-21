@@ -29,13 +29,18 @@ export class CleaningDLPrisma implements ICleaningDL {
   // ===== Cleaner operations =====
 
   async getCleanerById(id: string): Promise<Cleaner | null> {
-    const cleaner = await this.prisma.cleaner.findUnique({
-      where: { id },
-    });
-    
-    if (!cleaner) return null;
-    
-    return this.mapCleanerFromPrisma(cleaner);
+    try {
+      const cleaner = await this.prisma.cleaner.findUnique({
+        where: { id },
+      });
+      
+      if (!cleaner) return null;
+      
+      return this.mapCleanerFromPrisma(cleaner);
+    } catch (error) {
+      console.error('Error in getCleanerById:', { id, error });
+      throw error;
+    }
   }
 
   async listCleaners(params: ListCleanersParams): Promise<CleanerConnection> {
@@ -212,10 +217,33 @@ export class CleaningDLPrisma implements ICleaningDL {
   }
 
   async updateCleaningTemplate(id: string, input: UpdateCleaningTemplateInput): Promise<CleaningTemplate> {
+    let deduplicatedItems: any[] | undefined = undefined;
+    
     // If checklistItems are provided, delete old ones and create new ones
     if (input.checklistItems) {
       await this.prisma.cleaningTemplateCheckbox.deleteMany({
         where: { templateId: id },
+      });
+      
+      // ДЕДУПЛИКАЦИЯ: удаляем дубликаты из входящих данных
+      const uniqueItems = new Map();
+      input.checklistItems.forEach((item, index) => {
+        const key = `${item.label}-${item.order ?? index}`;
+        if (!uniqueItems.has(key)) {
+          uniqueItems.set(key, {
+            label: item.label,
+            order: item.order ?? index,
+            isRequired: item.isRequired ?? false,
+          });
+        }
+      });
+      
+      deduplicatedItems = Array.from(uniqueItems.values());
+      
+      console.log('🔄 Updating template checklist:', {
+        templateId: id,
+        originalCount: input.checklistItems.length,
+        uniqueCount: deduplicatedItems.length
       });
     }
 
@@ -226,13 +254,9 @@ export class CleaningDLPrisma implements ICleaningDL {
         description: input.description,
         requiresLinenChange: input.requiresLinenChange,
         estimatedDuration: input.estimatedDuration,
-        checklistItems: input.checklistItems
+        checklistItems: deduplicatedItems
           ? {
-              create: input.checklistItems.map((item, index) => ({
-                label: item.label,
-                order: item.order ?? index,
-                isRequired: item.isRequired ?? false,
-              })),
+              create: deduplicatedItems,
             }
           : undefined,
       },
@@ -299,7 +323,7 @@ export class CleaningDLPrisma implements ICleaningDL {
         take: first + 1,
         skip,
         cursor,
-        orderBy: { scheduledAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.cleaning.count({ where }),
     ]);
@@ -323,6 +347,72 @@ export class CleaningDLPrisma implements ICleaningDL {
   }
 
   async scheduleCleaning(input: ScheduleCleaningInput): Promise<Cleaning> {
+    // Если не передан чеклист - загружаем из темплейта unit
+    let checklistItemsData = input.checklistItems;
+    
+    console.log('🔍 scheduleCleaning called:', {
+      unitId: input.unitId,
+      hasChecklistInInput: !!input.checklistItems,
+      checklistItemsCount: input.checklistItems?.length || 0
+    });
+    
+    if (!checklistItemsData || checklistItemsData.length === 0) {
+      // Загружаем ВСЕ темплейты для отладки
+      const allTemplates = await this.prisma.cleaningTemplate.findMany({
+        where: { unitId: input.unitId },
+        include: { checklistItems: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      
+      console.log('📋 All templates for unit:', {
+        unitId: input.unitId,
+        totalTemplates: allTemplates.length,
+        templates: allTemplates.map(t => ({
+          id: t.id,
+          name: t.name,
+          itemsCount: t.checklistItems.length,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt
+        }))
+      });
+      
+      const template = allTemplates[0]; // Берем первый (самый свежий)
+      
+      console.log('📋 Selected template for unit:', {
+        unitId: input.unitId,
+        templateId: template?.id,
+        templateName: template?.name,
+        itemsCount: template?.checklistItems?.length,
+        templateUpdatedAt: template?.updatedAt,
+        rawItems: template?.checklistItems?.map(i => ({ id: i.id, label: i.label, order: i.order }))
+      });
+      
+      if (template?.checklistItems) {
+        // ДЕДУПЛИКАЦИЯ: удаляем дубликаты по label
+        const uniqueItems = new Map();
+        template.checklistItems.forEach(item => {
+          const key = `${item.label}-${item.order}`;
+          if (!uniqueItems.has(key)) {
+            uniqueItems.set(key, {
+              label: item.label,
+              isChecked: false,
+              order: item.order,
+            });
+          }
+        });
+        
+        checklistItemsData = Array.from(uniqueItems.values());
+        
+        console.log('✅ Loaded checklist items (deduplicated):', {
+          originalCount: template.checklistItems.length,
+          uniqueCount: checklistItemsData.length,
+          items: checklistItemsData.map(i => i.label)
+        });
+      } else {
+        console.warn('⚠️ No template found for unit:', input.unitId);
+      }
+    }
+    
     const cleaning = await this.prisma.cleaning.create({
       data: {
         orgId: input.orgId,
@@ -334,11 +424,11 @@ export class CleaningDLPrisma implements ICleaningDL {
         notes: input.notes,
         requiresLinenChange: input.requiresLinenChange ?? false,
         status: 'SCHEDULED',
-        checklistItems: input.checklistItems
+        checklistItems: checklistItemsData
           ? {
-              create: input.checklistItems.map((item, index) => ({
+              create: checklistItemsData.map((item, index) => ({
                 label: item.label,
-                isChecked: item.isChecked,
+                isChecked: item.isChecked ?? false,
                 order: item.order ?? index,
               })),
             }
@@ -453,35 +543,51 @@ export class CleaningDLPrisma implements ICleaningDL {
   }
 
   async updateCleaningChecklist(id: string, items: ChecklistItemInput[]): Promise<Cleaning> {
-    // Update or create checklist items
-    for (const item of items) {
-      if (item.id) {
-        // Update existing item
-        await this.prisma.cleaningChecklist.update({
-          where: { id: item.id },
-          data: {
-            label: item.label,
-            isChecked: item.isChecked,
-            order: item.order,
-          },
-        });
-      } else {
-        // Create new item
-        await this.prisma.cleaningChecklist.create({
-          data: {
-            cleaningId: id,
-            label: item.label,
-            isChecked: item.isChecked,
-            order: item.order ?? 0,
-          },
-        });
-      }
+    console.log('🔄 updateCleaningChecklist called:', {
+      cleaningId: id,
+      itemsCount: items.length,
+      items: items.map(i => ({ label: i.label, isChecked: i.isChecked, order: i.order }))
+    });
+    
+    // Проверяем текущее состояние ДО удаления
+    const before = await this.prisma.cleaningChecklist.findMany({
+      where: { cleaningId: id }
+    });
+    console.log('📊 Items BEFORE delete:', before.length);
+    
+    // Удаляем все старые пункты
+    const deleted = await this.prisma.cleaningChecklist.deleteMany({
+      where: { cleaningId: id }
+    });
+    
+    console.log('🗑️ Deleted old items:', deleted.count);
+    
+    // Проверяем, что действительно удалено все
+    const afterDelete = await this.prisma.cleaningChecklist.findMany({
+      where: { cleaningId: id }
+    });
+    console.log('📊 Items AFTER delete (should be 0):', afterDelete.length);
+    
+    // Создаём новые пункты
+    if (items.length > 0) {
+      await this.prisma.cleaningChecklist.createMany({
+        data: items.map((item, index) => ({
+          cleaningId: id,
+          label: item.label,
+          isChecked: item.isChecked,
+          order: item.order ?? index,
+        }))
+      });
+      
+      console.log('✅ Created new items:', items.length);
     }
 
     const cleaning = await this.prisma.cleaning.findUnique({
       where: { id },
       include: { checklistItems: true },
     });
+    
+    console.log('📊 Final checklist items count:', cleaning?.checklistItems.length);
 
     return this.mapCleaningFromPrisma(cleaning!);
   }

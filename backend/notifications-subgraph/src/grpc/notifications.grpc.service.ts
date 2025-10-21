@@ -48,9 +48,10 @@ export class NotificationsGrpcService implements NotificationsService {
         parsedMetadata = undefined;
       }
       
+      // Базовый объект сообщения (recipientId будет установлен отдельно для каждого канала)
       const message = {
         id: this.generateId(),
-        recipientId: request.recipientIds[0], // Берем первого получателя
+        recipientId: '', // Будет установлен для каждого deliveryTarget отдельно
         title: request.title,
         message: request.message,
         priority: this.mapPriority(request.priority),
@@ -62,15 +63,48 @@ export class NotificationsGrpcService implements NotificationsService {
       
       const channels = request.channels.map((c: number) => this.mapChannel(c));
       
-      // Создаем deliveryTargets из старого формата
+      // Создаем deliveryTargets с правильной логикой:
+      // - recipientIds содержат только userId
+      // - Для TELEGRAM канала находим telegramChatId из настроек пользователя
+      // - Для WEBSOCKET используем userId напрямую
       const deliveryTargets = [];
-      for (const channel of channels) {
-        for (const recipientId of request.recipientIds) {
-          deliveryTargets.push({
-            channel: channel,
-            recipientType: channel === 'TELEGRAM' ? 'TELEGRAM_CHAT_ID' : 'USER_ID',
-            recipientId: recipientId,
-          });
+      
+      for (const userId of request.recipientIds) {
+        // Находим настройки пользователя для получения telegramChatId
+        const userSettings = await this.notificationService.getUserSettings(userId).catch(() => null);
+        
+        for (const channel of channels) {
+          if (channel === 'TELEGRAM') {
+            // Для Telegram нужен telegramChatId из настроек
+            if (userSettings?.telegramChatId) {
+              deliveryTargets.push({
+                channel: 'TELEGRAM',
+                recipientType: 'TELEGRAM_CHAT_ID',
+                recipientId: userSettings.telegramChatId,
+              });
+              logger.info('Added TELEGRAM delivery target', { 
+                userId, 
+                telegramChatId: '***' + userSettings.telegramChatId.slice(-4) 
+              });
+            } else {
+              logger.warn('Skipping TELEGRAM channel - no telegramChatId in user settings', { userId });
+            }
+          } else if (channel === 'WEBSOCKET') {
+            // Для WebSocket используем userId
+            deliveryTargets.push({
+              channel: 'WEBSOCKET',
+              recipientType: 'USER_ID',
+              recipientId: userId,
+            });
+            logger.info('Added WEBSOCKET delivery target', { userId });
+          } else {
+            // Другие каналы - используем userId
+            deliveryTargets.push({
+              channel: channel,
+              recipientType: 'USER_ID',
+              recipientId: userId,
+            });
+          }
         }
       }
       
@@ -98,30 +132,44 @@ export class NotificationsGrpcService implements NotificationsService {
       
       logger.info('Notification created, sending through providers', {
         notificationId: notification.id,
+        deliveryTargetsCount: deliveryTargets.length,
       });
       
-      // Отправляем через провайдеры
-      logger.info('Sending notification through provider manager', {
-        channels: channels,
-        recipientId: message.recipientId,
-      });
-      
-      const results = await this.providerManager.sendNotification(message, channels);
-      
-      logger.info('Provider manager returned results', {
-        resultsCount: results.size,
-        channels: Array.from(results.keys()),
-      });
-      
-      // Подсчитываем результаты
+      // Отправляем через провайдеры для каждого deliveryTarget
+      // (каждый deliveryTarget = канал + правильный recipientId для этого канала)
       let sentCount = 0;
       let failedCount = 0;
       
-      for (const result of results.values()) {
-        if (result.success) {
-          sentCount++;
-        } else {
+      for (const target of deliveryTargets) {
+        try {
+          logger.info('Sending via provider', {
+            channel: target.channel,
+            recipientType: target.recipientType,
+            recipientId: target.recipientId.substring(0, 20) + '...',
+          });
+          
+          // Создаем сообщение с правильным recipientId для этого канала
+          const channelMessage = {
+            ...message,
+            recipientId: target.recipientId, // ✅ Для Telegram - telegramChatId, для WebSocket - userId
+          };
+          
+          const results = await this.providerManager.sendNotification(
+            channelMessage, 
+            [target.channel as any]
+          );
+          
+          const result = results.get(target.channel as any);
+          if (result?.success) {
+            sentCount++;
+            logger.info('✅ Sent successfully via ' + target.channel);
+          } else {
+            failedCount++;
+            logger.warn('❌ Failed to send via ' + target.channel, { error: result?.error });
+          }
+        } catch (error) {
           failedCount++;
+          logger.error('❌ Error sending via ' + target.channel, error);
         }
       }
       
@@ -281,6 +329,7 @@ export class NotificationsGrpcService implements NotificationsService {
       12: 'CLEANING_COMPLETED',
       13: 'CLEANING_CANCELLED',
       14: 'CLEANING_ASSIGNED',
+      15: 'CLEANING_AVAILABLE',      // ✅ Добавили маппинг для самоназначения
       20: 'TASK_CREATED',
       21: 'TASK_ASSIGNED',
       22: 'TASK_STATUS_CHANGED',

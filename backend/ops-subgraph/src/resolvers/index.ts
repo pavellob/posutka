@@ -1,8 +1,23 @@
 import type { Context } from '../context.js';
 import type { IOpsDL } from '@repo/datalayer';
 import { createGraphQLLogger } from '@repo/shared-logger';
+import { createCleaningGrpcClient } from '@repo/grpc-sdk';
 
 const logger = createGraphQLLogger('ops-subgraph-resolvers');
+
+// gRPC клиент для cleaning-subgraph
+const cleaningGrpcClient = createCleaningGrpcClient({
+  host: process.env.CLEANING_GRPC_HOST || 'localhost',
+  port: parseInt(process.env.CLEANING_GRPC_PORT || '4110'),
+  retryAttempts: 3,
+  retryDelay: 1000,
+  timeout: 10000,
+});
+
+// Подключаемся к cleaning-subgraph
+cleaningGrpcClient.connect().catch((error) => {
+  logger.error('Failed to connect to Cleaning GRPC service', error);
+});
 
 // Shared resolver functions that can be used by both GraphQL and gRPC
 export const sharedResolvers = {
@@ -16,9 +31,48 @@ export const sharedResolvers = {
   
   listProviders: (dl: IOpsDL, serviceTypes?: string[]) => dl.listProviders(serviceTypes),
   
-  createTask: (dl: IOpsDL, input: any) => {
+  createTask: async (dl: IOpsDL, input: any) => {
     logger.info('Creating task', { input });
-    return dl.createTask(input);
+    const task = await dl.createTask(input);
+    
+    // Если задача типа CLEANING - создаем соответствующую уборку через gRPC
+    if (input.type === 'CLEANING') {
+      try {
+        logger.info('Task is CLEANING type, creating Cleaning via gRPC', { taskId: task.id });
+        
+        // Вызываем cleaning-subgraph через gRPC
+        const response = await cleaningGrpcClient.scheduleCleaning({
+          orgId: input.orgId,
+          unitId: input.unitId,
+          bookingId: input.bookingId,
+          taskId: task.id,  // Связываем с Task
+          scheduledAt: input.dueAt ? new Date(input.dueAt) : new Date(),
+          cleanerId: input.cleanerId, // Если уборщик уже назначен
+          requiresLinenChange: false, // По умолчанию
+          notes: input.note,
+        });
+        
+        if (response.success) {
+          logger.info('✅ Cleaning created for Task via gRPC', { 
+            taskId: task.id,
+            cleaningId: response.cleaning?.id 
+          });
+        } else {
+          logger.error('Failed to create Cleaning for Task via gRPC', { 
+            taskId: task.id,
+            message: response.message 
+          });
+        }
+      } catch (error) {
+        logger.error('Error creating Cleaning for Task via gRPC', { 
+          taskId: task.id,
+          error: error instanceof Error ? error.message : String(error) 
+        });
+        // Не прерываем создание Task даже если Cleaning не создалась
+      }
+    }
+    
+    return task;
   },
   
   assignTask: async (dl: IOpsDL, input: any) => {

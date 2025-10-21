@@ -163,3 +163,4 @@ docker exec -it posutka-app env | grep FRONTEND_URL
 - [backend/cleaning-subgraph/CLEANING_INTEGRATION.md](backend/cleaning-subgraph/CLEANING_INTEGRATION.md) - Интеграция с cleaning-subgraph
 
 
+

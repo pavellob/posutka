@@ -101,17 +101,7 @@ export function ScheduleCleaningDialog({
       scheduledAt,
       requiresLinenChange,
       notes: notes || undefined,
-      // Чеклист по умолчанию
-      checklistItems: [
-        { label: 'Пропылесосить все комнаты', isChecked: false, order: 1 },
-        { label: 'Помыть полы', isChecked: false, order: 2 },
-        { label: 'Протереть пыль', isChecked: false, order: 3 },
-        { label: 'Убрать в ванной', isChecked: false, order: 4 },
-        { label: 'Убрать на кухне', isChecked: false, order: 5 },
-        { label: 'Сменить постельное белье', isChecked: false, order: 6 },
-        { label: 'Проверить все приборы', isChecked: false, order: 7 },
-        { label: 'Вынести мусор', isChecked: false, order: 8 }
-      ]
+      // Чеклист загрузится автоматически из темплейта unit на бэкенде
     }
 
     scheduleCleaningMutation.mutate(input)

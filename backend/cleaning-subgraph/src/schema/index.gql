@@ -39,6 +39,12 @@ type Query {
     after: String
   ): CleanerConnection!
   
+  """Получить привязанных уборщиков для квартиры"""
+  unitPreferredCleaners(
+    """ID единицы недвижимости"""
+    unitId: UUID!
+  ): [CleanerPreference!]!
+  
   """Получить шаблон уборки по ID"""
   cleaningTemplate(id: UUID!): CleaningTemplate
   
@@ -119,8 +125,18 @@ type Mutation {
   """Отменить уборку"""
   cancelCleaning(id: UUID!, reason: String): Cleaning!
   
+  """Взять уборку в работу (самоназначение)"""
+  assignCleaningToMe(cleaningId: UUID!): Cleaning!
+  
   """Обновить чеклист уборки"""
   updateCleaningChecklist(id: UUID!, items: [ChecklistItemInput!]!): Cleaning!
+  
+  # Управление привязкой уборщиков к квартирам
+  """Добавить уборщика в список предпочтительных для квартиры"""
+  addPreferredCleaner(unitId: UUID!, cleanerId: UUID!): Unit!
+  
+  """Удалить уборщика из списка предпочтительных для квартиры"""
+  removePreferredCleaner(unitId: UUID!, cleanerId: UUID!): Unit!
   
   # Документы уборки
   """Создать документ приемки квартиры перед уборкой"""
@@ -154,12 +170,21 @@ type Organization {
   id: UUID!
 }
 
-"""
-Единица недвижимости (ссылка на inventory-subgraph).
-"""
+# Единица недвижимости (stub для связи)
 type Unit {
-  """Уникальный идентификатор единицы недвижимости"""
   id: UUID!
+}
+
+"""
+Связь квартиры с предпочтительным уборщиком.
+"""
+type CleanerPreference {
+  """ID связи"""
+  id: UUID!
+  """Уборщик"""
+  cleaner: Cleaner!
+  """Дата добавления"""
+  createdAt: DateTime!
 }
 
 """
@@ -205,6 +230,20 @@ type Cleaner {
   updatedAt: DateTime!
   """Выполненные уборки"""
   cleanings: [Cleaning!]!
+  """Квартиры, где уборщик предпочтителен"""
+  preferredUnits: [UnitPreference!]!
+}
+
+"""
+Связь уборщика с предпочтительной квартирой.
+"""
+type UnitPreference {
+  """ID связи"""
+  id: UUID!
+  """Квартира"""
+  unit: Unit!
+  """Дата добавления"""
+  createdAt: DateTime!
 }
 
 """
@@ -260,8 +299,8 @@ type Cleaning {
   id: UUID!
   """Организация"""
   org: Organization!
-  """Уборщик"""
-  cleaner: Cleaner!
+  """Уборщик (опционально - может быть не назначен)"""
+  cleaner: Cleaner
   """Единица недвижимости (обязательно)"""
   unit: Unit!
   """Бронирование (опционально)"""
@@ -507,8 +546,8 @@ input ChecklistTemplateItemInput {
 input ScheduleCleaningInput {
   """ID организации"""
   orgId: UUID!
-  """ID уборщика"""
-  cleanerId: UUID!
+  """ID уборщика (опционально - если не указан, уведомления отправятся привязанным уборщикам)"""
+  cleanerId: UUID
   """ID единицы недвижимости (обязательно)"""
   unitId: UUID!
   """ID бронирования (опционально)"""

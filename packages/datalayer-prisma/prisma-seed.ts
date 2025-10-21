@@ -207,6 +207,35 @@ async function main() {
   const unitB = allUnits[1]
   const unitC = allUnits[2] || allUnits[0] // если юнитов всего 3, оставим ссылку безопасной
 
+  // 2.5) Создание дефолтных чеклистов для каждого unit
+  const defaultChecklistItems = [
+    { label: 'Пропылесосить и вымыть полы во всех комнатах', order: 1 },
+    { label: 'Протереть пыль на всех поверхностях', order: 2 },
+    { label: 'Убрать кухню (плита, раковина, столешницы)', order: 3 },
+    { label: 'Убрать санузел (унитаз, раковина, душ/ванна)', order: 4 },
+    { label: 'Сменить постельное белье и полотенца', order: 5 },
+    { label: 'Вынести мусор', order: 6 },
+    { label: 'Проверить работу техники и света', order: 7 },
+    { label: 'Проветрить помещение', order: 8 },
+    { label: 'Проверить наличие расходников (туалетная бумага, мыло)', order: 9 },
+  ];
+
+  await Promise.all(
+    allUnits.map(unit =>
+      prisma.cleaningTemplate.create({
+        data: {
+          unitId: unit.id,
+          name: 'Стандартная уборка',
+          checklistItems: {
+            create: defaultChecklistItems,
+          },
+        },
+      })
+    )
+  );
+
+  console.log(`Created default cleaning templates for ${allUnits.length} units`);
+
   // 3) Блокировки календаря
   await prisma.calendarBlock.createMany({
     data: [

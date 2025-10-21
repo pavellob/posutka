@@ -96,16 +96,31 @@ model Property {
 }
 
 model Unit {
-  id         String   @id @default(cuid())
-  propertyId String
-  name       String
-  capacity   Int
-  beds       Int
-  bathrooms  Int
-  amenities  String[]
-  property   Property @relation(fields: [propertyId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                String               @id @default(cuid())
+  propertyId        String
+  name              String
+  capacity          Int
+  beds              Int
+  bathrooms         Int
+  amenities         String[]
+  property          Property             @relation(fields: [propertyId], references: [id])
+  preferredCleaners UnitPreferredCleaner[] // Привязанные уборщики для этой квартиры
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+}
+
+// Связь Unit ↔ Cleaner (many-to-many)
+model UnitPreferredCleaner {
+  id        String   @id @default(cuid())
+  unitId    String
+  cleanerId String
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  cleaner   Cleaner  @relation(fields: [cleanerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([unitId, cleanerId])
+  @@index([unitId])
+  @@index([cleanerId])
 }
 
 model CalendarBlock {
@@ -461,22 +476,23 @@ model LegalDepositTransaction {
 // ===== Cleaning Models =====
 
 model Cleaner {
-  id               String      @id @default(cuid())
-  type             CleanerType @default(EXTERNAL)
-  userId           String? // Для сотрудников (internal)
-  orgId            String
-  firstName        String
-  lastName         String
-  phone            String?
-  email            String?
-  telegramUsername String? // Username в Telegram (без @) для автопривязки
-  rating           Float?      @default(0)
-  isActive         Boolean     @default(true)
-  deletedAt        DateTime? // Soft delete - дата деактивации
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  cleanings        Cleaning[]
-  tasks            Task[] // Задачи, назначенные на уборщика
+  id                String                 @id @default(cuid())
+  type              CleanerType            @default(EXTERNAL)
+  userId            String? // Для сотрудников (internal)
+  orgId             String
+  firstName         String
+  lastName          String
+  phone             String?
+  email             String?
+  telegramUsername  String? // Username в Telegram (без @) для автопривязки
+  rating            Float?                 @default(0)
+  isActive          Boolean                @default(true)
+  deletedAt         DateTime? // Soft delete - дата деактивации
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  cleanings         Cleaning[]
+  tasks             Task[] // Задачи, назначенные на уборщика
+  preferredUnits    UnitPreferredCleaner[] // Квартиры, где этот уборщик предпочтителен
 
   @@index([orgId])
   @@index([userId])
@@ -521,7 +537,7 @@ model CleaningTemplateCheckbox {
 model Cleaning {
   id                  String              @id @default(cuid())
   orgId               String
-  cleanerId           String
+  cleanerId           String? // Теперь опциональный - может быть не назначен
   unitId              String
   bookingId           String?
   taskId              String? // Связь с Task из ops-subgraph
@@ -533,7 +549,7 @@ model Cleaning {
   requiresLinenChange Boolean             @default(false)
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
-  cleaner             Cleaner             @relation(fields: [cleanerId], references: [id])
+  cleaner             Cleaner?            @relation(fields: [cleanerId], references: [id])
   documents           CleaningDocument[]
   checklistItems      CleaningChecklist[]
 

@@ -1559,3 +1559,68 @@ export const DELETE_PHOTO_FROM_DOCUMENT = gql`
     deletePhotoFromDocument(photoId: $photoId)
   }
 `
+
+// ===== ЗАПРОСЫ ДЛЯ УПРАВЛЕНИЯ ПРИВЯЗКОЙ УБОРЩИКОВ К КВАРТИРАМ =====
+
+export const GET_UNIT_PREFERRED_CLEANERS = gql`
+  query GetUnitPreferredCleaners($unitId: UUID!) {
+    unitPreferredCleaners(unitId: $unitId) {
+      id
+      cleaner {
+        id
+        firstName
+        lastName
+        telegramUsername
+        rating
+        isActive
+      }
+      createdAt
+    }
+  }
+`
+
+export const ADD_PREFERRED_CLEANER = gql`
+  mutation AddPreferredCleaner($unitId: UUID!, $cleanerId: UUID!) {
+    addPreferredCleaner(unitId: $unitId, cleanerId: $cleanerId) {
+      id
+    }
+  }
+`
+
+export const REMOVE_PREFERRED_CLEANER = gql`
+  mutation RemovePreferredCleaner($unitId: UUID!, $cleanerId: UUID!) {
+    removePreferredCleaner(unitId: $unitId, cleanerId: $cleanerId) {
+      id
+    }
+  }
+`
+
+// ===== ЗАПРОСЫ ДЛЯ ЧЕКЛИСТОВ =====
+
+export const GET_CLEANING_TEMPLATES_BY_UNIT = gql`
+  query GetCleaningTemplatesByUnit($unitId: UUID!) {
+    cleaningTemplates(unitId: $unitId) {
+      id
+      name
+      checklistItems {
+        id
+        label
+        order
+      }
+    }
+  }
+`
+
+export const UPDATE_CLEANING_TEMPLATE_CHECKLIST = gql`
+  mutation UpdateCleaningTemplateChecklist($id: UUID!, $items: [ChecklistTemplateItemInput!]!) {
+    updateCleaningTemplate(id: $id, input: { checklistItems: $items }) {
+      id
+      name
+      checklistItems {
+        id
+        label
+        order
+      }
+    }
+  }
+`

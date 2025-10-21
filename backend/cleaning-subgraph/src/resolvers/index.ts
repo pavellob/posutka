@@ -6,6 +6,28 @@ const logger = createGraphQLLogger('cleaning-subgraph-resolvers');
 
 export const resolvers = {
   Query: {
+    // Unit preferred cleaners query
+    unitPreferredCleaners: async (_: unknown, { unitId }: { unitId: string }, context: Context) => {
+      const { prisma } = context;
+      
+      if (!prisma) {
+        logger.error('❌ prisma is undefined in context!');
+        throw new Error('Prisma client not available in context');
+      }
+      
+      const preferences = await prisma.unitPreferredCleaner.findMany({
+        where: { unitId },
+        include: { cleaner: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      
+      return preferences.map(pref => ({
+        id: pref.id,
+        cleaner: pref.cleaner,
+        createdAt: pref.createdAt,
+      }));
+    },
+    
     // Cleaner queries
     cleaner: (_: unknown, { id }: { id: string }, { dl }: Context) => 
       dl.getCleanerById(id),
@@ -74,44 +96,35 @@ export const resolvers = {
       logger.info('Scheduling cleaning', { input });
       const cleaning = await dl.scheduleCleaning(input);
       
-      // Отправляем уведомление уборщику
-      try {
-        logger.info('🔔 Starting notification flow for cleaning', { cleaningId: cleaning.id, cleanerId: cleaning.cleanerId });
-        
-        const cleaner = await prisma.cleaner.findUnique({
-          where: { id: cleaning.cleanerId },
-          include: { cleanings: false }
-        });
-        
-        if (!cleaner) {
-          logger.warn('❌ Cleaner not found', { cleanerId: cleaning.cleanerId });
-          return cleaning;
-        }
-        
-        logger.info('✅ Cleaner found', { 
-          cleanerId: cleaner.id, 
-          userId: cleaner.userId,
-          type: cleaner.type,
-          firstName: cleaner.firstName,
-          lastName: cleaner.lastName 
-        });
-        
-        const unit = await prisma.unit.findUnique({
-          where: { id: cleaning.unitId },
-          include: { property: true }
-        });
-        
-        if (!unit) {
-          logger.warn('❌ Unit not found', { unitId: cleaning.unitId });
-          return cleaning;
-        }
-        
-        logger.info('✅ Unit found', { unitId: unit.id, unitName: unit.name });
-        
-        // Получаем настройки уведомлений пользователя, ассоциированного с уборщиком
-        // Для INTERNAL cleaner используем userId, для EXTERNAL - используем id уборщика как userId
-        const targetUserId = cleaner.userId || cleaner.id;
-        logger.info('🎯 Target userId determined', { targetUserId, cleanerUserId: cleaner.userId, cleanerId: cleaner.id });
+      const unit = await prisma.unit.findUnique({
+        where: { id: cleaning.unitId },
+        include: { property: true, preferredCleaners: { include: { cleaner: true } } }
+      });
+      
+      if (!unit) {
+        logger.warn('❌ Unit not found', { unitId: cleaning.unitId });
+        return cleaning;
+      }
+      
+      logger.info('✅ Unit found', { unitId: unit.id, unitName: unit.name, preferredCleanersCount: unit.preferredCleaners.length });
+      
+      // Если уборщик УЖЕ назначен - отправляем уведомление ему
+      if (cleaning.cleanerId) {
+        try {
+          logger.info('🔔 Sending ASSIGNED notification to specific cleaner', { cleanerId: cleaning.cleanerId });
+          
+          const cleaner = await prisma.cleaner.findUnique({
+            where: { id: cleaning.cleanerId },
+            include: { cleanings: false }
+          });
+          
+          if (!cleaner) {
+            logger.warn('❌ Cleaner not found', { cleanerId: cleaning.cleanerId });
+            return cleaning;
+          }
+          
+          const targetUserId = cleaner.userId || cleaner.id;
+          logger.info('🎯 Target userId determined', { targetUserId, cleanerUserId: cleaner.userId, cleanerId: cleaner.id });
         
         const settings = targetUserId 
           ? await prisma.userNotificationSettings.findUnique({
@@ -184,10 +197,67 @@ export const resolvers = {
           orgId: cleaning.orgId,
         });
         
-        logger.info('✅ Notification sent successfully!', { cleaningId: cleaning.id });
-      } catch (error) {
-        logger.error('❌ Failed to send notification for scheduled cleaning:', error);
-        // Не прерываем основной flow
+          logger.info('✅ ASSIGNED notification sent successfully!', { cleaningId: cleaning.id });
+        } catch (error) {
+          logger.error('❌ Failed to send ASSIGNED notification:', error);
+          // Не прерываем основной flow
+        }
+      } else {
+        // Уборщик НЕ назначен - отправляем уведомления ВСЕМ привязанным уборщикам
+        logger.info('🔔 No cleaner assigned, sending AVAILABLE notifications to preferred cleaners', { 
+          cleaningId: cleaning.id,
+          preferredCleanersCount: unit.preferredCleaners.length 
+        });
+        
+        if (unit.preferredCleaners.length === 0) {
+          logger.warn('⚠️ No preferred cleaners for this unit', { unitId: unit.id });
+          return cleaning;
+        }
+        
+        // Отправляем уведомления всем привязанным уборщикам
+        for (const preferredCleaner of unit.preferredCleaners) {
+          try {
+            const cleaner = preferredCleaner.cleaner;
+            
+            if (!cleaner.isActive) {
+              logger.info('⏭️ Skipping inactive cleaner', { cleanerId: cleaner.id });
+              continue;
+            }
+            
+            const targetUserId = cleaner.userId || cleaner.id;
+            const settings = await prisma.userNotificationSettings.findUnique({
+              where: { userId: targetUserId },
+            }).catch(() => null);
+            
+            if (!settings || !settings.enabled || !settings.telegramChatId) {
+              logger.info('⏭️ Skipping cleaner without notification settings', { cleanerId: cleaner.id });
+              continue;
+            }
+            
+            await notificationClient.notifyCleaningAvailable({
+              userId: targetUserId,
+              telegramChatId: settings.telegramChatId,
+              cleaningId: cleaning.id,
+              unitName: `${unit.property?.title || ''} - ${unit.name}`,
+              scheduledAt: cleaning.scheduledAt.toISOString(),
+              requiresLinenChange: cleaning.requiresLinenChange,
+              orgId: cleaning.orgId,
+            });
+            
+            logger.info('✅ AVAILABLE notification sent to preferred cleaner', { 
+              cleanerId: cleaner.id,
+              cleanerName: `${cleaner.firstName} ${cleaner.lastName}`
+            });
+          } catch (error) {
+            logger.error('❌ Failed to send AVAILABLE notification to cleaner:', error);
+            // Продолжаем отправлять остальным
+          }
+        }
+        
+        logger.info('✅ All AVAILABLE notifications sent', { 
+          cleaningId: cleaning.id,
+          sentTo: unit.preferredCleaners.length 
+        });
       }
       
       return cleaning;
@@ -197,21 +267,48 @@ export const resolvers = {
       logger.info('Starting cleaning', { id });
       const cleaning = await dl.startCleaning(id);
       
-      // Отправляем уведомление менеджерам (опционально)
+      // Отправляем уведомление уборщику о начале
       try {
+        if (!cleaning.cleanerId) {
+          logger.warn('No cleaner assigned to send notification', { cleaningId: id });
+          return cleaning;
+        }
+
         const cleaner = await prisma.cleaner.findUnique({
           where: { id: cleaning.cleanerId }
         });
+        
+        if (!cleaner) {
+          logger.warn('Cleaner not found', { cleanerId: cleaning.cleanerId });
+          return cleaning;
+        }
         
         const unit = await prisma.unit.findUnique({
           where: { id: cleaning.unitId },
           include: { property: true }
         });
         
-        // TODO: Получить telegram ID менеджера организации
-        // и отправить уведомление о начале уборки
+        if (!unit) {
+          logger.warn('Unit not found', { unitId: cleaning.unitId });
+          return cleaning;
+        }
         
-        logger.info('Cleaning started, notification logic executed', { cleaningId: id });
+        const targetUserId = cleaner.userId || cleaner.id;
+        const settings = await prisma.userNotificationSettings.findUnique({
+          where: { userId: targetUserId },
+        }).catch(() => null);
+        
+        if (settings?.telegramChatId) {
+          await notificationClient.notifyCleaningStarted({
+            userId: targetUserId,
+            telegramChatId: settings.telegramChatId,
+            cleaningId: cleaning.id,
+            unitName: `${unit.property?.title || ''} - ${unit.name}`,
+            cleanerName: `${cleaner.firstName} ${cleaner.lastName}`,
+          });
+          
+          logger.info('✅ STARTED notification sent', { cleaningId: id });
+        }
       } catch (error) {
         logger.error('Failed to send start notification:', error);
       }
@@ -261,6 +358,72 @@ export const resolvers = {
       }
       
       return cleaning;
+    },
+    
+    assignCleaningToMe: async (_: unknown, { cleaningId }: { cleaningId: string }, { prisma }: Context) => {
+      logger.info('🎯 Assigning cleaning to current user', { cleaningId });
+      
+      // TODO: Получить текущего пользователя из context/JWT
+      // Сейчас для примера используем первого активного уборщика
+      const currentCleaner = await prisma.cleaner.findFirst({
+        where: { isActive: true }
+      });
+      
+      if (!currentCleaner) {
+        throw new Error('Cleaner not found');
+      }
+      
+      // Обновляем уборку - назначаем уборщика
+      const cleaning = await prisma.cleaning.update({
+        where: { id: cleaningId },
+        data: {
+          cleanerId: currentCleaner.id,
+          status: 'SCHEDULED', // Подтверждаем назначение
+        },
+      });
+      
+      logger.info('✅ Cleaning assigned to cleaner', { 
+        cleaningId, 
+        cleanerId: currentCleaner.id,
+        cleanerName: `${currentCleaner.firstName} ${currentCleaner.lastName}`
+      });
+      
+      // Отправляем подтверждающее уведомление
+      try {
+        const unit = await prisma.unit.findUnique({
+          where: { id: cleaning.unitId },
+          include: { property: true }
+        });
+        
+        const targetUserId = currentCleaner.userId || currentCleaner.id;
+        const settings = await prisma.userNotificationSettings.findUnique({
+          where: { userId: targetUserId },
+        }).catch(() => null);
+        
+        if (settings?.telegramChatId && unit) {
+          await notificationClient.notifyCleaningAssigned({
+            userId: targetUserId,
+            telegramChatId: settings.telegramChatId,
+            cleanerId: currentCleaner.id,
+            cleaningId: cleaning.id,
+            unitName: `${unit.property?.title || ''} - ${unit.name}`,
+            scheduledAt: cleaning.scheduledAt.toISOString(),
+            requiresLinenChange: cleaning.requiresLinenChange,
+            orgId: cleaning.orgId,
+          });
+          
+          logger.info('✅ Assignment confirmation sent', { cleaningId });
+        }
+      } catch (error) {
+        logger.error('Failed to send assignment confirmation:', error);
+      }
+      
+      return cleaning;
+    },
+    
+    updateCleaningChecklist: async (_: unknown, { id, items }: { id: string; items: any[] }, { dl }: Context) => {
+      logger.info('Updating cleaning checklist', { id, itemsCount: items.length });
+      return dl.updateCleaningChecklist(id, items);
     },
     
     cancelCleaning: async (_: unknown, { id, reason }: { id: string; reason?: string }, { dl, prisma }: Context) => {
@@ -326,15 +489,107 @@ export const resolvers = {
       logger.info('Deleting photo from document', { photoId });
       return dl.deletePhotoFromDocument(photoId);
     },
+    
+    // Управление привязкой уборщиков к квартирам
+    addPreferredCleaner: async (_: unknown, { unitId, cleanerId }: { unitId: string; cleanerId: string }, context: Context) => {
+      logger.info('Adding preferred cleaner to unit', { unitId, cleanerId });
+      
+      const { prisma } = context;
+      
+      if (!prisma) {
+        logger.error('❌ prisma is undefined in context!', { 
+          contextKeys: Object.keys(context),
+          hasContext: !!context 
+        });
+        throw new Error('Prisma client not available in context');
+      }
+      
+      // Проверяем, что связь еще не существует
+      const existing = await prisma.unitPreferredCleaner.findUnique({
+        where: {
+          unitId_cleanerId: {
+            unitId,
+            cleanerId,
+          },
+        },
+      });
+      
+      if (existing) {
+        logger.warn('Preferred cleaner already added', { unitId, cleanerId });
+        // Возвращаем unit без создания дубликата
+        return prisma.unit.findUnique({ where: { id: unitId } });
+      }
+      
+      // Создаем связь
+      await prisma.unitPreferredCleaner.create({
+        data: {
+          unitId,
+          cleanerId,
+        },
+      });
+      
+      logger.info('✅ Preferred cleaner added', { unitId, cleanerId });
+      
+      // Возвращаем обновленный unit
+      return prisma.unit.findUnique({
+        where: { id: unitId },
+        include: { preferredCleaners: { include: { cleaner: true } } },
+      });
+    },
+    
+    removePreferredCleaner: async (_: unknown, { unitId, cleanerId }: { unitId: string; cleanerId: string }, context: Context) => {
+      logger.info('Removing preferred cleaner from unit', { unitId, cleanerId });
+      
+      const { prisma } = context;
+      
+      if (!prisma) {
+        logger.error('❌ prisma is undefined in context!');
+        throw new Error('Prisma client not available in context');
+      }
+      
+      // Удаляем связь
+      await prisma.unitPreferredCleaner.deleteMany({
+        where: {
+          unitId,
+          cleanerId,
+        },
+      });
+      
+      logger.info('✅ Preferred cleaner removed', { unitId, cleanerId });
+      
+      // Возвращаем обновленный unit
+      return prisma.unit.findUnique({
+        where: { id: unitId },
+        include: { preferredCleaners: { include: { cleaner: true } } },
+      });
+    },
   },
 
-  // Type resolvers for federation
+  // Type resolvers
   Cleaner: {
     user: (parent: any, _: unknown, { identityDL }: Context) => {
       return { id: parent.userId };
     },
     org: (parent: any, _: unknown, { identityDL }: Context) => {
       return { id: parent.orgId };
+    },
+    preferredUnits: async (parent: any, _: unknown, { prisma }: Context) => {
+      try {
+        const preferences = await prisma.unitPreferredCleaner.findMany({
+          where: { cleanerId: parent.id },
+          include: { unit: true },
+          orderBy: { createdAt: 'desc' },
+        });
+        
+        return preferences.map(pref => ({
+          id: pref.id,
+          unit: pref.unit,
+          createdAt: pref.createdAt,
+        }));
+      } catch (error) {
+        logger.error('Error fetching preferredUnits', { cleanerId: parent.id, error });
+        return []; // Возвращаем пустой массив в случае ошибки
+      }
     },
     cleanings: async (parent: any, _: unknown, { dl }: Context) => {
       const result = await dl.listCleanings({
@@ -356,6 +611,7 @@ export const resolvers = {
       return { id: parent.orgId };
     },
     cleaner: (parent: any, _: unknown, { dl }: Context) => {
+      if (!parent.cleanerId) return null;  // ✅ Проверка на null
       return dl.getCleanerById(parent.cleanerId);
     },
     unit: (parent: any, _: unknown, { inventoryDL }: Context) => {

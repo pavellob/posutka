@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package cleaning;
+
+import "google/protobuf/timestamp.proto";
+
+// Статус уборки
+enum CleaningStatus {
+  CLEANING_STATUS_SCHEDULED = 0;
+  CLEANING_STATUS_IN_PROGRESS = 1;
+  CLEANING_STATUS_COMPLETED = 2;
+  CLEANING_STATUS_CANCELLED = 3;
+}
+
+// Уборка
+message Cleaning {
+  string id = 1;
+  string org_id = 2;
+  string unit_id = 3;
+  optional string booking_id = 4;
+  optional string task_id = 5;
+  optional string cleaner_id = 6;
+  CleaningStatus status = 7;
+  google.protobuf.Timestamp scheduled_at = 8;
+  optional google.protobuf.Timestamp started_at = 9;
+  optional google.protobuf.Timestamp completed_at = 10;
+  bool requires_linen_change = 11;
+  optional string notes = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+// Запрос на создание уборки
+message ScheduleCleaningRequest {
+  string org_id = 1;
+  string unit_id = 2;
+  optional string booking_id = 3;
+  optional string task_id = 4;
+  optional string cleaner_id = 5;
+  google.protobuf.Timestamp scheduled_at = 6;
+  bool requires_linen_change = 7;
+  optional string notes = 8;
+}
+
+// Запрос на получение уборки
+message GetCleaningRequest {
+  string id = 1;
+}
+
+// Запрос на обновление статуса уборки
+message UpdateCleaningStatusRequest {
+  string id = 1;
+  CleaningStatus status = 2;
+}
+
+// Запрос на назначение уборщика
+message AssignCleanerRequest {
+  string cleaning_id = 1;
+  string cleaner_id = 2;
+}
+
+// Ответ с уборкой
+message CleaningResponse {
+  Cleaning cleaning = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Сервис для управления уборками
+service CleaningService {
+  // Запланировать уборку
+  rpc ScheduleCleaning(ScheduleCleaningRequest) returns (CleaningResponse);
+  
+  // Получить уборку по ID
+  rpc GetCleaning(GetCleaningRequest) returns (CleaningResponse);
+  
+  // Обновить статус уборки
+  rpc UpdateCleaningStatus(UpdateCleaningStatusRequest) returns (CleaningResponse);
+  
+  // Назначить уборщика
+  rpc AssignCleaner(AssignCleanerRequest) returns (CleaningResponse);
+}
+

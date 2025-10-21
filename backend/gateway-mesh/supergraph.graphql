@@ -171,6 +171,11 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
     """Курсор для пагинации"""
     after: String
   ): CleanerConnection! @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить привязанных уборщиков для квартиры"""
+  unitPreferredCleaners(
+    """ID единицы недвижимости"""
+    unitId: UUID!
+  ): [CleanerPreference!]! @join__field(graph: CLEANING_SUBGRAPH)
   """Получить шаблон уборки по ID"""
   cleaningTemplate(id: UUID!): CleaningTemplate @merge(subgraph: "cleaning-subgraph", keyField: "id", keyArg: "id") @join__field(graph: CLEANING_SUBGRAPH)
   """Получить шаблоны уборки для квартиры"""
@@ -378,8 +383,14 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   completeCleaning(id: UUID!, input: CompleteCleaningInput!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
   """Отменить уборку"""
   cancelCleaning(id: UUID!, reason: String): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
+  """Взять уборку в работу (самоназначение)"""
+  assignCleaningToMe(cleaningId: UUID!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
   """Обновить чеклист уборки"""
   updateCleaningChecklist(id: UUID!, items: [ChecklistItemInput!]!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
+  """Добавить уборщика в список предпочтительных для квартиры"""
+  addPreferredCleaner(unitId: UUID!, cleanerId: UUID!): Unit! @join__field(graph: CLEANING_SUBGRAPH)
+  """Удалить уборщика из списка предпочтительных для квартиры"""
+  removePreferredCleaner(unitId: UUID!, cleanerId: UUID!): Unit! @join__field(graph: CLEANING_SUBGRAPH)
   """Создать документ приемки квартиры перед уборкой"""
   createPreCleaningDocument(cleaningId: UUID!, input: CreateCleaningDocumentInput!): CleaningDocument! @join__field(graph: CLEANING_SUBGRAPH)
   """Создать документ сдачи квартиры после уборки"""
@@ -896,6 +907,16 @@ type User @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBG
   organizations: [Organization!]! @join__field(graph: IDENTITY_SUBGRAPH)
 }
 
+"""Связь квартиры с предпочтительным уборщиком."""
+type CleanerPreference @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID связи"""
+  id: UUID!
+  """Уборщик"""
+  cleaner: Cleaner!
+  """Дата добавления"""
+  createdAt: DateTime!
+}
+
 """
 Уборщик - сотрудник, выполняющий уборку.
 Может быть INTERNAL (сотрудник с User) или EXTERNAL (подрядчик без User).
@@ -931,6 +952,18 @@ type Cleaner @join__type(graph: CLEANING_SUBGRAPH, key: "id") @join__type(graph:
   updatedAt: DateTime! @join__field(graph: CLEANING_SUBGRAPH)
   """Выполненные уборки"""
   cleanings: [Cleaning!]! @join__field(graph: CLEANING_SUBGRAPH)
+  """Квартиры, где уборщик предпочтителен"""
+  preferredUnits: [UnitPreference!]! @join__field(graph: CLEANING_SUBGRAPH)
+}
+
+"""Связь уборщика с предпочтительной квартирой."""
+type UnitPreference @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID связи"""
+  id: UUID!
+  """Квартира"""
+  unit: Unit!
+  """Дата добавления"""
+  createdAt: DateTime!
 }
 
 """
@@ -984,8 +1017,8 @@ type Cleaning @join__type(graph: CLEANING_SUBGRAPH, key: "id") {
   id: UUID!
   """Организация"""
   org: Organization!
-  """Уборщик"""
-  cleaner: Cleaner!
+  """Уборщик (опционально - может быть не назначен)"""
+  cleaner: Cleaner
   """Единица недвижимости (обязательно)"""
   unit: Unit!
   """Бронирование (опционально)"""
@@ -2221,8 +2254,10 @@ input ChecklistTemplateItemInput @join__type(graph: CLEANING_SUBGRAPH) {
 input ScheduleCleaningInput @join__type(graph: CLEANING_SUBGRAPH) {
   """ID организации"""
   orgId: UUID!
-  """ID уборщика"""
-  cleanerId: UUID!
+  """
+  ID уборщика (опционально - если не указан, уведомления отправятся привязанным уборщикам)
+  """
+  cleanerId: UUID
   """ID единицы недвижимости (обязательно)"""
   unitId: UUID!
   """ID бронирования (опционально)"""

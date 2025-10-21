@@ -2,6 +2,7 @@
 export * from './clients/ops.client.js';
 export * from './clients/bookings.client.js';
 export * from './clients/notifications.client.js';
+export * from './clients/cleaning.client.js';
 
 // Экспорт сгенерированных типов для ops
 export {
@@ -45,4 +46,16 @@ export {
   NotificationStatusResponse,
   NotificationsServiceDefinition
 } from './generated/notifications.js';
+
+// Экспорт сгенерированных типов для cleaning
+export {
+  Cleaning,
+  CleaningStatus,
+  ScheduleCleaningRequest,
+  GetCleaningRequest,
+  UpdateCleaningStatusRequest,
+  AssignCleanerRequest,
+  CleaningResponse,
+  CleaningServiceDefinition
+} from './generated/cleaning.js';
 

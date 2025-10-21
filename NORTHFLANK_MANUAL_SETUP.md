@@ -60,9 +60,18 @@
 
 #### 4. FRONTEND_URL
 - **Name**: `FRONTEND_URL`
-- **Value**: `https://posutka-backoffice.vercel.app`
+- **Value**: `https://YOUR_TELEGRAM_MINI_APP_URL`
   
-(или ваш production URL фронтенда)
+⚠️ **ВАЖНО:** 
+- Это должен быть URL **мобильного приложения для уборщиков** (Telegram Mini App)
+- НЕ backoffice URL!
+- Обязательно **HTTPS** (Telegram не принимает HTTP для Web App)
+- Приложение должно быть прикреплено к боту в BotFather
+  
+**Примеры:**
+- `https://app.kakadu.com`
+- `https://cleaners.posutka.com`
+- `https://your-mobile-app.vercel.app`
 
 #### 5. TELEGRAM_USE_MINIAPP
 - **Name**: `TELEGRAM_USE_MINIAPP`

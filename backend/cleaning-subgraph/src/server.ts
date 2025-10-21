@@ -20,6 +20,7 @@ import {
 import { PrismaClient } from '@prisma/client';
 
 import { createGraphQLLogger } from '@repo/shared-logger';
+import { GrpcTransport } from './grpc/grpc.transport.js';
 
 const logger = createGraphQLLogger('cleaning-subgraph');
 
@@ -27,13 +28,21 @@ const logger = createGraphQLLogger('cleaning-subgraph');
 const rawDbUrl = process.env.DATABASE_URL || '';
 logger.info('🔍 Environment variables check:', {
   NODE_ENV: process.env.NODE_ENV,
-  FRONTEND_URL: process.env.FRONTEND_URL,
+  FRONTEND_URL: process.env.FRONTEND_URL || '❌ NOT SET',
   NOTIFICATIONS_GRPC_HOST: process.env.NOTIFICATIONS_GRPC_HOST || 'localhost (default)',
   NOTIFICATIONS_GRPC_PORT: process.env.NOTIFICATIONS_GRPC_PORT || '4111 (default)',
   DATABASE_URL: rawDbUrl ? '✅ SET' : '❌ NOT SET',
   DATABASE_URL_RAW: rawDbUrl.substring(0, 70),
   DATABASE_URL_HOST: rawDbUrl.split('@')[1]?.split('/')[0] || 'NO HOST',
 });
+
+// Явное логирование критических переменных
+if (!process.env.FRONTEND_URL) {
+  logger.error('❌ CRITICAL: FRONTEND_URL is not set!');
+  logger.error('💡 Set FRONTEND_URL in .env file');
+} else {
+  logger.info('✅ FRONTEND_URL configured:', process.env.FRONTEND_URL);
+}
 
 // Проверяем, ожидается ли Docker окружение
 const expectedDockerHost = 'db:5432';
@@ -94,9 +103,19 @@ async function startServer() {
       resolvers,
     });
 
+    const context = { dl, identityDL, inventoryDL, bookingsDL, prisma };
+    
+    logger.info('🔍 Context created:', {
+      hasDl: !!context.dl,
+      hasIdentityDL: !!context.identityDL,
+      hasInventoryDL: !!context.inventoryDL,
+      hasBookingsDL: !!context.bookingsDL,
+      hasPrisma: !!context.prisma,
+    });
+    
     const yoga = createYoga({
       schema,
-      context: () => ({ dl, identityDL, inventoryDL, bookingsDL, prisma }),
+      context: () => context,
     });
 
     // Start GraphQL server
@@ -107,15 +126,23 @@ async function startServer() {
       logger.info(`GraphQL endpoint: http://localhost:${PORT}/graphql`);
     });
 
+    // Start gRPC server
+    const GRPC_PORT = parseInt(process.env.GRPC_PORT || '4110');
+    const GRPC_HOST = process.env.GRPC_HOST || 'localhost';
+    const grpcTransport = new GrpcTransport(dl, prisma, GRPC_HOST, GRPC_PORT);
+    await grpcTransport.start();
+
     // Graceful shutdown
     process.on('SIGINT', async () => {
       logger.info('Received SIGINT, shutting down gracefully');
+      await grpcTransport.stop();
       await prisma.$disconnect();
       process.exit(0);
     });
 
     process.on('SIGTERM', async () => {
       logger.info('Received SIGTERM, shutting down gracefully');
+      await grpcTransport.stop();
       await prisma.$disconnect();
       process.exit(0);
     });

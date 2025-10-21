@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
@@ -21,9 +22,10 @@ import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline'
 
 // Компонент карточки объекта недвижимости
-function PropertyCard({ property, onEdit }: { property: Property; onEdit: (property: Property) => void }) {
+function PropertyCard({ property, onEdit, onView }: { property: Property; onEdit: (property: Property) => void; onView: (property: Property) => void }) {
   return (
-    <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+    <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden cursor-pointer"
+      onClick={() => onView(property)}>
       {/* Заголовок карточки */}
       <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
         <div className="flex items-start justify-between">
@@ -44,12 +46,26 @@ function PropertyCard({ property, onEdit }: { property: Property; onEdit: (prope
               )}
             </div>
           </div>
-          <Button
-            onClick={() => onEdit(property)}
-            color="blue"
-          >
-            Редактировать
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              onClick={(e) => {
+                e.stopPropagation()
+                onView(property)
+              }}
+              color="green"
+            >
+              Открыть
+            </Button>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit(property)
+              }}
+              color="blue"
+            >
+              Редактировать
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -777,6 +793,8 @@ type Property = {
 }
 
 export default function InventoryPage() {
+  const router = useRouter()
+  
   // Состояние для переключения вида (таблица/карточки)
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
   
@@ -884,6 +902,11 @@ export default function InventoryPage() {
     if (filters.isElite && property.isElite?.toString() !== filters.isElite) return false
     return true
   })
+
+  // Функция для просмотра объекта
+  const handleViewProperty = (property: Property) => {
+    router.push(`/inventory/properties/${property.id}`)
+  }
 
   // Функция для редактирования объекта
   const handleEditProperty = (property: Property) => {
@@ -1220,7 +1243,11 @@ export default function InventoryPage() {
               </TableHead>
             <TableBody>
               {filteredProperties.map((property: Property) => (
-                <TableRow key={property.id} className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150">
+                <TableRow 
+                  key={property.id} 
+                  className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150 cursor-pointer"
+                  onClick={() => handleViewProperty(property)}
+                >
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                       <div>
                       <Text className="font-medium text-gray-900 dark:text-white">{property.title}</Text>
@@ -1285,11 +1312,17 @@ export default function InventoryPage() {
                   </TableCell>
                   <TableCell>
                     <Dropdown>
-                      <DropdownButton className="bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-700 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300">
+                      <DropdownButton 
+                        className="bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-700 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300"
+                        onClick={(e: any) => e.stopPropagation()}
+                      >
                         <EllipsisVerticalIcon className="w-5 h-5" />
                       </DropdownButton>
                       <DropdownMenu className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg [&>*]:hover:!bg-gray-100 [&>*]:dark:hover:!bg-zinc-700 [&>*]:focus:!bg-gray-100 [&>*]:dark:focus:!bg-zinc-700 [&>*]:hover:!text-gray-900 [&>*]:dark:hover:!text-white [&>*]:focus:!text-gray-900 [&>*]:dark:focus:!text-white">
-                        <DropdownItem onClick={() => handleEditProperty(property)}>
+                        <DropdownItem onClick={(e: any) => { e.stopPropagation(); handleViewProperty(property); }}>
+                          Открыть
+                        </DropdownItem>
+                        <DropdownItem onClick={(e: any) => { e.stopPropagation(); handleEditProperty(property); }}>
                           Редактировать
                         </DropdownItem>
                       </DropdownMenu>
@@ -1307,6 +1340,7 @@ export default function InventoryPage() {
                   <PropertyCard
                     key={property.id}
                     property={property}
+                    onView={handleViewProperty}
                     onEdit={handleEditProperty}
                   />
                 ))}

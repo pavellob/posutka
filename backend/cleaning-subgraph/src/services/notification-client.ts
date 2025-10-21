@@ -111,11 +111,9 @@ export class NotificationClient {
         minute: '2-digit',
       });
       
-      // Определяем получателей и каналы
-      const recipientIds = telegramChatId ? [telegramChatId, userId] : [userId];
-      const channels = telegramChatId 
-        ? [NotificationChannel.CHANNEL_TELEGRAM, NotificationChannel.CHANNEL_WEBSOCKET]
-        : [NotificationChannel.CHANNEL_WEBSOCKET];
+      // Отправляем только userId - notifications-subgraph сам найдёт telegramChatId из настроек
+      const recipientIds = [userId];
+      const channels = [NotificationChannel.CHANNEL_TELEGRAM, NotificationChannel.CHANNEL_WEBSOCKET];
       
       const response = await this.grpcClient.sendNotification({
         eventType: EventType.EVENT_TYPE_CLEANING_ASSIGNED,
@@ -131,8 +129,8 @@ export class NotificationClient {
           scheduledAt,
           requiresLinenChange,
         }),
-        actionUrl: this.getFrontendUrl(`/cleanings?id=${cleaningId}`),
-        actionText: 'Открыть детали уборки →',
+        actionUrl: this.getFrontendUrl(`/cleanings/${cleaningId}?tab=checklist`),
+        actionText: '✅ Открыть чеклист',
       });
       
       logger.info('Cleaning assigned notification sent via gRPC', { 
@@ -164,24 +162,23 @@ export class NotificationClient {
       
       const { userId, telegramChatId, cleaningId, unitName, cleanerName } = params;
       
-      const recipientIds = telegramChatId ? [telegramChatId, userId] : [userId];
-      const channels = telegramChatId 
-        ? [NotificationChannel.CHANNEL_TELEGRAM, NotificationChannel.CHANNEL_WEBSOCKET]
-        : [NotificationChannel.CHANNEL_WEBSOCKET];
+      // Отправляем только userId - notifications-subgraph сам найдёт telegramChatId
+      const recipientIds = [userId];
+      const channels = [NotificationChannel.CHANNEL_TELEGRAM, NotificationChannel.CHANNEL_WEBSOCKET];
       
       const response = await this.grpcClient.sendNotification({
         eventType: EventType.EVENT_TYPE_CLEANING_STARTED,
         recipientIds,
         channels,
         priority: Priority.PRIORITY_NORMAL,
-        title: '▶️ Уборка начата',
-        message: `Уборщик ${cleanerName} начал уборку в "${unitName}"`,
+        title: '▶️ Вы начали уборку',
+        message: `Вы начали уборку в "${unitName}"\n\n⏱️ Время начала: ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}\n\n💡 Не забудьте завершить уборку после выполнения всех пунктов чеклиста`,
         metadata: JSON.stringify({
           cleaningId,
           startedAt: new Date().toISOString(),
         }),
-        actionUrl: this.getFrontendUrl(`/cleanings?id=${cleaningId}`),
-        actionText: 'Посмотреть прогресс →',
+        actionUrl: this.getFrontendUrl(`/cleanings/${cleaningId}?tab=checklist`),
+        actionText: '✅ К чеклисту',
       });
       
       logger.info('Cleaning started notification sent via gRPC', { 
@@ -210,7 +207,7 @@ export class NotificationClient {
       
       const { userId, telegramChatId, cleaningId, unitName, cleanerName, duration } = params;
       
-      let message = `Уборщик ${cleanerName} завершил уборку в "${unitName}"`;
+      let message = `Отличная работа! Вы завершили уборку в "${unitName}"`;
       
       if (duration) {
         const hours = Math.floor(duration / 60);
@@ -218,12 +215,11 @@ export class NotificationClient {
         message += `\n\n⏱️ Длительность: ${hours > 0 ? `${hours}ч ` : ''}${minutes}мин`;
       }
       
-      message += '\n\n✅ Все пункты чеклиста выполнены';
+      message += '\n\n✅ Спасибо за качественную работу!';
       
-      const recipientIds = telegramChatId ? [telegramChatId, userId] : [userId];
-      const channels = telegramChatId 
-        ? [NotificationChannel.CHANNEL_TELEGRAM, NotificationChannel.CHANNEL_WEBSOCKET]
-        : [NotificationChannel.CHANNEL_WEBSOCKET];
+      // Отправляем только userId - notifications-subgraph сам найдёт telegramChatId
+      const recipientIds = [userId];
+      const channels = [NotificationChannel.CHANNEL_TELEGRAM, NotificationChannel.CHANNEL_WEBSOCKET];
       
       const response = await this.grpcClient.sendNotification({
         eventType: EventType.EVENT_TYPE_CLEANING_COMPLETED,
@@ -237,7 +233,7 @@ export class NotificationClient {
           completedAt: new Date().toISOString(),
           duration,
         }),
-        actionUrl: this.getFrontendUrl(`/cleanings?id=${cleaningId}`),
+        actionUrl: this.getFrontendUrl(`/cleanings/${cleaningId}`),
         actionText: 'Посмотреть отчет →',
       });
       
@@ -272,10 +268,9 @@ export class NotificationClient {
         message += `\n\nПричина: ${reason}`;
       }
       
-      const recipientIds = telegramChatId ? [telegramChatId, userId] : [userId];
-      const channels = telegramChatId 
-        ? [NotificationChannel.CHANNEL_TELEGRAM, NotificationChannel.CHANNEL_WEBSOCKET]
-        : [NotificationChannel.CHANNEL_WEBSOCKET];
+      // Отправляем только userId - notifications-subgraph сам найдёт telegramChatId
+      const recipientIds = [userId];
+      const channels = [NotificationChannel.CHANNEL_TELEGRAM, NotificationChannel.CHANNEL_WEBSOCKET];
       
       const response = await this.grpcClient.sendNotification({
         eventType: EventType.EVENT_TYPE_CLEANING_CANCELLED,
@@ -298,6 +293,67 @@ export class NotificationClient {
       });
     } catch (error) {
       logger.error('Failed to send cleaning cancelled notification:', error);
+    }
+  }
+  
+  /**
+   * Отправить уведомление о доступной уборке (для самоназначения).
+   */
+  async notifyCleaningAvailable(params: {
+    userId: string;
+    telegramChatId?: string;
+    cleaningId: string;
+    unitName: string;
+    scheduledAt: string;
+    requiresLinenChange: boolean;
+    orgId?: string;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      
+      const { userId, telegramChatId, unitName, scheduledAt, requiresLinenChange, cleaningId, orgId } = params;
+      
+      const scheduledDate = new Date(scheduledAt);
+      const formattedDate = scheduledDate.toLocaleString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      
+      // Отправляем только userId - notifications-subgraph сам найдёт telegramChatId
+      const recipientIds = [userId];
+      const channels = [NotificationChannel.CHANNEL_TELEGRAM, NotificationChannel.CHANNEL_WEBSOCKET];
+      
+      const response = await this.grpcClient.sendNotification({
+        eventType: EventType.EVENT_TYPE_CLEANING_AVAILABLE,
+        orgId,
+        recipientIds,
+        channels,
+        priority: Priority.PRIORITY_HIGH,
+        title: '🆓 Доступна уборка!',
+        message: `Запланирована уборка в квартире "${unitName}"\n\nДата: ${formattedDate}${requiresLinenChange ? '\n\n⚠️ Требуется смена постельного белья' : ''}\n\n💡 Нажмите кнопку ниже, чтобы взять уборку в работу`,
+        metadata: JSON.stringify({
+          cleaningId,
+          unitName,
+          scheduledAt,
+          requiresLinenChange,
+        }),
+        actionUrl: this.getFrontendUrl(`/cleanings/${cleaningId}?tab=checklist`),
+        actionText: '✅ Открыть чеклист',
+      });
+      
+      logger.info('Cleaning available notification sent via gRPC', { 
+        cleaningId, 
+        userId, 
+        hasTelegram: !!telegramChatId,
+        notificationId: response.notificationId,
+        status: response.status,
+      });
+    } catch (error) {
+      logger.error('Failed to send cleaning available notification:', error);
+      // Не выбрасываем ошибку, чтобы не прервать основной flow
     }
   }
   

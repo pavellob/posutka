@@ -55,7 +55,7 @@ postgresql://username:password@your-db-host.northflank.io:5432/database_name
 #### Add Variable → Name: `NODE_ENV`, Value: `production`
 #### Add Variable → Name: `DATABASE_URL`, Type: **Secret Reference**, Secret: `database-url`
 #### Add Variable → Name: `TELEGRAM_BOT_TOKEN`, Type: **Secret Reference**, Secret: `telegram-bot-token`
-#### Add Variable → Name: `FRONTEND_URL`, Value: `https://posutka-backoffice.vercel.app`
+#### Add Variable → Name: `FRONTEND_URL`, Value: `https://YOUR_MOBILE_APP_URL` ⚠️ **ВАЖНО: Замените на URL вашего Telegram Mini App с HTTPS!**
 #### Add Variable → Name: `TELEGRAM_USE_MINIAPP`, Value: `true`
 #### Add Variable → Name: `TELEGRAM_POLLING`, Value: `false`
 #### Add Variable → Name: `NOTIFICATIONS_GRPC_HOST`, Value: `localhost`

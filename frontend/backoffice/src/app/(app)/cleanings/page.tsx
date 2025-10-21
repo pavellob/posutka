@@ -9,8 +9,7 @@ import { Badge } from '@/components/badge'
 import { Button } from '@/components/button'
 import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@/components/table'
 import { Select } from '@/components/select'
-import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
-import { EllipsisVerticalIcon } from '@heroicons/react/24/outline'
+import { Squares2X2Icon, TableCellsIcon, ViewColumnsIcon } from '@heroicons/react/24/outline'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { ScheduleCleaningDialog } from '@/components/schedule-cleaning-dialog'
@@ -19,6 +18,8 @@ import { CleaningExecutionDialog } from '@/components/cleaning-execution-dialog'
 import { CreateCleanerDialog } from '@/components/create-cleaner-dialog'
 import { CleanerDetailsDialog } from '@/components/cleaner-details-dialog'
 import { EditCleanerDialog } from '@/components/edit-cleaner-dialog'
+import { CleaningCard } from '@/components/cleaning-card'
+import { CleaningKanbanBoard } from '@/components/cleaning-kanban-board'
 import { 
   GET_CLEANINGS, 
   GET_CLEANERS,
@@ -35,7 +36,8 @@ function CleaningsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   
-  const [activeTab, setActiveTab] = useState<'cleanings' | 'cleaners'>('cleanings')
+  const [activeTab, setActiveTab] = useState<'cleanings' | 'cleaners' | 'templates'>('cleanings')
+  const [viewMode, setViewMode] = useState<'table' | 'cards' | 'kanban'>('table')
   const [filters, setFilters] = useState({
     status: '',
     cleanerId: ''
@@ -236,14 +238,15 @@ function CleaningsPageContent() {
             Уборки и уборщики в одном месте
           </Text>
         </div>
-        {activeTab === 'cleanings' ? (
+        {activeTab === 'cleanings' && (
           <Button 
             onClick={() => setIsScheduleDialogOpen(true)} 
             className="bg-black hover:bg-gray-800 text-white border-gray-600"
           >
             Запланировать уборку
           </Button>
-        ) : (
+        )}
+        {activeTab === 'cleaners' && (
           <Button 
             onClick={() => setIsCreateCleanerDialogOpen(true)} 
             className="bg-black hover:bg-gray-800 text-white border-gray-600"
@@ -279,6 +282,18 @@ function CleaningsPageContent() {
             `}
           >
             👤 Уборщики ({totalCleaners})
+          </button>
+          <button
+            onClick={() => setActiveTab('templates')}
+            className={`
+              py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'templates'
+                ? 'border-black dark:border-white text-black dark:text-white'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }
+            `}
+          >
+            📋 Чеклисты
           </button>
         </nav>
       </div>
@@ -371,13 +386,65 @@ function CleaningsPageContent() {
 
       {/* Таблица уборок */}
       <div className="space-y-4">
-        <Heading level={2}>Уборки ({cleanings.length})</Heading>
+        <div className="flex items-center justify-between">
+          <Heading level={2}>Уборки ({cleanings.length})</Heading>
+          <div className="flex items-center space-x-1 bg-gray-100 dark:bg-zinc-700 rounded-lg p-1">
+            <Button
+              onClick={() => setViewMode('table')}
+              className={`p-2 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-0 text-gray-700 dark:text-gray-300 ${viewMode === 'table' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
+              title="Таблица"
+            >
+              <TableCellsIcon className="w-4 h-4" />
+            </Button>
+            <Button
+              onClick={() => setViewMode('cards')}
+              className={`p-2 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-0 text-gray-700 dark:text-gray-300 ${viewMode === 'cards' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
+              title="Карточки"
+            >
+              <Squares2X2Icon className="w-4 h-4" />
+            </Button>
+            <Button
+              onClick={() => setViewMode('kanban')}
+              className={`p-2 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-0 text-gray-700 dark:text-gray-300 ${viewMode === 'kanban' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
+              title="Канбан"
+            >
+              <ViewColumnsIcon className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
         
         {cleanings.length === 0 ? (
           <div className="text-center py-12">
             <Text className="text-gray-500 dark:text-gray-400">
               Уборок не найдено
             </Text>
+          </div>
+        ) : viewMode === 'kanban' ? (
+          <CleaningKanbanBoard
+            cleanings={cleanings}
+            onUpdateStatus={(cleaningId, status) => {
+              if (status === 'COMPLETED') {
+                completeCleaningMutation.mutate({ id: cleaningId, input: {} })
+              } else if (status === 'IN_PROGRESS') {
+                startCleaningMutation.mutate({ id: cleaningId })
+              } else if (status === 'CANCELLED') {
+                cancelCleaningMutation.mutate({ id: cleaningId, reason: 'Отменено' })
+              }
+            }}
+          />
+        ) : viewMode === 'cards' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {cleanings.map((cleaning: any) => (
+              <CleaningCard
+                key={cleaning.id}
+                cleaning={cleaning}
+                onUpdateStatus={(cleaningId, status) => {
+                  if (status === 'COMPLETED') {
+                    completeCleaningMutation.mutate({ id: cleaningId, input: {} })
+                  }
+                }}
+              />
+            ))}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -391,12 +458,15 @@ function CleaningsPageContent() {
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Связь</TableHeader>
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Смена белья</TableHeader>
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Документы</TableHeader>
-                  <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Действия</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {cleanings.map((cleaning: any) => (
-                  <TableRow key={cleaning.id} className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150">
+                  <TableRow 
+                    key={cleaning.id} 
+                    className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150 cursor-pointer"
+                    onClick={() => router.push(`/cleanings/${cleaning.id}`)}
+                  >
                     <TableCell className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(cleaning.status)}
                     </TableCell>
@@ -440,6 +510,7 @@ function CleaningsPageContent() {
                           <a 
                             href={`/tasks`}
                             className="text-xs text-blue-600 hover:text-blue-800 block"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             Перейти к задачам →
                           </a>
@@ -470,45 +541,6 @@ function CleaningsPageContent() {
                       ) : (
                         <Text className="text-gray-500 dark:text-gray-400">-</Text>
                       )}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap">
-                      <Dropdown>
-                        <DropdownButton className="bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-700 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300">
-                          <EllipsisVerticalIcon className="w-5 h-5" />
-                        </DropdownButton>
-                        <DropdownMenu className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg [&>*]:hover:!bg-gray-100 [&>*]:dark:hover:!bg-zinc-700 [&>*]:focus:!bg-gray-100 [&>*]:dark:focus:!bg-zinc-700 [&>*]:hover:!text-gray-900 [&>*]:dark:hover:!text-white [&>*]:focus:!text-gray-900 [&>*]:dark:focus:!text-white">
-                          {(cleaning.status === 'SCHEDULED' || cleaning.status === 'IN_PROGRESS') && (
-                            <DropdownItem onClick={() => {
-                              // Создаем задачу-обертку для диалога выполнения
-                              const taskWrapper = {
-                                id: cleaning.taskId || cleaning.id,
-                                unit: cleaning.unit,
-                                booking: cleaning.booking,
-                                dueAt: cleaning.scheduledAt,
-                                note: cleaning.notes
-                              }
-                              setSelectedCleaningTaskId(taskWrapper as any)
-                              setIsExecutionDialogOpen(true)
-                            }}>
-                              ✨ Выполнить уборку
-                            </DropdownItem>
-                          )}
-                          {(cleaning.status === 'SCHEDULED' || cleaning.status === 'IN_PROGRESS') && (
-                            <DropdownItem onClick={() => cancelCleaningMutation.mutate({ 
-                              id: cleaning.id, 
-                              reason: 'Отменено пользователем' 
-                            })}>
-                              Отменить
-                            </DropdownItem>
-                          )}
-                          <DropdownItem onClick={() => {
-                            setSelectedCleaningId(cleaning.id)
-                            setIsDetailsDialogOpen(true)
-                          }}>
-                            📋 Подробнее
-                          </DropdownItem>
-                        </DropdownMenu>
-                      </Dropdown>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -688,6 +720,43 @@ function CleaningsPageContent() {
             </div>
           )}
         </>
+      )}
+
+      {/* Контент вкладки "Чеклисты" */}
+      {activeTab === 'templates' && (
+        <div className="max-w-6xl mx-auto py-8">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+            <Heading level={2} className="mb-6">Темплейты чеклистов</Heading>
+            <Text className="text-zinc-600 dark:text-zinc-400 mb-6">
+              Каждая квартира имеет свой темплейт чеклиста. Перейдите на страницу квартиры для редактирования.
+            </Text>
+            
+            {/* Список квартир с темплейтами */}
+            <div className="space-y-4">
+              {allUnits.map((unit: any) => (
+                <button
+                  key={unit.id}
+                  onClick={() => router.push(`/inventory/units/${unit.id}?tab=checklist`)}
+                  className="w-full text-left bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Text className="font-medium text-zinc-900 dark:text-white">
+                        {unit.property?.title || 'Без объекта'}
+                      </Text>
+                      <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                        {unit.name}
+                      </Text>
+                    </div>
+                    <Text className="text-sm text-blue-600 dark:text-blue-400">
+                      Редактировать чеклист →
+                    </Text>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Диалог планирования уборки */}

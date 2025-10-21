@@ -30,10 +30,10 @@ const logger = createGraphQLLogger('notifications-subgraph');
 const rawDbUrl = process.env.DATABASE_URL || '';
 logger.info('🔍 Environment variables check:', {
   NODE_ENV: process.env.NODE_ENV,
+  FRONTEND_URL: process.env.FRONTEND_URL || '❌ NOT SET',
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ? '✅ SET' : '❌ NOT SET',
-  TELEGRAM_USE_MINIAPP: process.env.TELEGRAM_USE_MINIAPP,
-  TELEGRAM_POLLING: process.env.TELEGRAM_POLLING,
-  FRONTEND_URL: process.env.FRONTEND_URL,
+  TELEGRAM_USE_MINIAPP: process.env.TELEGRAM_USE_MINIAPP || 'false (default)',
+  TELEGRAM_POLLING: process.env.TELEGRAM_POLLING || 'false (default)',
   DATABASE_URL: rawDbUrl ? '✅ SET' : '❌ NOT SET',
   DATABASE_URL_RAW: rawDbUrl.substring(0, 70),
   DATABASE_URL_HOST: rawDbUrl.split('@')[1]?.split('/')[0] || 'NO HOST',
@@ -41,6 +41,19 @@ logger.info('🔍 Environment variables check:', {
   GRPC_PORT: process.env.GRPC_PORT || '4111 (default)',
   WS_PORT: process.env.WS_PORT || '4020 (default)',
 });
+
+// Явное логирование критических переменных
+if (!process.env.FRONTEND_URL) {
+  logger.error('❌ CRITICAL: FRONTEND_URL is not set!');
+  logger.error('💡 Set FRONTEND_URL in .env file');
+} else {
+  logger.info('✅ FRONTEND_URL configured:', process.env.FRONTEND_URL);
+}
+
+if (!process.env.TELEGRAM_BOT_TOKEN) {
+  logger.warn('⚠️  TELEGRAM_BOT_TOKEN is not set - Telegram notifications will not work');
+  logger.warn('💡 Set TELEGRAM_BOT_TOKEN in .env file');
+}
 
 // Проверяем, ожидается ли Docker окружение
 const actualHost = rawDbUrl.split('@')[1]?.split('/')[0];
