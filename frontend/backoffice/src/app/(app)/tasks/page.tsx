@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
@@ -716,7 +717,7 @@ export default function TasksPage() {
             {selectedTask?.type === 'CLEANING' && (!cleanersData?.cleaners?.edges || cleanersData.cleaners.edges.length === 0) && (
               <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                 <Text className="text-yellow-800 dark:text-yellow-200">
-                  Нет доступных уборщиков. Добавьте уборщиков на странице <a href="/cleanings" className="underline">Уборки</a>.
+                  Нет доступных уборщиков. Добавьте уборщиков на странице <Link href="/cleanings" className="underline">Уборки</Link>.
                 </Text>
               </div>
             )}

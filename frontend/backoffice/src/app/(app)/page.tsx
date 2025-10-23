@@ -154,7 +154,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Активные брони</Text>
                 <div className="text-2xl font-bold text-blue-600">
-                  {dashboardData?.activeBookings?.pageInfo?.totalCount || 0}
+                  {(dashboardData as any)?.activeBookings?.pageInfo?.totalCount || 0}
                 </div>
               </div>
             </div>
@@ -168,7 +168,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Свободные объекты</Text>
                 <div className="text-2xl font-bold text-green-600">
-                  {dashboardData?.todayCleanings?.pageInfo?.totalCount || 0}
+                  {(dashboardData as any)?.todayCleanings?.pageInfo?.totalCount || 0}
                 </div>
               </div>
             </div>
@@ -182,7 +182,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Работающие сотрудники</Text>
                 <div className="text-2xl font-bold text-purple-600">
-                  {dashboardData?.workingStaff?.pageInfo?.totalCount || 0}
+                  {(dashboardData as any)?.workingStaff?.pageInfo?.totalCount || 0}
                 </div>
               </div>
             </div>
@@ -196,7 +196,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Уборки сегодня</Text>
                 <div className="text-2xl font-bold text-orange-600">
-                  {dashboardData?.todayCleanings?.pageInfo?.totalCount || 0}
+                  {(dashboardData as any)?.todayCleanings?.pageInfo?.totalCount || 0}
                 </div>
               </div>
             </div>
@@ -205,7 +205,7 @@ export default function Dashboard() {
       </div>
 
       {/* Детальная информация об уборках */}
-      {dashboardData?.todayCleanings?.edges && dashboardData.todayCleanings.edges.length > 0 && (
+      {(dashboardData as any)?.todayCleanings?.edges && (dashboardData as any).todayCleanings.edges.length > 0 && (
         <div>
           <Subheading className="mb-4">Уборки на сегодня</Subheading>
           <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
@@ -219,7 +219,7 @@ export default function Dashboard() {
           </TableRow>
         </TableHead>
         <TableBody>
-                {dashboardData.todayCleanings.edges.map(({ node: cleaning }) => (
+                {(dashboardData as any).todayCleanings.edges.map(({ node: cleaning }: { node: any }) => (
                   <TableRow 
                     key={cleaning.id}
                     onClick={() => router.push(`/cleanings/${cleaning.id}`)}
@@ -264,7 +264,7 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <Subheading>Последние задачи</Subheading>
-            <Button href="/tasks" outline size="sm">
+            <Button href="/tasks" outline>
               Все задачи
             </Button>
           </div>
@@ -274,9 +274,9 @@ export default function Dashboard() {
                 <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                 <Text className="mt-2">Загрузка задач...</Text>
               </div>
-            ) : tasksData?.tasks?.edges?.length > 0 ? (
+            ) : (tasksData as any)?.tasks?.edges?.length > 0 ? (
               <div className="space-y-4">
-                {tasksData.tasks.edges.map(({ node: task }) => (
+                {(tasksData as any).tasks.edges.map(({ node: task }: { node: any }) => (
                   <div 
                     key={task.id} 
                     className="flex items-start justify-between p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
@@ -318,7 +318,7 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <Subheading>Последние уведомления</Subheading>
-            <Button href="/notifications" outline size="sm">
+            <Button href="/notifications" outline>
               Все уведомления
             </Button>
           </div>
@@ -328,9 +328,9 @@ export default function Dashboard() {
                 <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                 <Text className="mt-2">Загрузка уведомлений...</Text>
               </div>
-            ) : notificationsData?.tasks?.edges?.length > 0 ? (
+            ) : (notificationsData as any)?.tasks?.edges?.length > 0 ? (
               <div className="space-y-4">
-                {notificationsData.tasks.edges.map(({ node: task }) => (
+                {(notificationsData as any).tasks.edges.map(({ node: task }: { node: any }) => (
                   <div 
                     key={task.id} 
                     className="flex items-start gap-3 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState, use, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Heading, Subheading } from '@/components/heading'
@@ -10,8 +10,7 @@ import { Button } from '@/components/button'
 import { Input } from '@/components/input'
 import { Textarea } from '@/components/textarea'
 import { Select } from '@/components/select'
-import { Fieldset } from '@/components/fieldset'
-import { Label } from '@/components/label'
+import { Fieldset, Label } from '@/components/fieldset'
 import { 
   ArrowLeftIcon,
   CheckIcon,
@@ -45,17 +44,19 @@ export default function EditTaskPage({ params }: { params: Promise<{ id: string 
     queryKey: ['task', id],
     queryFn: () => graphqlClient.request(GET_TASK_BY_ID, { id: id }),
     enabled: !!id,
-    onSuccess: (data) => {
-      if (data.task) {
-        setFormData({
-          type: data.task.type || '',
-          status: data.task.status || '',
-          dueAt: data.task.dueAt ? new Date(data.task.dueAt).toISOString().slice(0, 16) : '',
-          note: data.task.note || ''
-        })
-      }
-    }
   })
+
+  // Обновляем форму при получении данных
+  useEffect(() => {
+    if (taskData?.task) {
+      setFormData({
+        type: taskData.task.type || '',
+        status: taskData.task.status || '',
+        dueAt: taskData.task.dueAt ? new Date(taskData.task.dueAt).toISOString().slice(0, 16) : '',
+        note: taskData.task.note || ''
+      })
+    }
+  }, [taskData])
 
   // Мутация обновления задачи
   const updateTaskMutation = useMutation({
@@ -149,8 +150,7 @@ export default function EditTaskPage({ params }: { params: Promise<{ id: string 
         <div className="flex items-center gap-4">
           <Button 
             onClick={() => router.push(`/tasks/${task.id}`)}
-            variant="outline"
-            size="sm"
+            outline
           >
             <ArrowLeftIcon className="w-4 h-4 mr-2" />
             Назад
@@ -298,7 +298,7 @@ export default function EditTaskPage({ params }: { params: Promise<{ id: string 
             <Button
               type="button"
               onClick={handleCancel}
-              variant="outline"
+              outline
               disabled={isSubmitting}
             >
               <XMarkIcon className="w-4 h-4 mr-2" />

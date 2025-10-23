@@ -239,7 +239,7 @@ export const resolvers = {
               telegramChatId: settings.telegramChatId,
               cleaningId: cleaning.id,
               unitName: `${unit.property?.title || ''} - ${unit.name}`,
-              scheduledAt: cleaning.scheduledAt.toISOString(),
+              scheduledAt: cleaning.scheduledAt,
               requiresLinenChange: cleaning.requiresLinenChange,
               orgId: cleaning.orgId,
             });
@@ -322,6 +322,11 @@ export const resolvers = {
       
       // Отправляем уведомление уборщику о завершении
       try {
+        if (!cleaning.cleanerId) {
+          logger.warn('No cleaner assigned to cleaning, skipping completion notification', { cleaningId: id });
+          return cleaning;
+        }
+        
         const cleaner = await prisma.cleaner.findUnique({
           where: { id: cleaning.cleanerId }
         });
@@ -432,6 +437,11 @@ export const resolvers = {
       
       // Отправляем уведомление об отмене
       try {
+        if (!cleaning.cleanerId) {
+          logger.warn('No cleaner assigned to cleaning, skipping cancellation notification', { cleaningId: id });
+          return cleaning;
+        }
+        
         const cleaner = await prisma.cleaner.findUnique({
           where: { id: cleaning.cleanerId }
         });
@@ -462,11 +472,6 @@ export const resolvers = {
       }
       
       return cleaning;
-    },
-    
-    updateCleaningChecklist: async (_: unknown, { id, items }: { id: string; items: any[] }, { dl }: Context) => {
-      logger.info('Updating cleaning checklist', { id, itemsCount: items.length });
-      return dl.updateCleaningChecklist(id, items);
     },
     
     // Cleaning document mutations

@@ -117,7 +117,7 @@ export interface Cleaning {
 
 export interface ScheduleCleaningInput {
   orgId: UUID;
-  cleanerId: UUID;
+  cleanerId?: UUID; // Опциональный - если не указан, система отправит уведомления всем привязанным уборщикам
   unitId: UUID;
   bookingId?: UUID;
   taskId?: UUID;

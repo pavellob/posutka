@@ -40,14 +40,14 @@ export const sharedResolvers = {
       try {
         logger.info('Task is CLEANING type, creating Cleaning via gRPC', { taskId: task.id });
         
-        // Вызываем cleaning-subgraph через gRPC
+        // Вызываем cleaning-subgraph через gRPC (cleanerId может быть undefined)
         const response = await cleaningGrpcClient.scheduleCleaning({
           orgId: input.orgId,
           unitId: input.unitId,
           bookingId: input.bookingId,
           taskId: task.id,  // Связываем с Task
           scheduledAt: input.dueAt ? new Date(input.dueAt) : new Date(),
-          cleanerId: input.cleanerId, // Если уборщик уже назначен
+          cleanerId: input.cleanerId, // Может быть undefined - система отправит уведомления всем привязанным уборщикам
           requiresLinenChange: false, // По умолчанию
           notes: input.note,
         });
@@ -84,7 +84,49 @@ export const sharedResolvers = {
         throw new Error('Provider cannot handle this type of task');
       }
     }
-    return dl.assignTask(input);
+    
+    const task = await dl.assignTask(input);
+    
+    // Если задача типа CLEANING и назначен уборщик - создаем уборку
+    if (task.type === 'CLEANING' && input.cleanerId) {
+      try {
+        logger.info('Task is CLEANING type with cleaner assigned, creating Cleaning via gRPC', { 
+          taskId: task.id,
+          cleanerId: input.cleanerId 
+        });
+        
+        // Вызываем cleaning-subgraph через gRPC
+        const response = await cleaningGrpcClient.scheduleCleaning({
+          orgId: task.orgId!,
+          unitId: task.unitId!,
+          bookingId: task.bookingId,
+          taskId: task.id,
+          scheduledAt: task.dueAt ? new Date(task.dueAt) : new Date(),
+          cleanerId: input.cleanerId,
+          requiresLinenChange: false,
+          notes: task.note || 'Создано автоматически при назначении уборщика',
+        });
+        
+        if (response.success) {
+          logger.info('✅ Cleaning created for Task via gRPC after assignment', { 
+            taskId: task.id,
+            cleaningId: response.cleaning?.id 
+          });
+        } else {
+          logger.error('Failed to create Cleaning for Task via gRPC after assignment', { 
+            taskId: task.id,
+            message: response.message 
+          });
+        }
+      } catch (error) {
+        logger.error('Error creating Cleaning for Task via gRPC after assignment', { 
+          taskId: task.id,
+          error: error instanceof Error ? error.message : String(error) 
+        });
+      }
+    }
+    
+    return task;
   },
   
   updateTaskStatus: (dl: IOpsDL, id: string, status: string) => {

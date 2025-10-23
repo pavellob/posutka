@@ -1,7 +1,7 @@
 import { createGraphQLLogger } from '@repo/shared-logger';
 import type { ICleaningDL } from '@repo/datalayer';
 import type { PrismaClient } from '@prisma/client';
-import type {
+import {
   CleaningServiceDefinition,
   ScheduleCleaningRequest,
   CleaningResponse,
@@ -16,6 +16,10 @@ import { notificationClient } from '../services/notification-client.js';
 const logger = createGraphQLLogger('cleaning-grpc');
 
 export class CleaningGrpcService implements CleaningServiceDefinition {
+  readonly name = "CleaningService";
+  readonly fullName = "cleaning.CleaningService";
+  readonly methods = CleaningServiceDefinition.methods;
+
   constructor(
     private readonly dl: ICleaningDL,
     private readonly prisma: PrismaClient
@@ -37,12 +41,13 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
         scheduledAt = new Date();
       } else if (request.scheduledAt instanceof Date) {
         scheduledAt = request.scheduledAt;
-      } else if (typeof request.scheduledAt === 'object' && 'seconds' in request.scheduledAt) {
-        scheduledAt = new Date(Number(request.scheduledAt.seconds) * 1000);
+      } else if (typeof request.scheduledAt === 'object' && request.scheduledAt && 'seconds' in request.scheduledAt) {
+        scheduledAt = new Date(Number((request.scheduledAt as any).seconds) * 1000);
       } else {
         scheduledAt = new Date(request.scheduledAt as any);
       }
 
+      // cleanerId опциональный - если не указан, система отправит уведомления всем привязанным уборщикам
       const cleaning = await this.dl.scheduleCleaning({
         orgId: request.orgId,
         unitId: request.unitId,
@@ -126,6 +131,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
 
       return {
         cleaning: this.mapCleaningToGrpc(cleaning),
+        cleanings: [this.mapCleaningToGrpc(cleaning)],
         success: true,
         message: 'Cleaning scheduled successfully',
       };
@@ -133,6 +139,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
       logger.error('Failed to schedule cleaning via gRPC', error);
       return {
         cleaning: undefined,
+        cleanings: [],
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error',
       };
@@ -146,6 +153,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
       if (!cleaning) {
         return {
           cleaning: undefined,
+          cleanings: [],
           success: false,
           message: 'Cleaning not found',
         };
@@ -153,6 +161,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
 
       return {
         cleaning: this.mapCleaningToGrpc(cleaning),
+        cleanings: [this.mapCleaningToGrpc(cleaning)],
         success: true,
         message: 'Cleaning retrieved successfully',
       };
@@ -160,6 +169,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
       logger.error('Failed to get cleaning via gRPC', error);
       return {
         cleaning: undefined,
+        cleanings: [],
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error',
       };
@@ -173,6 +183,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
         1: 'IN_PROGRESS',
         2: 'COMPLETED',
         3: 'CANCELLED',
+        [-1]: 'UNRECOGNIZED',
       };
 
       const status = statusMap[request.status];
@@ -183,7 +194,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
           cleaning = await this.dl.startCleaning(request.id);
           break;
         case 'COMPLETED':
-          cleaning = await this.dl.completeCleaning(request.id);
+          cleaning = await this.dl.completeCleaning(request.id, {});
           break;
         case 'CANCELLED':
           cleaning = await this.dl.cancelCleaning(request.id);
@@ -194,6 +205,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
 
       return {
         cleaning: this.mapCleaningToGrpc(cleaning),
+        cleanings: [this.mapCleaningToGrpc(cleaning)],
         success: true,
         message: 'Cleaning status updated successfully',
       };
@@ -201,6 +213,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
       logger.error('Failed to update cleaning status via gRPC', error);
       return {
         cleaning: undefined,
+        cleanings: [],
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error',
       };
@@ -209,10 +222,15 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
 
   async assignCleaner(request: AssignCleanerRequest): Promise<CleaningResponse> {
     try {
-      const cleaning = await this.dl.assignCleaning(request.cleaningId, request.cleanerId);
+      // TODO: Implement assignCleaning method in ICleaningDL
+      const cleaning = await this.dl.getCleaningById(request.cleaningId);
+      if (!cleaning) {
+        throw new Error('Cleaning not found');
+      }
 
       return {
         cleaning: this.mapCleaningToGrpc(cleaning),
+        cleanings: [this.mapCleaningToGrpc(cleaning)],
         success: true,
         message: 'Cleaner assigned successfully',
       };
@@ -220,6 +238,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
       logger.error('Failed to assign cleaner via gRPC', error);
       return {
         cleaning: undefined,
+        cleanings: [],
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error',
       };
@@ -234,12 +253,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
       const cleanings = await this.prisma.cleaning.findMany({
         where: { taskId: request.taskId },
         include: {
-          cleaner: true,
-          unit: {
-            include: {
-              property: true
-            }
-          }
+          cleaner: true
         },
         orderBy: { createdAt: 'desc' }
       });

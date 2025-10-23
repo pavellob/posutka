@@ -9,7 +9,8 @@ import { Badge } from '@/components/badge'
 import { Button } from '@/components/button'
 import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@/components/table'
 import { Select } from '@/components/select'
-import { Squares2X2Icon, TableCellsIcon, ViewColumnsIcon } from '@heroicons/react/24/outline'
+import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
+import { Squares2X2Icon, TableCellsIcon, ViewColumnsIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { ScheduleCleaningDialog } from '@/components/schedule-cleaning-dialog'
@@ -426,7 +427,7 @@ function CleaningsPageContent() {
               if (status === 'COMPLETED') {
                 completeCleaningMutation.mutate({ id: cleaningId, input: {} })
               } else if (status === 'IN_PROGRESS') {
-                startCleaningMutation.mutate({ id: cleaningId })
+                startCleaningMutation.mutate(cleaningId)
               } else if (status === 'CANCELLED') {
                 cancelCleaningMutation.mutate({ id: cleaningId, reason: 'Отменено' })
               }

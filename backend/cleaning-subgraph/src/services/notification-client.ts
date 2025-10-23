@@ -354,8 +354,8 @@ export class NotificationClient {
           scheduledAt,
           requiresLinenChange,
         }),
-        actionUrl: this.getFrontendUrl(`/cleanings/${cleaningId}?tab=checklist`),
-        actionText: '✅ Открыть чеклист',
+        actionUrl: this.getFrontendUrl(`/cleanings/${cleaningId}?action=assign`),
+        actionText: '🎯 Взять уборку',
       });
       
       logger.info('Cleaning available notification sent via gRPC', { 

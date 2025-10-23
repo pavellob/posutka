@@ -111,7 +111,7 @@ export default function UnitsPage() {
               Юниты не найдены
             </Text>
             <Text className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-              Добавьте объекты недвижимости и юниты в разделе "Управление объектами"
+              Добавьте объекты недвижимости и юниты в разделе &quot;Управление объектами&quot;
             </Text>
             <Button
               onClick={() => router.push('/inventory')}

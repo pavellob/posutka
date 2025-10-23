@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useEffect } from 'react'
+import { use, useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heading, Subheading } from '@/components/heading'
 import { Text } from '@/components/text'
@@ -8,6 +8,7 @@ import { Button } from '@/components/button'
 import { Badge } from '@/components/badge'
 import { Checkbox, CheckboxField, CheckboxGroup } from '@/components/checkbox'
 import { Label } from '@/components/fieldset'
+import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/dialog'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -88,6 +89,20 @@ const UPDATE_CHECKLIST = `
   }
 `
 
+const ASSIGN_CLEANING_TO_ME = `
+  mutation AssignCleaningToMe($cleaningId: UUID!) {
+    assignCleaningToMe(cleaningId: $cleaningId) {
+      id
+      status
+      cleaner {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`
+
 type CleaningDetailsPageProps = {
   params: Promise<{
     id: string
@@ -100,14 +115,7 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'details' | 'checklist'>('details')
-
-  // Открываем нужную вкладку из URL параметра
-  useEffect(() => {
-    const tab = searchParams.get('tab')
-    if (tab === 'checklist') {
-      setActiveTab('checklist')
-    }
-  }, [searchParams])
+  const [showAssignDialog, setShowAssignDialog] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['cleaning', params.id],
@@ -153,6 +161,53 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
       queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
     }
   })
+
+  const assignCleaningMutation = useMutation({
+    mutationFn: async () => {
+      return await graphqlClient.request(ASSIGN_CLEANING_TO_ME, {
+        cleaningId: params.id
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
+      // Показываем уведомление об успехе и перенаправляем на страницу уборки
+      setTimeout(() => {
+        router.push(`/cleanings/${params.id}`)
+      }, 1000)
+    },
+    onError: (error: any) => {
+      console.error('Failed to assign cleaning:', error)
+      alert('❌ Ошибка при назначении уборки: ' + (error.message || 'Неизвестная ошибка'))
+    }
+  })
+
+  const handleAssignCleaning = useCallback(() => {
+    setShowAssignDialog(true)
+  }, [])
+
+  const handleConfirmAssign = () => {
+    assignCleaningMutation.mutate()
+    setShowAssignDialog(false)
+  }
+
+  const handleCancelAssign = () => {
+    setShowAssignDialog(false)
+  }
+
+  // Открываем нужную вкладку из URL параметра
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    const action = searchParams.get('action')
+    
+    if (tab === 'checklist') {
+      setActiveTab('checklist')
+    }
+    
+    if (action === 'assign') {
+      // Показываем диалог назначения уборки
+      handleAssignCleaning()
+    }
+  }, [searchParams, handleAssignCleaning])
 
   const handleToggleCheckbox = (itemId: string) => {
     if (!data?.checklistItems || updateChecklistMutation.isPending) return
@@ -430,7 +485,7 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
             <div className="mb-6 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
               <Text className="text-sm text-amber-900 dark:text-amber-100">
                 {cleaning.status === 'SCHEDULED' ? (
-                  <>⏸️ Чеклист станет доступен после начала уборки. Нажмите кнопку "▶️ Начать" выше.</>
+                  <>⏸️ Чеклист станет доступен после начала уборки. Нажмите кнопку &quot;▶️ Начать&quot; выше.</>
                 ) : cleaning.status === 'COMPLETED' ? (
                   <>✅ Уборка завершена. Чеклист доступен только для просмотра.</>
                 ) : (
@@ -530,6 +585,55 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
           </div>
         </details>
       </div>
+
+      {/* Диалог назначения уборки */}
+      <Dialog open={showAssignDialog} onClose={handleCancelAssign}>
+        <DialogTitle>
+          {data?.cleaner ? '⚠️ Уборка уже назначена' : '🎯 Взять уборку в работу'}
+        </DialogTitle>
+        <DialogDescription>
+          {data?.cleaner 
+            ? `Эта уборка уже назначена на уборщика ${data.cleaner.firstName} ${data.cleaner.lastName}.`
+            : 'Вы хотите взять эту уборку в работу? После назначения вы сможете начать выполнение уборки.'
+          }
+        </DialogDescription>
+        <DialogBody>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <HomeIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="ml-3">
+                <Text className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  {data?.unit?.name}
+                </Text>
+                <Text className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                  {data?.unit?.property?.title}
+                </Text>
+                {data?.scheduledAt && (
+                  <Text className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                    📅 {new Date(data.scheduledAt).toLocaleString('ru-RU')}
+                  </Text>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogBody>
+        <DialogActions>
+          <Button outline onClick={handleCancelAssign} disabled={assignCleaningMutation.isPending}>
+            {data?.cleaner ? 'Закрыть' : 'Отмена'}
+          </Button>
+          {!data?.cleaner && (
+            <Button 
+              onClick={handleConfirmAssign} 
+              disabled={assignCleaningMutation.isPending}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {assignCleaningMutation.isPending ? 'Назначаем...' : '🎯 Взять уборку'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </div>
   )
 }

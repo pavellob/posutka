@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
@@ -73,7 +73,7 @@ export default function IAMPage() {
   // Получаем текущую организацию
   const { currentOrgId } = useCurrentOrganization()
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -101,13 +101,13 @@ export default function IAMPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentOrgId])
 
   useEffect(() => {
     if (currentOrgId) {
       fetchData()
     }
-  }, [currentOrgId])
+  }, [currentOrgId, fetchData])
 
   const handleEditUser = (user: any) => {
     setSelectedUser(user)
