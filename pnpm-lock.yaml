@@ -225,6 +225,9 @@ importers:
       graphql-yoga:
         specifier: ^5.6.0
         version: 5.16.0(graphql@16.11.0)
+      nice-grpc:
+        specifier: ^2.1.13
+        version: 2.1.13
       pino:
         specifier: ^8.17.2
         version: 8.21.0
@@ -7195,6 +7198,9 @@ packages:
   nice-grpc@2.1.12:
     resolution: {integrity: sha512-J1n4Wg+D3IhRhGQb+iqh2OpiM0GzTve/kf2lnlW4S+xczmIEd0aHUDV1OsJ5a3q8GSTqJf+s4Rgg1M8uJltarw==}
 
+  nice-grpc@2.1.13:
+    resolution: {integrity: sha512-IkXNok2NFyYh0WKp1aJFwFV3Ue2frBkJ16ojrmgX3Tc9n0g7r0VU+ur3H/leDHPPGsEeVozdMynGxYT30k3D/Q==}
+
   nice-try@1.0.5:
     resolution: {integrity: sha512-1nh45deeb5olNY7eX82BkPO7SSxR5SSYJiPTrTdFUVYwAl8CKMA5N9PjTYkHiRjisVcxcQ1HXdLhx2qxxJzLNQ==}
 
@@ -10395,7 +10401,7 @@ snapshots:
       '@graphql-mesh/cross-helpers': 0.4.10(graphql@16.11.0)
       '@graphql-mesh/hmac-upstream-signature': 2.0.3(graphql@16.11.0)(ioredis@5.8.0)
       '@graphql-mesh/plugin-http-cache': 0.105.14(graphql@16.11.0)(ioredis@5.8.0)
-      '@graphql-mesh/plugin-jit': 0.2.13(graphql@16.11.0)(ioredis@5.8.0)
+      '@graphql-mesh/plugin-jit': 0.2.13(graphql@16.11.0)
       '@graphql-mesh/plugin-jwt-auth': 2.0.6(graphql-yoga@5.16.0(graphql@16.11.0))(graphql@16.11.0)(ioredis@5.8.0)
       '@graphql-mesh/plugin-prometheus': 2.0.11(@envelop/core@5.3.2)(graphql-yoga@5.16.0(graphql@16.11.0))(graphql@16.11.0)(ioredis@5.8.0)(pino@9.12.0)(prom-client@15.1.3)(ws@8.18.3)
       '@graphql-mesh/plugin-rate-limit': 0.105.1(@envelop/core@5.3.2)(graphql@16.11.0)(ioredis@5.8.0)
@@ -10623,7 +10629,7 @@ snapshots:
       '@graphql-mesh/config': 0.108.14(graphql@16.11.0)(ioredis@5.8.0)
       '@graphql-mesh/cross-helpers': 0.4.10(graphql@16.11.0)
       '@graphql-mesh/http': 0.106.13(graphql@16.11.0)(ioredis@5.8.0)
-      '@graphql-mesh/include': 0.3.13(graphql@16.11.0)(ioredis@5.8.0)
+      '@graphql-mesh/include': 0.3.13(graphql@16.11.0)
       '@graphql-mesh/runtime': 0.106.13(graphql@16.11.0)(ioredis@5.8.0)
       '@graphql-mesh/store': 0.104.13(graphql@16.11.0)(ioredis@5.8.0)
       '@graphql-mesh/types': 0.104.13(graphql@16.11.0)(ioredis@5.8.0)
@@ -10663,8 +10669,8 @@ snapshots:
   '@graphql-mesh/compose-cli@1.4.18(graphql@16.11.0)(ioredis@5.8.0)':
     dependencies:
       '@commander-js/extra-typings': 14.0.0(commander@14.0.1)
-      '@graphql-mesh/fusion-composition': 0.8.17(graphql@16.11.0)(ioredis@5.8.0)
-      '@graphql-mesh/include': 0.3.13(graphql@16.11.0)(ioredis@5.8.0)
+      '@graphql-mesh/fusion-composition': 0.8.17(graphql@16.11.0)
+      '@graphql-mesh/include': 0.3.13(graphql@16.11.0)
       '@graphql-mesh/string-interpolation': 0.5.9(graphql@16.11.0)
       '@graphql-mesh/types': 0.104.13(graphql@16.11.0)(ioredis@5.8.0)
       '@graphql-mesh/utils': 0.104.13(graphql@16.11.0)(ioredis@5.8.0)
@@ -10717,7 +10723,7 @@ snapshots:
       graphql: 16.11.0
       path-browserify: 1.0.1
 
-  '@graphql-mesh/fusion-composition@0.8.17(graphql@16.11.0)(ioredis@5.8.0)':
+  '@graphql-mesh/fusion-composition@0.8.17(graphql@16.11.0)':
     dependencies:
       '@graphql-mesh/utils': 0.104.13(graphql@16.11.0)(ioredis@5.8.0)
       '@graphql-tools/schema': 10.0.25(graphql@16.11.0)
@@ -10732,8 +10738,6 @@ snapshots:
       snake-case: 3.0.4
       tslib: 2.8.1
     transitivePeerDependencies:
-      - '@nats-io/nats-core'
-      - ioredis
       - supports-color
 
   '@graphql-mesh/fusion-runtime@1.2.4(@types/node@24.5.2)(graphql@16.11.0)(ioredis@5.8.0)(pino@9.12.0)':
@@ -10797,7 +10801,7 @@ snapshots:
       - '@nats-io/nats-core'
       - ioredis
 
-  '@graphql-mesh/include@0.3.13(graphql@16.11.0)(ioredis@5.8.0)':
+  '@graphql-mesh/include@0.3.13(graphql@16.11.0)':
     dependencies:
       '@graphql-mesh/utils': 0.104.13(graphql@16.11.0)(ioredis@5.8.0)
       dotenv: 17.2.3
@@ -10805,9 +10809,6 @@ snapshots:
       graphql: 16.11.0
       jiti: 2.6.0
       sucrase: 3.35.0
-    transitivePeerDependencies:
-      - '@nats-io/nats-core'
-      - ioredis
 
   '@graphql-mesh/merger-bare@0.105.13(graphql@16.11.0)(ioredis@5.8.0)':
     dependencies:
@@ -10864,7 +10865,7 @@ snapshots:
       - '@nats-io/nats-core'
       - ioredis
 
-  '@graphql-mesh/plugin-jit@0.2.13(graphql@16.11.0)(ioredis@5.8.0)':
+  '@graphql-mesh/plugin-jit@0.2.13(graphql@16.11.0)':
     dependencies:
       '@envelop/core': 5.3.2
       '@graphql-mesh/utils': 0.104.13(graphql@16.11.0)(ioredis@5.8.0)
@@ -10872,9 +10873,6 @@ snapshots:
       graphql: 16.11.0
       graphql-jit: 0.8.7(graphql@16.11.0)
       tslib: 2.8.1
-    transitivePeerDependencies:
-      - '@nats-io/nats-core'
-      - ioredis
 
   '@graphql-mesh/plugin-jwt-auth@2.0.6(graphql-yoga@5.16.0(graphql@16.11.0))(graphql@16.11.0)(ioredis@5.8.0)':
     dependencies:
@@ -16266,6 +16264,12 @@ snapshots:
       ts-error: 1.0.6
 
   nice-grpc@2.1.12:
+    dependencies:
+      '@grpc/grpc-js': 1.14.0
+      abort-controller-x: 0.4.3
+      nice-grpc-common: 2.0.2
+
+  nice-grpc@2.1.13:
     dependencies:
       '@grpc/grpc-js': 1.14.0
       abort-controller-x: 0.4.3
