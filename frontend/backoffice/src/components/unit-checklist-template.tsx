@@ -111,7 +111,7 @@ export function UnitChecklistTemplate({ unitId }: UnitChecklistTemplateProps) {
   if (!data) {
     return (
       <div className="text-center py-12">
-        <Text className="text-zinc-500">Чеклист не настроен для этой квартиры</Text>
+        <Text className="text-zinc-500">Чеклист не настроен для этого юнита</Text>
       </div>
     )
   }
@@ -140,7 +140,7 @@ export function UnitChecklistTemplate({ unitId }: UnitChecklistTemplateProps) {
           <div className="text-sm text-blue-900 dark:text-blue-100">
             <p className="font-medium mb-2">Этот чеклист будет копироваться:</p>
             <ul className="space-y-1 text-blue-800 dark:text-blue-200">
-              <li>• При создании новой уборки для этой квартиры</li>
+              <li>• При создании новой уборки для этого юнита</li>
               <li>• Уборщик должен отметить ВСЕ пункты перед завершением</li>
             </ul>
           </div>

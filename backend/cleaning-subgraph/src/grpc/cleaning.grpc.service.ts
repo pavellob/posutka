@@ -226,6 +226,46 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
     }
   }
 
+  async getCleaningsByTaskId(request: { taskId: string }): Promise<CleaningResponse> {
+    try {
+      logger.info('Getting cleanings by task ID via gRPC', { taskId: request.taskId });
+
+      // Получаем все уборки для данной задачи
+      const cleanings = await this.prisma.cleaning.findMany({
+        where: { taskId: request.taskId },
+        include: {
+          cleaner: true,
+          unit: {
+            include: {
+              property: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      logger.info('Found cleanings for task', { 
+        taskId: request.taskId, 
+        count: cleanings.length 
+      });
+
+      return {
+        cleaning: undefined, // Для множественных результатов используем массив
+        cleanings: cleanings.map(cleaning => this.mapCleaningToGrpc(cleaning)),
+        success: true,
+        message: `Found ${cleanings.length} cleanings for task`,
+      };
+    } catch (error) {
+      logger.error('Failed to get cleanings by task ID via gRPC', error);
+      return {
+        cleaning: undefined,
+        cleanings: [],
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
   private mapCleaningToGrpc(cleaning: any): GrpcCleaning {
     const statusMap: Record<string, GrpcCleaningStatus> = {
       SCHEDULED: 0,

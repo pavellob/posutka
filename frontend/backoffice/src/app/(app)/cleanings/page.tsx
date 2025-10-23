@@ -728,10 +728,10 @@ function CleaningsPageContent() {
           <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
             <Heading level={2} className="mb-6">Темплейты чеклистов</Heading>
             <Text className="text-zinc-600 dark:text-zinc-400 mb-6">
-              Каждая квартира имеет свой темплейт чеклиста. Перейдите на страницу квартиры для редактирования.
+              Каждый юнит имеет свой темплейт чеклиста. Перейдите на страницу юнита для редактирования.
             </Text>
             
-            {/* Список квартир с темплейтами */}
+            {/* Список юнитов с темплейтами */}
             <div className="space-y-4">
               {allUnits.map((unit: any) => (
                 <button

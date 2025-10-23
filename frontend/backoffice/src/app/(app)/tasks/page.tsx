@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
@@ -21,6 +22,7 @@ function TaskCard({ task, onAssign, onUpdateStatus, onEdit }: {
   onUpdateStatus: (taskId: string, status: string) => void;
   onEdit: (task: Task) => void;
 }) {
+  const router = useRouter()
   const getStatusBadge = (status: string) => {
     const statusMap = {
       'TODO': { color: 'orange' as const, text: 'Ожидает' },
@@ -45,7 +47,10 @@ function TaskCard({ task, onAssign, onUpdateStatus, onEdit }: {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div 
+      className="p-6 space-y-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={() => router.push(`/tasks/${task.id}`)}
+    >
       <div className="flex items-center space-x-2">
         {getTypeBadge(task.type)}
         {getStatusBadge(task.status)}
@@ -102,6 +107,12 @@ function TaskCard({ task, onAssign, onUpdateStatus, onEdit }: {
               <Text className="text-xs text-gray-500 dark:text-gray-400">
                 {task.assignedTo.contact}
               </Text>
+              {/* Показываем информацию о связи с уборкой для задач типа CLEANING */}
+              {task.type === 'CLEANING' && (
+                <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  🔗 При назначении создается уборка
+                </Text>
+              )}
             </>
           ) : (
             <Text className="text-sm text-gray-500 dark:text-gray-400">
@@ -109,35 +120,6 @@ function TaskCard({ task, onAssign, onUpdateStatus, onEdit }: {
             </Text>
           )}
         </div>
-      </div>
-
-      {/* Действия */}
-      <div className="flex justify-end">
-        <Dropdown>
-          <DropdownButton className="bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-700 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300">
-            <EllipsisVerticalIcon className="w-5 h-5" />
-          </DropdownButton>
-          <DropdownMenu className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg [&>*]:hover:!bg-gray-100 [&>*]:dark:hover:!bg-zinc-700 [&>*]:focus:!bg-gray-100 [&>*]:dark:focus:!bg-zinc-700 [&>*]:hover:!text-gray-900 [&>*]:dark:hover:!text-white [&>*]:focus:!text-gray-900 [&>*]:dark:focus:!text-white">
-            <DropdownItem onClick={() => onEdit(task)}>
-              Редактировать
-            </DropdownItem>
-            {task.status === 'TODO' && (
-              <DropdownItem onClick={() => onAssign(task)}>
-                Назначить
-              </DropdownItem>
-            )}
-            {task.status === 'IN_PROGRESS' && (
-              <DropdownItem onClick={() => onUpdateStatus(task.id, 'DONE')}>
-                Завершить
-              </DropdownItem>
-            )}
-            {(task.status === 'TODO' || task.status === 'IN_PROGRESS') && (
-              <DropdownItem onClick={() => onUpdateStatus(task.id, 'CANCELED')}>
-                Отменить
-              </DropdownItem>
-            )}
-          </DropdownMenu>
-        </Dropdown>
       </div>
     </div>
   )
@@ -159,6 +141,7 @@ type Task = NonNullable<GetTasksQuery['tasks']['edges'][0]>['node']
 type ServiceProvider = NonNullable<GetServiceProvidersQuery['serviceProviders'][0]>
 
 export default function TasksPage() {
+  const router = useRouter()
   // Состояние для переключения вида (таблица/карточки/канбан)
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'kanban'>('table')
   
@@ -564,12 +547,15 @@ export default function TasksPage() {
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Объект</TableHeader>
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Бронирование</TableHeader>
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Исполнитель</TableHeader>
-                  <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Действия</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {tasks.map((task) => (
-                  <TableRow key={task.id} className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150">
+                  <TableRow 
+                    key={task.id} 
+                    className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150 cursor-pointer"
+                    onClick={() => router.push(`/tasks/${task.id}`)}
+                  >
                     <TableCell className="px-6 py-4 whitespace-nowrap">
                       {getTypeBadge(task.type)}
                     </TableCell>
@@ -615,6 +601,12 @@ export default function TasksPage() {
                               {task.assignedCleaner.phone}
                             </Text>
                           )}
+                          {/* Показываем информацию о связи с уборкой */}
+                          <div className="mt-1">
+                            <Text className="text-xs text-blue-600 dark:text-blue-400">
+                              🔗 При назначении создается уборка
+                            </Text>
+                          </div>
                         </div>
                       ) : task.assignedTo ? (
                         <div>
@@ -624,36 +616,6 @@ export default function TasksPage() {
                       ) : (
                         <Text className="text-gray-500 dark:text-gray-400">Не назначен</Text>
                       )}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap">
-                      <Dropdown>
-                        <DropdownButton className="bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-700 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300">
-                          <EllipsisVerticalIcon className="w-5 h-5" />
-                        </DropdownButton>
-                        <DropdownMenu className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg [&>*]:hover:!bg-gray-100 [&>*]:dark:hover:!bg-zinc-700 [&>*]:focus:!bg-gray-100 [&>*]:dark:focus:!bg-zinc-700 [&>*]:hover:!text-gray-900 [&>*]:dark:hover:!text-white [&>*]:focus:!text-gray-900 [&>*]:dark:focus:!text-white">
-                          <DropdownItem onClick={() => handleEditTask(task)}>
-                            Редактировать
-                          </DropdownItem>
-                          {String(task.status) === 'TODO' && (
-                            <DropdownItem onClick={() => {
-                              setSelectedTask(task)
-                              setShowAssignDialog(true)
-                            }}>
-                              Назначить
-                            </DropdownItem>
-                          )}
-                          {String(task.status) === 'IN_PROGRESS' && (
-                            <DropdownItem onClick={() => handleUpdateStatus(task.id, 'DONE')}>
-                              Завершить
-                            </DropdownItem>
-                          )}
-                          {(String(task.status) === 'TODO' || String(task.status) === 'IN_PROGRESS') && (
-                            <DropdownItem onClick={() => handleUpdateStatus(task.id, 'CANCELED')}>
-                              Отменить
-                            </DropdownItem>
-                          )}
-                        </DropdownMenu>
-                      </Dropdown>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -55,7 +55,7 @@ export default function Login() {
       // Перенаправляем в приложение
       router.push('/');
     } catch (err: any) {
-      setError(err.message || 'Login failed');
+      setError(err.message || 'Ошибка входа');
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export default function Login() {
   return (
     <form onSubmit={handleSubmit} className="grid w-full max-w-sm grid-cols-1 gap-8">
       <Logo className="h-6 text-zinc-950 dark:text-white forced-colors:text-[CanvasText]" />
-      <Heading>Sign in to your account</Heading>
+      <Heading>Войдите в свой аккаунт</Heading>
       
       {error && (
         <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -82,7 +82,7 @@ export default function Login() {
         />
       </Field>
       <Field>
-        <Label>Password</Label>
+        <Label>Пароль</Label>
         <Input 
           type="password" 
           value={formData.password}
@@ -94,18 +94,18 @@ export default function Login() {
       <div className="flex items-center justify-between">
         <Text>
           <TextLink href="/forgot-password">
-            <Strong>Forgot password?</Strong>
+            <Strong>Забыли пароль?</Strong>
           </TextLink>
         </Text>
       </div>
       
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? 'Signing in...' : 'Login'}
+        {loading ? 'Вход...' : 'Войти'}
       </Button>
       <Text>
-        Don&apos;t have an account?{' '}
+        Нет аккаунта?{' '}
         <TextLink href="/register">
-          <Strong>Sign up</Strong>
+          <Strong>Зарегистрироваться</Strong>
         </TextLink>
       </Text>
     </form>

@@ -516,7 +516,7 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
               </div>
               {cleaning.unit && (
                 <div className="flex">
-                  <dt className="w-32 text-zinc-600 dark:text-zinc-400">ID квартиры:</dt>
+                  <dt className="w-32 text-zinc-600 dark:text-zinc-400">ID юнита:</dt>
                   <dd className="font-mono text-zinc-900 dark:text-white">{cleaning.unit.id}</dd>
                 </div>
               )}

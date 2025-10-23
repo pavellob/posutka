@@ -133,7 +133,7 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
           >
             <div className="flex items-center gap-2">
               <HomeIcon className="w-5 h-5" />
-              Квартиры
+              Юниты
               {unitsData && <Badge color="zinc">{unitsData.length}</Badge>}
             </div>
           </button>
@@ -187,6 +187,38 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
 
           <Divider />
 
+          {/* Площади */}
+          <section>
+            <Subheading className="mb-4">Площади</Subheading>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">Жилая площадь</Text>
+                <div className="text-2xl font-bold text-green-600">
+                  {propertyData.livingArea ? `${propertyData.livingArea}` : '—'}
+                </div>
+                <Text className="text-xs text-zinc-500 mt-1">м²</Text>
+              </div>
+              
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">Кухня</Text>
+                <div className="text-2xl font-bold text-orange-600">
+                  {propertyData.kitchenArea ? `${propertyData.kitchenArea}` : '—'}
+                </div>
+                <Text className="text-xs text-zinc-500 mt-1">м²</Text>
+              </div>
+              
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">Общая площадь</Text>
+                <div className="text-2xl font-bold text-blue-600">
+                  {propertyData.totalArea ? `${propertyData.totalArea}` : '—'}
+                </div>
+                <Text className="text-xs text-zinc-500 mt-1">м²</Text>
+              </div>
+            </div>
+          </section>
+
+          <Divider />
+
           {/* Тип и категория */}
           <section>
             <Subheading className="mb-4">Тип и категория</Subheading>
@@ -206,6 +238,32 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
             </div>
           </section>
 
+          <Divider />
+
+          {/* Расположение */}
+          <section>
+            <Subheading className="mb-4">Расположение</Subheading>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">Адрес</Text>
+                <Text className="font-medium">{propertyData.address}</Text>
+                {propertyData.apartment && (
+                  <Text className="text-sm text-zinc-500 mt-1">Квартира: {propertyData.apartment}</Text>
+                )}
+              </div>
+              
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">Регион</Text>
+                <div className="space-y-1">
+                  {propertyData.country && <Text>{propertyData.country}</Text>}
+                  {propertyData.region && <Text>{propertyData.region}</Text>}
+                  {propertyData.district && <Text>{propertyData.district}</Text>}
+                  {propertyData.localityName && <Text>{propertyData.localityName}</Text>}
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Метро */}
           {propertyData.metroName && (
             <>
@@ -219,17 +277,63 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
                     </div>
                     <div>
                       <Text className="font-semibold text-lg">{propertyData.metroName}</Text>
-                      {propertyData.metroTimeOnFoot && (
-                        <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                          {propertyData.metroTimeOnFoot} минут пешком
-                        </Text>
-                      )}
+                      <div className="flex gap-4 mt-1">
+                        {propertyData.metroTimeOnFoot && (
+                          <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                            {propertyData.metroTimeOnFoot} мин пешком
+                          </Text>
+                        )}
+                        {propertyData.metroTimeOnTransport && (
+                          <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                            {propertyData.metroTimeOnTransport} мин на транспорте
+                          </Text>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               </section>
             </>
           )}
+
+          {/* Координаты */}
+          {(propertyData.latitude || propertyData.longitude) && (
+            <>
+              <Divider />
+              <section>
+                <Subheading className="mb-4">Координаты</Subheading>
+                <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">Широта</Text>
+                      <Text className="font-mono">{propertyData.latitude || '—'}</Text>
+                    </div>
+                    <div>
+                      <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">Долгота</Text>
+                      <Text className="font-mono">{propertyData.longitude || '—'}</Text>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* Здание */}
+          <Divider />
+          <section>
+            <Subheading className="mb-4">Информация о здании</Subheading>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">Тип здания</Text>
+                <Text className="font-medium">{propertyData.buildingType || '—'}</Text>
+              </div>
+              
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">Серия</Text>
+                <Text className="font-medium">{propertyData.buildingSeries || '—'}</Text>
+              </div>
+            </div>
+          </section>
 
           {/* Удобства */}
           <Divider />
@@ -254,10 +358,34 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
                   <Text>Охрана</Text>
                 </div>
               )}
+              {propertyData.concierge && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <Text>Консьерж</Text>
+                </div>
+              )}
+              {propertyData.playground && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <Text>Детская площадка</Text>
+                </div>
+              )}
+              {propertyData.gym && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <Text>Спортзал</Text>
+                </div>
+              )}
               {propertyData.balcony && (
                 <div className="flex items-center gap-2 text-green-600">
                   <CheckCircleIcon className="w-5 h-5" />
                   <Text>Балкон</Text>
+                </div>
+              )}
+              {propertyData.loggia && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <Text>Лоджия</Text>
                 </div>
               )}
               {propertyData.airConditioning && (
@@ -270,6 +398,18 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
                 <div className="flex items-center gap-2 text-green-600">
                   <CheckCircleIcon className="w-5 h-5" />
                   <Text>Интернет</Text>
+                </div>
+              )}
+              {propertyData.washingMachine && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <Text>Стиральная машина</Text>
+                </div>
+              )}
+              {propertyData.dishwasher && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <Text>Посудомоечная машина</Text>
                 </div>
               )}
               {propertyData.tv && (
@@ -286,6 +426,43 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
               )}
             </div>
           </section>
+
+          {/* Ремонт */}
+          {propertyData.renovation && (
+            <>
+              <Divider />
+              <section>
+                <Subheading className="mb-4">Ремонт</Subheading>
+                <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                  <Badge color="blue" className="text-sm px-3 py-1">{propertyData.renovation}</Badge>
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* Яндекс.Недвижимость */}
+          {(propertyData.yandexBuildingId || propertyData.yandexHouseId) && (
+            <>
+              <Divider />
+              <section>
+                <Subheading className="mb-4">Яндекс.Недвижимость</Subheading>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {propertyData.yandexBuildingId && (
+                    <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                      <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">ID здания</Text>
+                      <Text className="font-mono text-sm">{propertyData.yandexBuildingId}</Text>
+                    </div>
+                  )}
+                  {propertyData.yandexHouseId && (
+                    <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
+                      <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">ID дома</Text>
+                      <Text className="font-mono text-sm">{propertyData.yandexHouseId}</Text>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </>
+          )}
         </div>
       )}
 
@@ -302,9 +479,9 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
               <div className="inline-flex items-center justify-center w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full mb-4">
                 <HomeIcon className="w-8 h-8 text-zinc-400" />
               </div>
-              <Subheading className="mb-2">Нет квартир</Subheading>
+              <Subheading className="mb-2">Нет юнитов</Subheading>
               <Text className="text-zinc-600 dark:text-zinc-400">
-                В этом объекте пока не добавлено ни одной квартиры
+                В этом объекте пока не добавлено ни одного юнита
               </Text>
             </div>
           )}

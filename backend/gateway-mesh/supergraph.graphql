@@ -24,6 +24,8 @@ directive @transport(kind: String!, subgraph: String!, location: String!, header
 
 directive @extraSchemaDefinitionDirective(directives: _DirectiveExtensions) repeatable on OBJECT
 
+directive @additionalField on FIELD_DEFINITION
+
 scalar join__FieldSet
 
 scalar link__Import
@@ -1634,6 +1636,8 @@ type Task @join__type(graph: OPS_SUBGRAPH, key: "id") {
   updatedAt: DateTime!
   """Дополнительные заметки к задаче (опционально)"""
   note: String
+  """Связанные уборки (только для задач типа CLEANING)"""
+  cleanings: [Cleaning!]! @additionalField
 }
 
 """Элемент списка задач для пагинации."""

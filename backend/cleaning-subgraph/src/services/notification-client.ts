@@ -139,7 +139,21 @@ export class NotificationClient {
         hasTelegram: !!telegramChatId,
         notificationId: response.notificationId,
         status: response.status,
-        actionUrl: this.getFrontendUrl(`/cleanings?id=${cleaningId}`)
+        eventType: EventType.EVENT_TYPE_CLEANING_ASSIGNED,
+        orgId,
+        recipientIds,
+        channels,
+        priority: Priority.PRIORITY_HIGH,
+        title: '🧹 Новая уборка назначена!',
+        message: `Вам назначена уборка в квартире "${unitName}"\n\nДата: ${formattedDate}${requiresLinenChange ? '\n\n⚠️ Требуется смена постельного белья' : ''}`,
+        metadata: JSON.stringify({
+          cleaningId,
+          unitName,
+          scheduledAt,
+          requiresLinenChange,
+        }),
+        actionUrl: this.getFrontendUrl(`/cleanings/${cleaningId}?tab=checklist`),
+        actionText: '✅ Открыть чеклист',
       });
     } catch (error) {
       logger.error('Failed to send cleaning assigned notification:', error);

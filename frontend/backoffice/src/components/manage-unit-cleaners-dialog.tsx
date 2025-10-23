@@ -49,7 +49,7 @@ export function ManageUnitCleanersDialog({
 }: ManageUnitCleanersDialogProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Получить привязанных уборщиков для квартиры
+  // Получить привязанных уборщиков для юнита
   const { data: preferredData, refetch } = useQuery({
     queryKey: ['unitPreferredCleaners', unitId],
     queryFn: async () => {
@@ -156,7 +156,7 @@ export function ManageUnitCleanersDialog({
                 Как это работает?
               </Text>
               <Text className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                Привязанные уборщики будут получать уведомления в Telegram о новых уборках в этой квартире.
+                Привязанные уборщики будут получать уведомления в Telegram о новых уборках в этом юните.
                 Они смогут самостоятельно назначить себя на уборку через Telegram Mini App.
               </Text>
             </div>

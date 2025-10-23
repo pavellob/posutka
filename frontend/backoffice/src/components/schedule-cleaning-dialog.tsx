@@ -82,7 +82,7 @@ export function ScheduleCleaningDialog({
     }
 
     if (!selectedUnit) {
-      alert('Выберите квартиру')
+      alert('Выберите юнит')
       return
     }
 
@@ -116,20 +116,20 @@ export function ScheduleCleaningDialog({
     <Dialog open={isOpen} onClose={handleClose} size="2xl">
       <DialogTitle>Запланировать уборку</DialogTitle>
       <DialogDescription>
-        Создайте новую уборку, выбрав уборщика, квартиру и время
+        Создайте новую уборку, выбрав уборщика, юнит и время
       </DialogDescription>
       <DialogBody className="space-y-6">
-        {/* Выбор квартиры */}
+        {/* Выбор юнита */}
         <div>
           <label className="block text-sm font-medium mb-2">
-            Квартира <span className="text-red-500">*</span>
+            Юнит <span className="text-red-500">*</span>
           </label>
           <Select
             value={selectedUnit}
             onChange={(e) => setSelectedUnit(e.target.value)}
             className="w-full"
           >
-            <option value="">Выберите квартиру</option>
+            <option value="">Выберите юнит</option>
             {units.map((unit) => (
               <option key={unit.id} value={unit.id}>
                 {unit.name}
@@ -138,7 +138,7 @@ export function ScheduleCleaningDialog({
           </Select>
           {units.length === 0 && (
             <Text className="text-sm text-gray-500 mt-1">
-              Нет доступных квартир
+              Нет доступных юнитов
             </Text>
           )}
         </div>

@@ -59,11 +59,17 @@ message AssignCleanerRequest {
   string cleaner_id = 2;
 }
 
+// Запрос на получение уборок по ID задачи
+message GetCleaningsByTaskIdRequest {
+  string task_id = 1;
+}
+
 // Ответ с уборкой
 message CleaningResponse {
   Cleaning cleaning = 1;
-  bool success = 2;
-  string message = 3;
+  repeated Cleaning cleanings = 2;
+  bool success = 3;
+  string message = 4;
 }
 
 // Сервис для управления уборками
@@ -79,5 +85,8 @@ service CleaningService {
   
   // Назначить уборщика
   rpc AssignCleaner(AssignCleanerRequest) returns (CleaningResponse);
+  
+  // Получить уборки по ID задачи
+  rpc GetCleaningsByTaskId(GetCleaningsByTaskIdRequest) returns (CleaningResponse);
 }
 

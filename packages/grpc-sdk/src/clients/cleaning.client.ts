@@ -132,6 +132,26 @@ export class CleaningGrpcClient {
     });
   }
 
+  async getCleaningsByTaskId(taskId: string): Promise<CleaningResponse> {
+    if (!this.isConnected || !this.client) {
+      throw new Error('GRPC client is not connected. Call connect() first.');
+    }
+
+    return this.executeWithRetry(async () => {
+      logger.info('Getting cleanings by task ID via GRPC', { taskId });
+      
+      const request = { taskId };
+      const response = await this.client!.getCleaningsByTaskId(request as any);
+      
+      logger.info('Successfully retrieved cleanings by task ID', {
+        taskId,
+        count: response.cleanings?.length || 0,
+      });
+      
+      return response;
+    });
+  }
+
   async disconnect(): Promise<void> {
     if (this.client) {
       this.client = null;

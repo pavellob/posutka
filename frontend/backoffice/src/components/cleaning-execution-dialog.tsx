@@ -203,7 +203,7 @@ export function CleaningExecutionDialog({
     }
     
     if (!unitId) {
-      alert('Ошибка: не указана квартира в задаче')
+      alert('Ошибка: не указан юнит в задаче')
       console.log('Ошибка: unit.id отсутствует в задаче', { task })
       return
     }
@@ -233,7 +233,7 @@ export function CleaningExecutionDialog({
       await createPreDocumentMutation.mutateAsync({
         cleaningId: currentCleaningId,
         input: {
-          notes: 'Приемка квартиры перед уборкой',
+          notes: 'Приемка юнита перед уборкой',
           photos: preCleaningPhotos.map((photo, index) => ({
             url: photo.url,
             caption: photo.caption,
@@ -272,7 +272,7 @@ export function CleaningExecutionDialog({
       await createPostDocumentMutation.mutateAsync({
         cleaningId: currentCleaningId,
         input: {
-          notes: 'Сдача убранной квартиры',
+          notes: 'Сдача убранного юнита',
           photos: postCleaningPhotos.map((photo, index) => ({
             url: photo.url,
             caption: photo.caption,
@@ -392,8 +392,8 @@ export function CleaningExecutionDialog({
         {step === 'pre-checklist' && (
           <div className="space-y-6">
             <div>
-              <Heading level={3}>Приемка квартиры</Heading>
-              <Text className="text-sm text-gray-500">Проверьте состояние квартиры перед уборкой</Text>
+              <Heading level={3}>Приемка юнита</Heading>
+              <Text className="text-sm text-gray-500">Проверьте состояние юнита перед уборкой</Text>
             </div>
 
             <div className="space-y-2">

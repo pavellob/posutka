@@ -272,7 +272,7 @@ function EditPropertyDialog({
                   onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
                 >
                   <option value="">Выберите категорию</option>
-                  <option value="квартира">Квартира</option>
+                  <option value="квартира">Юнит</option>
                   <option value="комната">Комната</option>
                   <option value="дом">Дом</option>
                   <option value="гараж">Гараж</option>
@@ -605,9 +605,9 @@ function EditPropertyDialog({
             </div>
           </Fieldset>
 
-          {/* Удобства квартиры */}
+          {/* Удобства юнита */}
           <Fieldset>
-            <legend className="text-lg font-medium mb-4">Удобства квартиры</legend>
+            <legend className="text-lg font-medium mb-4">Удобства юнита</legend>
             
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               <Field>
@@ -1077,7 +1077,7 @@ export default function InventoryPage() {
             <Combobox
               value={filters.category}
               onChange={(value) => setFilters(prev => ({ ...prev, category: value || '' }))}
-              options={['', 'квартира', 'комната', 'дом', 'гараж']}
+              options={['', 'юнит', 'комната', 'дом', 'гараж']}
               displayValue={(value) => {
                 if (!value) return 'Все категории'
                 return value.charAt(0).toUpperCase() + value.slice(1)

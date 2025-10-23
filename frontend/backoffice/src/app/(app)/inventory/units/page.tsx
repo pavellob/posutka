@@ -54,7 +54,7 @@ export default function UnitsPage() {
   if (orgLoading || propertiesLoading || unitsLoading) {
     return (
       <div className="space-y-6">
-        <Heading level={1}>Загрузка квартир...</Heading>
+        <Heading level={1}>Загрузка юнитов...</Heading>
       </div>
     )
   }
@@ -75,16 +75,16 @@ export default function UnitsPage() {
           </div>
           <div className="flex-1">
             <Heading level={1} className="text-2xl font-bold text-gray-900 dark:text-white">
-              Квартиры
+              Юниты
             </Heading>
             <Text className="mt-2 text-gray-600 dark:text-gray-300 text-lg">
-              Управление квартирами, привязка уборщиков и настройка чеклистов уборки
+              Управление юнитами, привязка уборщиков и настройка чеклистов уборки
             </Text>
           </div>
         </div>
       </div>
 
-      {/* Таблица квартир */}
+      {/* Таблица юнитов */}
       <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900">
           <div className="flex items-center justify-between">
@@ -93,7 +93,7 @@ export default function UnitsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
               <Heading level={2} className="text-lg font-semibold text-gray-900 dark:text-white">
-                Все квартиры
+                Все юниты
               </Heading>
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -108,10 +108,10 @@ export default function UnitsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
             <Text className="text-gray-500 dark:text-gray-400 text-lg">
-              Квартиры не найдены
+              Юниты не найдены
             </Text>
             <Text className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-              Добавьте объекты недвижимости и квартиры в разделе "Управление объектами"
+              Добавьте объекты недвижимости и юниты в разделе "Управление объектами"
             </Text>
             <Button
               onClick={() => router.push('/inventory')}

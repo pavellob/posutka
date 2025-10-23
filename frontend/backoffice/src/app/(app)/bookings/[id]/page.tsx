@@ -1,0 +1,323 @@
+'use client'
+
+import { useState, use } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
+import { Heading, Subheading } from '@/components/heading'
+import { Text } from '@/components/text'
+import { Badge } from '@/components/badge'
+import { Button } from '@/components/button'
+import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@/components/table'
+import { Dialog } from '@/components/dialog'
+import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
+import { 
+  ArrowLeftIcon,
+  EllipsisVerticalIcon,
+  CalendarIcon,
+  UserIcon,
+  HomeIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  PencilIcon,
+  SparklesIcon,
+  CreditCardIcon,
+  PhoneIcon,
+  EnvelopeIcon
+} from '@heroicons/react/24/outline'
+import { graphqlClient } from '@/lib/graphql-client'
+import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
+import { GET_BOOKING_BY_ID, CANCEL_BOOKING } from '@/lib/graphql-queries'
+import type { GetBookingByIdQuery } from '@/lib/generated/graphql'
+
+type Booking = NonNullable<GetBookingByIdQuery['booking']>
+
+export default function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const { currentOrgId, isLoading: orgLoading } = useCurrentOrganization()
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
+
+  // Разворачиваем params с помощью React.use()
+  const { id } = use(params)
+
+  // Запрос бронирования по ID
+  const { data: bookingData, isLoading: bookingLoading, error: bookingError } = useQuery<GetBookingByIdQuery>({
+    queryKey: ['booking', id],
+    queryFn: () => graphqlClient.request(GET_BOOKING_BY_ID, { id }),
+    enabled: !!id
+  })
+
+  // Мутация отмены бронирования
+  const cancelBookingMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => 
+      graphqlClient.request(CANCEL_BOOKING, { id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['booking', id] })
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      setShowCancelDialog(false)
+    }
+  })
+
+  const booking = bookingData?.booking
+
+  if (bookingLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (bookingError || !booking) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="text-center">
+          <XCircleIcon className="mx-auto h-12 w-12 text-red-500" />
+          <Heading className="mt-4">Бронирование не найдено</Heading>
+          <Text className="mt-2 text-gray-600">
+            Бронирование с ID {id} не существует или было удалено.
+          </Text>
+          <Button 
+            className="mt-4"
+            onClick={() => router.push('/bookings')}
+          >
+            <ArrowLeftIcon className="w-4 h-4 mr-2" />
+            Вернуться к бронированиям
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const getStatusBadge = (status: string) => {
+    const statusMap = {
+      'CONFIRMED': { color: 'green' as const, text: 'Подтверждено' },
+      'PENDING': { color: 'yellow' as const, text: 'Ожидает' },
+      'CANCELLED': { color: 'red' as const, text: 'Отменено' },
+      'COMPLETED': { color: 'blue' as const, text: 'Завершено' }
+    }
+    const statusInfo = statusMap[status as keyof typeof statusMap] || { color: 'zinc' as const, text: status }
+    return <Badge color={statusInfo.color}>{statusInfo.text}</Badge>
+  }
+
+  const formatMoney = (amount: number, currency: string | undefined | null): string => {
+    const value = amount / 100
+    
+    // Проверяем, является ли currency валидным кодом валюты
+    const validCurrencies = ['RUB', 'USD', 'EUR', 'GBP', 'CNY', 'JPY']
+    const currencyCode = currency && validCurrencies.includes(currency.toUpperCase()) ? currency.toUpperCase() : 'RUB'
+    
+    try {
+      const formatter = new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: currencyCode,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      })
+      return formatter.format(value)
+    } catch (error) {
+      // Fallback: если валюта не поддерживается, форматируем как число
+      return new Intl.NumberFormat('ru-RU', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(value) + ' ' + currencyCode
+    }
+  }
+
+  const handleCancelBooking = () => {
+    if (booking.id) {
+      cancelBookingMutation.mutate({ id: booking.id })
+    }
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Заголовок */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button
+            color="zinc"
+            onClick={() => router.push('/bookings')}
+          >
+            <ArrowLeftIcon className="w-4 h-4 mr-2" />
+            Назад
+          </Button>
+          <div>
+            <Heading>Бронирование #{booking.id.slice(-8)}</Heading>
+            <div className="flex items-center space-x-2 mt-2">
+              {getStatusBadge(booking.status)}
+              <Text className="text-sm text-gray-500">
+                Создано: {new Date(booking.createdAt).toLocaleDateString('ru-RU')}
+              </Text>
+            </div>
+          </div>
+        </div>
+
+        <Dropdown>
+          <DropdownButton>
+            <EllipsisVerticalIcon className="w-5 h-5" />
+          </DropdownButton>
+          <DropdownMenu>
+            <DropdownItem onClick={() => setShowCancelDialog(true)}>
+              <XCircleIcon className="w-4 h-4 mr-2" />
+              Отменить бронирование
+            </DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Информация о госте */}
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+          <Subheading className="mb-4 flex items-center">
+            <UserIcon className="w-5 h-5 mr-2" />
+            Информация о госте
+          </Subheading>
+          <div className="space-y-4">
+            <div>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {booking.guest.name}
+              </Text>
+              <div className="flex items-center space-x-2 mt-1">
+                <EnvelopeIcon className="w-4 h-4 text-gray-400" />
+                <Text className="text-sm text-gray-600 dark:text-gray-400">
+                  {booking.guest.email}
+                </Text>
+              </div>
+              {booking.guest.phone && (
+                <div className="flex items-center space-x-2 mt-1">
+                  <PhoneIcon className="w-4 h-4 text-gray-400" />
+                  <Text className="text-sm text-gray-600 dark:text-gray-400">
+                    {booking.guest.phone}
+                  </Text>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Даты бронирования */}
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+          <Subheading className="mb-4 flex items-center">
+            <CalendarIcon className="w-5 h-5 mr-2" />
+            Даты бронирования
+          </Subheading>
+          <div className="space-y-4">
+            <div>
+              <Text className="text-sm text-gray-500 dark:text-gray-400">Заезд</Text>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {new Date(booking.checkIn).toLocaleDateString('ru-RU')}
+              </Text>
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500 dark:text-gray-400">Выезд</Text>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {new Date(booking.checkOut).toLocaleDateString('ru-RU')}
+              </Text>
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500 dark:text-gray-400">Количество гостей</Text>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {booking.guestsCount} {booking.guestsCount === 1 ? 'гость' : 'гостей'}
+              </Text>
+            </div>
+          </div>
+        </div>
+
+        {/* Информация об объекте */}
+        {booking.unit && (
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+            <Subheading className="mb-4 flex items-center">
+              <HomeIcon className="w-5 h-5 mr-2" />
+              Объект недвижимости
+            </Subheading>
+            <div className="space-y-4">
+              <div 
+                className="flex items-start gap-3 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+                onClick={() => router.push(`/inventory/units/${booking.unit.id}`)}
+              >
+                <HomeIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <Text className="font-medium text-gray-900 dark:text-white">
+                    {booking.unit.name}
+                  </Text>
+                  {booking.unit.property && (
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">
+                      {booking.unit.property.title}
+                    </Text>
+                  )}
+                  <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    🔗 Нажмите для перехода к объекту
+                  </Text>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Финансовая информация */}
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+          <Subheading className="mb-4 flex items-center">
+            <CreditCardIcon className="w-5 h-5 mr-2" />
+            Финансовая информация
+          </Subheading>
+          <div className="space-y-4">
+            <div className="flex justify-between">
+              <Text className="text-sm text-gray-500 dark:text-gray-400">Базовая цена</Text>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {formatMoney(booking.priceBreakdown.basePrice.amount, booking.priceBreakdown.basePrice.currency)}
+              </Text>
+            </div>
+            {booking.priceBreakdown.total && booking.priceBreakdown.total.amount !== booking.priceBreakdown.basePrice.amount && (
+              <div className="flex justify-between">
+                <Text className="text-sm text-gray-500 dark:text-gray-400">Итого</Text>
+                <Text className="font-medium text-gray-900 dark:text-white">
+                  {formatMoney(booking.priceBreakdown.total.amount, booking.priceBreakdown.total.currency)}
+                </Text>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Дополнительная информация */}
+      {booking.notes && (
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+          <Subheading className="mb-4">Дополнительная информация</Subheading>
+          <Text className="text-gray-700 dark:text-gray-300">
+            {booking.notes}
+          </Text>
+        </div>
+      )}
+
+      {/* Связанные задачи - пока не доступны в API */}
+      {/* TODO: Добавить поле tasks в GraphQL запрос GET_BOOKING_BY_ID */}
+
+      {/* Диалог отмены бронирования */}
+      <Dialog open={showCancelDialog} onClose={() => setShowCancelDialog(false)}>
+        <div className="p-6">
+          <Heading className="mb-4">Отменить бронирование</Heading>
+          <Text className="mb-6">
+            Вы уверены, что хотите отменить это бронирование? Это действие нельзя отменить.
+          </Text>
+          <div className="flex space-x-3">
+            <Button
+              color="zinc"
+              onClick={() => setShowCancelDialog(false)}
+            >
+              Отмена
+            </Button>
+            <Button
+              color="red"
+              onClick={handleCancelBooking}
+              disabled={cancelBookingMutation.isPending}
+            >
+              {cancelBookingMutation.isPending ? 'Отмена...' : 'Отменить бронирование'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </div>
+  )
+}

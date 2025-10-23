@@ -57,7 +57,7 @@ export default function Register() {
       // Перенаправляем в приложение
       router.push('/');
     } catch (err: any) {
-      setError(err.message || 'Registration failed');
+      setError(err.message || 'Ошибка регистрации');
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,7 @@ export default function Register() {
   return (
     <form onSubmit={handleSubmit} className="grid w-full max-w-sm grid-cols-1 gap-8">
       <Logo className="h-6 text-zinc-950 dark:text-white forced-colors:text-[CanvasText]" />
-      <Heading>Create your account</Heading>
+      <Heading>Создайте свой аккаунт</Heading>
       
       {error && (
         <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -84,7 +84,7 @@ export default function Register() {
         />
       </Field>
       <Field>
-        <Label>Full name</Label>
+        <Label>Полное имя</Label>
         <Input 
           name="name" 
           value={formData.name}
@@ -92,7 +92,7 @@ export default function Register() {
         />
       </Field>
       <Field>
-        <Label>Password</Label>
+        <Label>Пароль</Label>
         <Input 
           type="password" 
           value={formData.password}
@@ -103,12 +103,12 @@ export default function Register() {
       </Field>
       
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? 'Creating account...' : 'Create account'}
+        {loading ? 'Создание аккаунта...' : 'Создать аккаунт'}
       </Button>
       <Text>
-        Already have an account?{' '}
+        Уже есть аккаунт?{' '}
         <TextLink href="/login">
-          <Strong>Sign in</Strong>
+          <Strong>Войти</Strong>
         </TextLink>
       </Text>
     </form>

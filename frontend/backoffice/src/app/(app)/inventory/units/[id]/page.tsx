@@ -435,7 +435,7 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
           <div className="mt-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800">
             <dl className="space-y-2 text-sm">
               <div className="flex">
-                <dt className="w-32 text-zinc-600 dark:text-zinc-400">ID квартиры:</dt>
+                <dt className="w-32 text-zinc-600 dark:text-zinc-400">ID юнита:</dt>
                 <dd className="font-mono text-zinc-900 dark:text-white">{unitData.id}</dd>
               </div>
               {unitData.property && (

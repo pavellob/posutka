@@ -24,6 +24,48 @@ export const GET_PROPERTY_BY_ID = gql`
       title
       address
       amenities
+      # Яндекс.Недвижимость поля
+      propertyType
+      category
+      dealStatus
+      country
+      region
+      district
+      localityName
+      apartment
+      metroName
+      metroTimeOnFoot
+      metroTimeOnTransport
+      latitude
+      longitude
+      totalArea
+      livingArea
+      kitchenArea
+      rooms
+      roomsOffered
+      floor
+      floorsTotal
+      buildingType
+      buildingYear
+      buildingSeries
+      elevator
+      parking
+      security
+      concierge
+      playground
+      gym
+      balcony
+      loggia
+      airConditioning
+      internet
+      washingMachine
+      dishwasher
+      tv
+      renovation
+      furniture
+      isElite
+      yandexBuildingId
+      yandexHouseId
       org {
         id
         name
@@ -693,6 +735,121 @@ export const GET_LISTING_BY_ID = gql`
   }
 `
 
+// ===== ЗАПРОСЫ ДЛЯ ДАШБОРДА =====
+
+export const GET_DASHBOARD_STATS = gql`
+  query GetDashboardStats($orgId: UUID!) {
+    # Активные брони на сегодня
+    activeBookings: bookings(
+      orgId: $orgId
+      status: CONFIRMED
+      first: 100
+    ) {
+      pageInfo {
+        totalCount
+      }
+      edges {
+        node {
+          id
+          checkIn
+          checkOut
+          status
+        }
+      }
+    }
+    
+    # Уборки организации
+    todayCleanings: cleanings(
+      orgId: $orgId
+      first: 50
+    ) {
+      pageInfo {
+        totalCount
+      }
+      edges {
+        node {
+          id
+          status
+          scheduledAt
+          cleaner {
+            id
+            firstName
+            lastName
+          }
+          unit {
+            id
+            name
+            property {
+              title
+            }
+          }
+        }
+      }
+    }
+    
+    # Задачи организации
+    workingStaff: tasks(
+      orgId: $orgId
+      first: 50
+    ) {
+      pageInfo {
+        totalCount
+      }
+      edges {
+        node {
+          id
+          type
+          status
+          dueAt
+          assignedTo {
+            id
+            name
+          }
+          createdAt
+        }
+      }
+    }
+  }
+`
+
+export const GET_RECENT_TASKS = gql`
+  query GetRecentTasks($orgId: UUID!, $first: Int = 10) {
+    tasks(orgId: $orgId, first: $first) {
+      edges {
+        node {
+          id
+          type
+          status
+          dueAt
+          createdAt
+          updatedAt
+          assignedTo {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`
+
+export const GET_RECENT_NOTIFICATIONS = gql`
+  query GetRecentNotifications($orgId: UUID!, $first: Int = 10) {
+    # Пока используем заглушку, так как notifications может не существовать
+    tasks(orgId: $orgId, first: $first) {
+      edges {
+        node {
+          id
+          type
+          status
+          dueAt
+          createdAt
+        }
+      }
+    }
+  }
+`
+
 // ===== ЗАПРОСЫ ДЛЯ ЮРИДИЧЕСКИХ ДОКУМЕНТОВ =====
 
 export const GET_DOCUMENTS_BY_BOOKING = gql`
@@ -930,6 +1087,19 @@ export const UPDATE_TASK_STATUS = gql`
     updateTaskStatus(id: $id, status: $status) {
       id
       status
+      updatedAt
+    }
+  }
+`
+
+export const UPDATE_TASK = gql`
+  mutation UpdateTask($input: UpdateTaskInput!) {
+    updateTask(input: $input) {
+      id
+      type
+      status
+      dueAt
+      note
       updatedAt
     }
   }
