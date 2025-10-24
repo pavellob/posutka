@@ -161,7 +161,7 @@ query GetUnitById($id: UUID!) {
 # Мутации для создания объектов
 
 mutation CreateProperty(
-  $orgId: UUID!
+  $orgId: String!
   $title: String!
   $address: String!
   $amenities: [String!]

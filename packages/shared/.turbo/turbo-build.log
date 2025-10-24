@@ -1,4 +1,5 @@
 
+
 > @repo/shared@0.1.0 build /Users/pavellobachev/dev/posutka-monorepo/packages/shared
 > tsc && cp src/schema.gql dist/
 

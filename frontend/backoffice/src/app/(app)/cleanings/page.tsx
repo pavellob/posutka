@@ -758,7 +758,7 @@ function CleaningsPageContent() {
                   </div>
                   <Heading level={3} className="mb-2">Нет юнитов</Heading>
                   <Text className="text-zinc-600 dark:text-zinc-400 mb-4">
-                    Сначала создайте юниты в разделе "Объекты недвижимости"
+                    Сначала создайте юниты в разделе &quot;Объекты недвижимости&quot;
                   </Text>
                   <Button
                     onClick={() => router.push('/inventory')}

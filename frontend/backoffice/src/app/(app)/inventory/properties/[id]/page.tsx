@@ -477,7 +477,7 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
             <div className="flex-1">
               <Subheading>Юниты в объекте</Subheading>
               <Text className="text-zinc-600 dark:text-zinc-400">
-                Управление юнитами в объекте "{propertyData.title}"
+                Управление юнитами в объекте &quot;{propertyData.title}&quot;
               </Text>
             </div>
             <Button 
