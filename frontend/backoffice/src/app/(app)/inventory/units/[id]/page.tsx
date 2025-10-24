@@ -420,7 +420,10 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
             )}
 
             {activeTab === 'checklist' && (
-              <UnitChecklistTemplate unitId={params.id} />
+              <UnitChecklistTemplate 
+                unitId={params.id} 
+                propertyId={unitData?.property?.id}
+              />
             )}
           </div>
         </div>

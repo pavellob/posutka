@@ -15,14 +15,17 @@ import {
 } from '@heroicons/react/24/outline'
 
 import { GET_CLEANING_TEMPLATES_BY_UNIT, UPDATE_CLEANING_TEMPLATE_CHECKLIST } from '@/lib/graphql-queries'
+import { CreateChecklistDialog } from './create-checklist-dialog'
 
 interface UnitChecklistTemplateProps {
   unitId: string
+  propertyId?: string
 }
 
-export function UnitChecklistTemplate({ unitId }: UnitChecklistTemplateProps) {
+export function UnitChecklistTemplate({ unitId, propertyId }: UnitChecklistTemplateProps) {
   const queryClient = useQueryClient()
   const [newItemLabel, setNewItemLabel] = useState('')
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['cleaningTemplate', unitId],
@@ -110,9 +113,35 @@ export function UnitChecklistTemplate({ unitId }: UnitChecklistTemplateProps) {
 
   if (!data) {
     return (
-      <div className="text-center py-12">
-        <Text className="text-zinc-500">Чеклист не настроен для этого юнита</Text>
-      </div>
+      <>
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ListBulletIcon className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+          </div>
+          <Subheading className="mb-2">Чеклист не настроен</Subheading>
+          <Text className="text-zinc-500 mb-6">
+            Создайте чеклист уборки для этого юнита
+          </Text>
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Создать чеклист
+          </Button>
+        </div>
+        
+        <CreateChecklistDialog
+          open={isCreateDialogOpen}
+          onClose={() => setIsCreateDialogOpen(false)}
+          onSuccess={() => {
+            setIsCreateDialogOpen(false)
+            queryClient.invalidateQueries({ queryKey: ['cleaningTemplate', unitId] })
+          }}
+          propertyId={propertyId}
+          unitId={unitId}
+        />
+      </>
     )
   }
 

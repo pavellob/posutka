@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
 import { Button } from '@/components/button'
 import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@/components/table'
-import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
-import { EllipsisVerticalIcon } from '@heroicons/react/24/outline'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { CreateCleanerDialog } from '@/components/create-cleaner-dialog'
@@ -20,6 +19,7 @@ import {
 
 export default function CleanersPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const router = useRouter()
   
   const queryClient = useQueryClient()
   const { currentOrgId, isLoading: orgLoading } = useCurrentOrganization()
@@ -45,6 +45,11 @@ export default function CleanersPage() {
       alert(`Ошибка: ${error.message || 'Не удалось деактивировать уборщика'}`)
     }
   })
+
+  // Обработчик клика для перехода на карточку уборщика
+  const handleCleanerClick = (cleanerId: string) => {
+    router.push(`/cleaners/${cleanerId}`)
+  }
 
   if (orgLoading || !orgId) {
     return (
@@ -151,14 +156,14 @@ export default function CleanersPage() {
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Контакты</TableHeader>
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Рейтинг</TableHeader>
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Дата создания</TableHeader>
-                  <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Действия</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {cleaners.map((cleaner: any) => (
                   <TableRow 
                     key={cleaner.id} 
-                    className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150"
+                    className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150 cursor-pointer"
+                    onClick={() => handleCleanerClick(cleaner.id)}
                   >
                     <TableCell className="px-6 py-4 whitespace-nowrap">
                       {cleaner.isActive ? (
@@ -216,28 +221,6 @@ export default function CleanersPage() {
                       <Text className="text-xs text-gray-500 dark:text-gray-400">
                         {new Date(cleaner.createdAt).toLocaleTimeString()}
                       </Text>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap">
-                      <Dropdown>
-                        <DropdownButton className="bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-700 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300">
-                          <EllipsisVerticalIcon className="w-5 h-5" />
-                        </DropdownButton>
-                        <DropdownMenu className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg">
-                          <DropdownItem onClick={() => alert(`Просмотр уборщика ${cleaner.id}`)}>
-                            Подробнее
-                          </DropdownItem>
-                          <DropdownItem onClick={() => alert(`Редактирование в разработке`)}>
-                            Редактировать
-                          </DropdownItem>
-                          {cleaner.isActive && (
-                            <DropdownItem 
-                              onClick={() => handleDeactivate(cleaner.id, `${cleaner.firstName} ${cleaner.lastName}`)}
-                            >
-                              Деактивировать
-                            </DropdownItem>
-                          )}
-                        </DropdownMenu>
-                      </Dropdown>
                     </TableCell>
                   </TableRow>
                 ))}

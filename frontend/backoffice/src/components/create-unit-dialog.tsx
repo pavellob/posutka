@@ -1,292 +1,220 @@
 'use client'
 
-import { useState } from 'react'
-import { Dialog, DialogTitle, DialogBody, DialogActions } from '@/components/dialog'
+import { useState, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/dialog'
 import { Button } from '@/components/button'
 import { Input } from '@/components/input'
-import { Text } from '@/components/text'
+import { Select } from '@/components/select'
+import { Fieldset, Field, Label } from '@/components/fieldset'
 import { graphqlClient } from '@/lib/graphql-client'
+import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
+import { GET_PROPERTIES_BY_ORG } from '@/lib/graphql-queries'
 
-interface CreateUnitDialogProps {
-  isOpen: boolean
+const CREATE_UNIT = `
+  mutation CreateUnit($propertyId: UUID!, $name: String!, $capacity: Int!, $beds: Int!, $bathrooms: Int!, $amenities: [String!]) {
+    createUnit(propertyId: $propertyId, name: $name, capacity: $capacity, beds: $beds, bathrooms: $bathrooms, amenities: $amenities) {
+      id
+      name
+      capacity
+      beds
+      bathrooms
+      amenities
+      property {
+        id
+        title
+      }
+    }
+  }
+`
+
+
+
+type CreateUnitDialogProps = {
+  open: boolean
   onClose: () => void
-  onSuccess: () => void
-  propertyId: string
-  propertyTitle: string
+  onSuccess?: () => void
+  propertyId?: string
 }
 
-interface UnitFormData {
-  name: string
-  capacity: number
-  beds: number
-  bathrooms: number
-  amenities: string[]
-}
-
-export function CreateUnitDialog({ isOpen, onClose, onSuccess, propertyId, propertyTitle }: CreateUnitDialogProps) {
-  const [formData, setFormData] = useState<UnitFormData>({
+export function CreateUnitDialog({ open, onClose, onSuccess, propertyId }: CreateUnitDialogProps) {
+  const [formData, setFormData] = useState({
     name: '',
-    capacity: 1,
-    beds: 1,
-    bathrooms: 1,
-    amenities: []
+    capacity: '',
+    beds: '',
+    bathrooms: '',
+    amenities: [] as string[],
+    propertyId: propertyId || '',
   })
-  const [currentAmenity, setCurrentAmenity] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  const handleInputChange = (field: keyof UnitFormData, value: string | number) => {
+  const queryClient = useQueryClient()
+  const { currentOrgId } = useCurrentOrganization()
+
+  // Получаем список объектов для выбора (только если propertyId не передан)
+  const { data: propertiesData, isLoading: propertiesLoading } = useQuery({
+    queryKey: ['properties', currentOrgId],
+    queryFn: async () => {
+      if (!currentOrgId) return []
+      const response = await graphqlClient.request(GET_PROPERTIES_BY_ORG, { orgId: currentOrgId }) as any
+      return response.propertiesByOrgId || []
+    },
+    enabled: open && !propertyId && !!currentOrgId
+  })
+
+
+  const createUnitMutation = useMutation({
+    mutationFn: async (input: any) => {
+      return await graphqlClient.request(CREATE_UNIT, input)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['units'] })
+      onSuccess?.()
+      onClose()
+      setFormData({
+        name: '',
+        capacity: '',
+        beds: '',
+        bathrooms: '',
+        amenities: [],
+        propertyId: propertyId || '',
+      })
+    },
+    onError: (error: any) => {
+      console.error('Failed to create unit:', error)
+      alert('Ошибка при создании юнита: ' + (error.message || 'Неизвестная ошибка'))
+    }
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    createUnitMutation.mutate({
+      propertyId: formData.propertyId,
+      name: formData.name,
+      capacity: parseInt(formData.capacity),
+      beds: parseInt(formData.beds),
+      bathrooms: parseInt(formData.bathrooms),
+      amenities: formData.amenities,
+    })
+  }
+
+  const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }))
-    setError(null)
   }
 
-  const addAmenity = () => {
-    if (currentAmenity.trim() && !formData.amenities.includes(currentAmenity.trim())) {
+  // Устанавливаем propertyId при открытии диалога
+  useEffect(() => {
+    if (open && propertyId) {
       setFormData(prev => ({
         ...prev,
-        amenities: [...prev.amenities, currentAmenity.trim()]
+        propertyId
       }))
-      setCurrentAmenity('')
     }
-  }
-
-  const removeAmenity = (amenityToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      amenities: prev.amenities.filter(amenity => amenity !== amenityToRemove)
-    }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!formData.name || formData.capacity < 1 || formData.beds < 1 || formData.bathrooms < 1) {
-      setError('Пожалуйста, заполните все обязательные поля корректно')
-      return
-    }
-
-    setIsSubmitting(true)
-    setError(null)
-
-    try {
-      const mutation = `
-        mutation CreateUnit($propertyId: UUID!, $name: String!, $capacity: Int!, $beds: Int!, $bathrooms: Int!, $amenities: [String!]) {
-          createUnit(propertyId: $propertyId, name: $name, capacity: $capacity, beds: $beds, bathrooms: $bathrooms, amenities: $amenities) {
-            id
-            name
-            capacity
-            beds
-            bathrooms
-            amenities
-            property {
-              id
-              title
-            }
-          }
-        }
-      `
-
-      await graphqlClient.request(mutation, {
-        propertyId,
-        name: formData.name,
-        capacity: formData.capacity,
-        beds: formData.beds,
-        bathrooms: formData.bathrooms,
-        amenities: formData.amenities
-      })
-
-      // Сброс формы
-      setFormData({
-        name: '',
-        capacity: 1,
-        beds: 1,
-        bathrooms: 1,
-        amenities: []
-      })
-      setCurrentAmenity('')
-      
-      onSuccess()
-      onClose()
-    } catch (err) {
-      console.error('Error creating unit:', err)
-      setError('Ошибка при создании единицы недвижимости. Попробуйте еще раз.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleClose = () => {
-    setFormData({
-      name: '',
-      capacity: 1,
-      beds: 1,
-      bathrooms: 1,
-      amenities: []
-    })
-    setCurrentAmenity('')
-    setError(null)
-    onClose()
-  }
+  }, [open, propertyId])
 
   return (
-    <Dialog open={isOpen} onClose={handleClose} size="lg">
-      <DialogTitle>Создать новую единицу недвижимости</DialogTitle>
-      <DialogBody>
-        <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-          Объект: <strong>{propertyTitle}</strong>
-        </Text>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Название единицы */}
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-              Название единицы *
-            </label>
-            <Input
-              id="name"
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              placeholder="Например: Номер 101, Квартира 2А, Дом 1"
-              required
-            />
-          </div>
-
-          {/* Вместимость */}
-          <div>
-            <label htmlFor="capacity" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-              Максимальная вместимость (гостей) *
-            </label>
-            <Input
-              id="capacity"
-              type="number"
-              min="1"
-              value={formData.capacity}
-              onChange={(e) => handleInputChange('capacity', parseInt(e.target.value) || 1)}
-              placeholder="2"
-              required
-            />
-          </div>
-
-          {/* Количество кроватей */}
-          <div>
-            <label htmlFor="beds" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-              Количество кроватей *
-            </label>
-            <Input
-              id="beds"
-              type="number"
-              min="1"
-              value={formData.beds}
-              onChange={(e) => handleInputChange('beds', parseInt(e.target.value) || 1)}
-              placeholder="2"
-              required
-            />
-          </div>
-
-          {/* Количество ванных комнат */}
-          <div>
-            <label htmlFor="bathrooms" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-              Количество ванных комнат *
-            </label>
-            <Input
-              id="bathrooms"
-              type="number"
-              min="1"
-              value={formData.bathrooms}
-              onChange={(e) => handleInputChange('bathrooms', parseInt(e.target.value) || 1)}
-              placeholder="1"
-              required
-            />
-          </div>
-
-          {/* Удобства */}
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-              Удобства единицы
-            </label>
-            
-            {/* Добавление нового удобства */}
-            <div className="flex gap-2 mb-3">
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>🏠 Создать юнит</DialogTitle>
+      <DialogDescription>
+        Заполните информацию о новом юните (квартире, комнате и т.д.)
+      </DialogDescription>
+      
+      <form onSubmit={handleSubmit}>
+        <DialogBody>
+          <Fieldset>
+            <Field>
+              <Label htmlFor="name">Название юнита *</Label>
               <Input
-                type="text"
-                value={currentAmenity}
-                onChange={(e) => setCurrentAmenity(e.target.value)}
-                placeholder="Например: Кондиционер, Кухня, Балкон"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addAmenity()
-                  }
-                }}
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Например: Квартира 1, Комната 101"
+                required
               />
-              <Button
-                type="button"
-                onClick={addAmenity}
-                disabled={!currentAmenity.trim()}
-                color="blue"
-              >
-                Добавить
-              </Button>
-            </div>
+            </Field>
 
-            {/* Список добавленных удобств */}
-            {formData.amenities.length > 0 && (
-              <div className="space-y-2">
-                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Добавленные удобства:
-                </Text>
-                <div className="flex flex-wrap gap-2">
-                  {formData.amenities.map((amenity, index) => (
-                    <div
-                      key={index}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-sm"
-                    >
-                      <span>{amenity}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeAmenity(amenity)}
-                        className="ml-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200"
-                      >
-                        ×
-                      </button>
-                    </div>
+            {!propertyId && (
+              <Field>
+                <Label htmlFor="propertyId">Объект недвижимости *</Label>
+                <Select
+                  id="propertyId"
+                  value={formData.propertyId}
+                  onChange={(e) => handleInputChange('propertyId', e.target.value)}
+                  required
+                  disabled={propertiesLoading}
+                >
+                  <option value="">
+                    {propertiesLoading ? 'Загрузка объектов...' : 
+                     (!propertiesData || propertiesData.length === 0) ? 'Нет объектов недвижимости' : 
+                     'Выберите объект'}
+                  </option>
+                  {Array.isArray(propertiesData) && propertiesData.length > 0 && propertiesData.map((property: any) => (
+                    <option key={property.id} value={property.id}>
+                      {property.title} - {property.address}
+                    </option>
                   ))}
-                </div>
-              </div>
+                </Select>
+              </Field>
             )}
-          </div>
 
-          {/* Ошибка */}
-          {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-              <Text className="text-red-800 dark:text-red-200">{error}</Text>
+            <div className="grid grid-cols-3 gap-4">
+              <Field>
+                <Label htmlFor="capacity">Вместимость *</Label>
+                <Input
+                  id="capacity"
+                  type="number"
+                  value={formData.capacity}
+                  onChange={(e) => handleInputChange('capacity', e.target.value)}
+                  placeholder="2"
+                  min="1"
+                  required
+                />
+              </Field>
+
+              <Field>
+                <Label htmlFor="beds">Кровати *</Label>
+                <Input
+                  id="beds"
+                  type="number"
+                  value={formData.beds}
+                  onChange={(e) => handleInputChange('beds', e.target.value)}
+                  placeholder="1"
+                  min="0"
+                  required
+                />
+              </Field>
+
+              <Field>
+                <Label htmlFor="bathrooms">Ванные комнаты *</Label>
+                <Input
+                  id="bathrooms"
+                  type="number"
+                  value={formData.bathrooms}
+                  onChange={(e) => handleInputChange('bathrooms', e.target.value)}
+                  placeholder="1"
+                  min="0"
+                  required
+                />
+              </Field>
             </div>
-          )}
+          </Fieldset>
+        </DialogBody>
 
-          {/* Кнопки действий */}
-          <DialogActions>
-            <Button
-              type="button"
-              onClick={handleClose}
-              outline
-              disabled={isSubmitting}
-            >
-              Отмена
-            </Button>
-            <Button
-              type="submit"
-              color="green"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Создание...' : 'Создать единицу'}
-            </Button>
-          </DialogActions>
-        </form>
-      </DialogBody>
+        <DialogActions>
+          <Button outline onClick={onClose} disabled={createUnitMutation.isPending}>
+            Отмена
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={createUnitMutation.isPending || propertiesLoading || !formData.name || !formData.capacity || !formData.beds || !formData.bathrooms || !formData.propertyId}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            {createUnitMutation.isPending ? 'Создаем...' : '🏠 Создать юнит'}
+          </Button>
+        </DialogActions>
+      </form>
     </Dialog>
   )
 }

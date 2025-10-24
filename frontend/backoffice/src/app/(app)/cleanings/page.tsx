@@ -10,7 +10,7 @@ import { Button } from '@/components/button'
 import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@/components/table'
 import { Select } from '@/components/select'
 import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
-import { Squares2X2Icon, TableCellsIcon, ViewColumnsIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline'
+import { Squares2X2Icon, TableCellsIcon, ViewColumnsIcon, EllipsisVerticalIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { ScheduleCleaningDialog } from '@/components/schedule-cleaning-dialog'
@@ -21,6 +21,7 @@ import { CleanerDetailsDialog } from '@/components/cleaner-details-dialog'
 import { EditCleanerDialog } from '@/components/edit-cleaner-dialog'
 import { CleaningCard } from '@/components/cleaning-card'
 import { CleaningKanbanBoard } from '@/components/cleaning-kanban-board'
+import { CreateChecklistDialog } from '@/components/create-checklist-dialog'
 import { 
   GET_CLEANINGS, 
   GET_CLEANERS,
@@ -52,6 +53,7 @@ function CleaningsPageContent() {
   const [isCleanerDetailsDialogOpen, setIsCleanerDetailsDialogOpen] = useState(false)
   const [isEditCleanerDialogOpen, setIsEditCleanerDialogOpen] = useState(false)
   const [selectedCleanerId, setSelectedCleanerId] = useState<string | null>(null)
+  const [isCreateChecklistDialogOpen, setIsCreateChecklistDialogOpen] = useState(false)
   
   const queryClient = useQueryClient()
   const { currentOrgId, isLoading: orgLoading } = useCurrentOrganization()
@@ -727,34 +729,77 @@ function CleaningsPageContent() {
       {activeTab === 'templates' && (
         <div className="max-w-6xl mx-auto py-8">
           <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
-            <Heading level={2} className="mb-6">Темплейты чеклистов</Heading>
-            <Text className="text-zinc-600 dark:text-zinc-400 mb-6">
-              Каждый юнит имеет свой темплейт чеклиста. Перейдите на страницу юнита для редактирования.
-            </Text>
+            {/* Header with Create Checklist button */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+              <div className="flex-1">
+                <Heading level={2} className="mb-2">Темплейты чеклистов</Heading>
+                <Text className="text-zinc-600 dark:text-zinc-400">
+                  Управление чеклистами для каждого юнита. Создайте или отредактируйте чеклист для конкретного юнита.
+                </Text>
+              </div>
+              <Button 
+                onClick={() => setIsCreateChecklistDialogOpen(true)}
+                className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                <PlusIcon className="w-5 h-5 mr-2" />
+                <span className="hidden sm:inline">📋 Создать чеклист</span>
+                <span className="sm:hidden">📋 Создать</span>
+              </Button>
+            </div>
             
             {/* Список юнитов с темплейтами */}
             <div className="space-y-4">
-              {allUnits.map((unit: any) => (
-                <button
-                  key={unit.id}
-                  onClick={() => router.push(`/inventory/units/${unit.id}?tab=checklist`)}
-                  className="w-full text-left bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Text className="font-medium text-zinc-900 dark:text-white">
-                        {unit.property?.title || 'Без объекта'}
-                      </Text>
-                      <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                        {unit.name}
-                      </Text>
-                    </div>
-                    <Text className="text-sm text-blue-600 dark:text-blue-400">
-                      Редактировать чеклист →
-                    </Text>
+              {allUnits.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full mb-4">
+                    <svg className="w-8 h-8 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
                   </div>
-                </button>
-              ))}
+                  <Heading level={3} className="mb-2">Нет юнитов</Heading>
+                  <Text className="text-zinc-600 dark:text-zinc-400 mb-4">
+                    Сначала создайте юниты в разделе "Объекты недвижимости"
+                  </Text>
+                  <Button
+                    onClick={() => router.push('/inventory')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Перейти к объектам
+                  </Button>
+                </div>
+              ) : (
+                allUnits.map((unit: any) => (
+                  <button
+                    key={unit.id}
+                    onClick={() => router.push(`/inventory/units/${unit.id}?tab=checklist`)}
+                    className="w-full text-left bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-200 hover:shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <Text className="font-medium text-zinc-900 dark:text-white mb-1">
+                          {unit.name}
+                        </Text>
+                        <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                          {unit.property?.title || 'Без объекта'}
+                        </Text>
+                        {unit.property?.address && (
+                          <Text className="text-xs text-zinc-500 dark:text-zinc-500 mt-1">
+                            {unit.property.address}
+                          </Text>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Text className="text-sm text-blue-600 dark:text-blue-400">
+                          Редактировать чеклист
+                        </Text>
+                        <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -817,6 +862,15 @@ function CleaningsPageContent() {
           setSelectedCleanerId(null)
         }}
         cleanerId={selectedCleanerId}
+      />
+
+      <CreateChecklistDialog
+        open={isCreateChecklistDialogOpen}
+        onClose={() => setIsCreateChecklistDialogOpen(false)}
+        onSuccess={() => {
+          setIsCreateChecklistDialogOpen(false)
+          // Обновляем данные
+        }}
       />
     </div>
   )

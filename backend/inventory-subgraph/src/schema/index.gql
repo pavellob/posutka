@@ -111,7 +111,7 @@ type Query {
 type Mutation {
   """Создать новый объект недвижимости"""
   createProperty(
-    orgId: UUID!
+    orgId: String!
     title: String!
     address: String!
     amenities: [String!]
@@ -343,6 +343,12 @@ type Property {
   yandexBuildingId: String
   """ID дома в Яндекс.Недвижимости"""
   yandexHouseId: String
+  
+  # Метаданные
+  """Дата создания объекта"""
+  createdAt: DateTime!
+  """Дата последнего обновления объекта"""
+  updatedAt: DateTime!
 }
 
 """

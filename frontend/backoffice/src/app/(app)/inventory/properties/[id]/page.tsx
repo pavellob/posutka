@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heading, Subheading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Button } from '@/components/button'
@@ -10,12 +10,14 @@ import { Divider } from '@/components/divider'
 import { graphqlClient } from '@/lib/graphql-client'
 import { GET_PROPERTY_BY_ID, GET_UNITS_BY_PROPERTY } from '@/lib/graphql-queries'
 import { useRouter } from 'next/navigation'
+import { CreateUnitDialog } from '@/components/create-unit-dialog'
 import { 
   ArrowLeftIcon,
   HomeIcon,
   MapPinIcon,
   BuildingOfficeIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline'
 
 type PropertyDetailsPageProps = {
@@ -28,6 +30,8 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
   const params = use(props.params)
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'details' | 'units'>('details')
+  const [isCreateUnitDialogOpen, setIsCreateUnitDialogOpen] = useState(false)
+  const queryClient = useQueryClient()
 
   const { data: propertyData, isLoading: propertyLoading } = useQuery({
     queryKey: ['property', params.id],
@@ -468,6 +472,24 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
 
       {activeTab === 'units' && (
         <div>
+          {/* Header with Create Unit button */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div className="flex-1">
+              <Subheading>Юниты в объекте</Subheading>
+              <Text className="text-zinc-600 dark:text-zinc-400">
+                Управление юнитами в объекте "{propertyData.title}"
+              </Text>
+            </div>
+            <Button 
+              onClick={() => setIsCreateUnitDialogOpen(true)}
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <PlusIcon className="w-5 h-5 mr-2" />
+              <span className="hidden sm:inline">Создать юнит</span>
+              <span className="sm:hidden">Создать</span>
+            </Button>
+          </div>
+
           {unitsLoading && (
             <div className="flex items-center justify-center py-12">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -480,9 +502,16 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
                 <HomeIcon className="w-8 h-8 text-zinc-400" />
               </div>
               <Subheading className="mb-2">Нет юнитов</Subheading>
-              <Text className="text-zinc-600 dark:text-zinc-400">
+              <Text className="text-zinc-600 dark:text-zinc-400 mb-4">
                 В этом объекте пока не добавлено ни одного юнита
               </Text>
+              <Button 
+                onClick={() => setIsCreateUnitDialogOpen(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                <PlusIcon className="w-5 h-5 mr-2" />
+                Создать первый юнит
+              </Button>
             </div>
           )}
 
@@ -555,6 +584,16 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
           )}
         </div>
       )}
+
+      {/* Create Unit Dialog */}
+      <CreateUnitDialog
+        open={isCreateUnitDialogOpen}
+        onClose={() => setIsCreateUnitDialogOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['units', params.id] })
+        }}
+        propertyId={params.id}
+      />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
@@ -13,7 +14,6 @@ import {
   TableHeader, 
   TableCell 
 } from '@/components/table'
-import { EditUserDialog } from '@/components/edit-user-dialog'
 import { CreateUserDialog } from '@/components/create-user-dialog'
 import { graphqlRequest } from '@/lib/graphql-wrapper'
 import { gql } from 'graphql-request'
@@ -66,12 +66,16 @@ export default function IAMPage() {
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedUser, setSelectedUser] = useState<any>(null)
-  const [showEditDialog, setShowEditDialog] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const router = useRouter()
   
   // Получаем текущую организацию
   const { currentOrgId } = useCurrentOrganization()
+
+  // Обработчик клика для перехода на карточку пользователя
+  const handleUserClick = (userId: string) => {
+    router.push(`/iam/${userId}`)
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -109,17 +113,7 @@ export default function IAMPage() {
     }
   }, [currentOrgId, fetchData])
 
-  const handleEditUser = (user: any) => {
-    setSelectedUser(user)
-    setShowEditDialog(true)
-  }
 
-  const handleEditSuccess = () => {
-    setShowEditDialog(false)
-    setSelectedUser(null)
-    // Перезагружаем данные
-    fetchData()
-  }
 
   if (loading) {
     return (
@@ -234,14 +228,15 @@ export default function IAMPage() {
                 <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Дата создания
                 </TableHeader>
-                <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Действия
-                </TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
               {users.map((user) => (
-                <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150">
+                <TableRow 
+                  key={user.id} 
+                  className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150 cursor-pointer"
+                  onClick={() => handleUserClick(user.id)}
+                >
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
@@ -310,29 +305,6 @@ export default function IAMPage() {
                       })}
                     </Text>
                   </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={() => handleEditUser(user)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600 text-sm px-3 py-1"
-                      >
-                        Редактировать
-                      </Button>
-                      {user.isLocked ? (
-                        <Button 
-                          className="bg-green-500 hover:bg-green-600 text-white border-green-600 text-sm px-3 py-1"
-                        >
-                          Разблокировать
-                        </Button>
-                      ) : (
-                        <Button 
-                          className="bg-red-500 hover:bg-red-600 text-white border-red-600 text-sm px-3 py-1"
-                        >
-                          Заблокировать
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -351,16 +323,6 @@ export default function IAMPage() {
         }}
       />
 
-      {/* Диалог редактирования пользователя */}
-      <EditUserDialog
-        isOpen={showEditDialog}
-        onClose={() => {
-          setShowEditDialog(false)
-          setSelectedUser(null)
-        }}
-        user={selectedUser}
-        onSuccess={handleEditSuccess}
-      />
     </div>
   )
 }

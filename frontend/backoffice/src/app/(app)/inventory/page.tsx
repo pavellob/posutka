@@ -19,7 +19,8 @@ import { useGetPropertiesByOrgQuery, useGetUnitsByPropertyQuery, useGetAllOrgani
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
-import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline'
+import { CreatePropertyDialog } from '@/components/create-property-dialog'
+import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 // Компонент карточки объекта недвижимости
 function PropertyCard({ property, onEdit, onView }: { property: Property; onEdit: (property: Property) => void; onView: (property: Property) => void }) {
@@ -812,6 +813,9 @@ export default function InventoryPage() {
   const [editingProperty, setEditingProperty] = useState<Property | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   
+  // Состояние для диалогов создания
+  const [isCreatePropertyDialogOpen, setIsCreatePropertyDialogOpen] = useState(false)
+  
   const queryClient = useQueryClient()
 
   // Получаем текущую организацию пользователя
@@ -1001,41 +1005,20 @@ export default function InventoryPage() {
 
     return (
       <div className="space-y-6">
-      {/* Заголовок с улучшенным дизайном */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-8 border border-blue-100 dark:border-blue-800">
-        <div className="flex items-center space-x-4">
-          <div className="flex-shrink-0">
-            <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5v10h10V11a2 2 0 00-2-2H7a2 2 0 00-2 2v10z" />
-              </svg>
-        </div>
-      </div>
-          <div className="flex-1">
-            <Heading level={1} className="text-2xl font-bold text-gray-900 dark:text-white">
-              Управление объектами недвижимости
-            </Heading>
-            <Text className="mt-2 text-gray-600 dark:text-gray-300 text-lg">
-              Полное управление объектами с поддержкой формата Яндекс.Недвижимости
-        </Text>
-            <div className="mt-3 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-              <div className="flex items-center space-x-1">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span>Яндекс.Недвижимость</span>
-      </div>
-              <div className="flex items-center space-x-1">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                </svg>
-                <span>Детальная информация</span>
-            </div>
-          </div>
-        </div>
-            </div>
-        </div>
 
+        {/* Кнопки создания */}
+        <div className="flex flex-wrap gap-3">
+          <Button
+            onClick={() => setIsCreatePropertyDialogOpen(true)}
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            <span className="hidden sm:inline">🏢 Создать объект</span>
+            <span className="sm:hidden">🏢 Объект</span>
+          </Button>
+          
+          
+        </div>
 
       {/* Фильтры с улучшенным дизайном */}
       <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
@@ -1367,6 +1350,19 @@ export default function InventoryPage() {
           property={editingProperty}
         />
       )}
+
+      {/* Диалоги создания */}
+      <CreatePropertyDialog
+        open={isCreatePropertyDialogOpen}
+        onClose={() => setIsCreatePropertyDialogOpen(false)}
+        onSuccess={() => {
+          setIsCreatePropertyDialogOpen(false)
+          // Обновляем данные
+        }}
+        orgId={orgId || ''}
+      />
+
+
     </div>
   )
 }

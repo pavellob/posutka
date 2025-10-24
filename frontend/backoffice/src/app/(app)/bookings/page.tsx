@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
@@ -44,6 +45,7 @@ type Property = NonNullable<GetPropertiesByOrgQuery['propertiesByOrgId'][0]>
 type Unit = NonNullable<GetUnitsByPropertyQuery['unitsByPropertyId'][0]>
 
 export default function BookingsPage() {
+  const router = useRouter()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [selectedProperty, setSelectedProperty] = useState('')
   const [selectedUnit, setSelectedUnit] = useState('')
@@ -70,6 +72,11 @@ export default function BookingsPage() {
   const [componentKey, setComponentKey] = useState(0)
   
   const queryClient = useQueryClient()
+
+  // Обработчик клика для перехода на карточку бронирования
+  const handleBookingClick = (bookingId: string) => {
+    router.push(`/bookings/${bookingId}`)
+  }
 
   // Получаем текущую организацию пользователя
   const { currentOrganization, currentOrgId, isLoading: orgLoading } = useCurrentOrganization()
@@ -545,7 +552,11 @@ export default function BookingsPage() {
             </TableHead>
             <TableBody>
               {bookings.map((booking) => (
-                <TableRow key={booking.id}>
+                <TableRow 
+                  key={booking.id}
+                  className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150 cursor-pointer"
+                  onClick={() => handleBookingClick(booking.id)}
+                >
                   <TableCell>
                     <div>
                       <Text className="font-medium">{booking.guest.name}</Text>
