@@ -1,6 +1,6 @@
 import type { Context } from '../context.js';
 import { createGraphQLLogger } from '@repo/shared-logger';
-import { notificationClient } from '../services/notification-client.js';
+// import { notificationClient } from '../services/notification-client.js'; // 🔴 ОТКЛЮЧЕНО - используем Event Bus
 
 const logger = createGraphQLLogger('cleaning-subgraph-resolvers');
 
@@ -108,7 +108,64 @@ export const resolvers = {
       
       logger.info('✅ Unit found', { unitId: unit.id, unitName: unit.name, preferredCleanersCount: unit.preferredCleaners.length });
       
-      // Если уборщик УЖЕ назначен - отправляем уведомление ему
+      // 🎯 НОВАЯ ЛОГИКА: Публикуем событие вместо прямого вызова
+      try {
+        const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
+        const targetUserIds: string[] = [];
+        
+        if (cleaning.cleanerId) {
+          // Если уборщик назначен
+          const cleaner = await prisma.cleaner.findUnique({
+            where: { id: cleaning.cleanerId }
+          });
+          const targetUserId = cleaner?.userId || cleaner?.id;
+          if (targetUserId) {
+            targetUserIds.push(targetUserId);
+          }
+        } else {
+          // Если уборщик НЕ назначен - уведомляем всех preferred cleaners
+          for (const pref of unit.preferredCleaners) {
+            const targetUserId = pref.cleaner.userId || pref.cleaner.id;
+            if (targetUserId) {
+              targetUserIds.push(targetUserId);
+            }
+          }
+        }
+        
+        // Публикуем событие в Event Bus
+        await prisma.event.create({
+          data: {
+            type: cleaning.cleanerId ? 'CLEANING_ASSIGNED' : 'CLEANING_SCHEDULED',
+            sourceSubgraph: 'cleaning-subgraph',
+            entityType: 'Cleaning',
+            entityId: cleaning.id,
+            orgId: cleaning.orgId || null,
+            actorUserId: null, // TODO: получить из context
+            targetUserIds,
+            payload: {
+              cleaningId: cleaning.id,
+              unitId: cleaning.unitId,
+              unitName,
+              scheduledAt: cleaning.scheduledAt,
+              cleanerId: cleaning.cleanerId || null,
+              requiresLinenChange: cleaning.requiresLinenChange
+            },
+            status: 'PENDING'
+          }
+        });
+        
+        logger.info('✅ Event published', { 
+          cleaningId: cleaning.id,
+          eventType: cleaning.cleanerId ? 'CLEANING_ASSIGNED' : 'CLEANING_SCHEDULED',
+          targetUserIds
+        });
+      } catch (error: any) {
+        logger.error('❌ Failed to publish event', { error: error.message });
+        // Не прерываем основной flow
+      }
+      
+      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
+      /*
       if (cleaning.cleanerId) {
         try {
           logger.info('🔔 Sending ASSIGNED notification to specific cleaner', { cleanerId: cleaning.cleanerId });
@@ -259,6 +316,7 @@ export const resolvers = {
           sentTo: unit.preferredCleaners.length 
         });
       }
+      */
       
       return cleaning;
     },
@@ -267,6 +325,8 @@ export const resolvers = {
       logger.info('Starting cleaning', { id });
       const cleaning = await dl.startCleaning(id);
       
+      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
+      /*
       // Отправляем уведомление уборщику о начале
       try {
         if (!cleaning.cleanerId) {
@@ -312,6 +372,7 @@ export const resolvers = {
       } catch (error) {
         logger.error('Failed to send start notification:', error);
       }
+      */
       
       return cleaning;
     },
@@ -320,6 +381,8 @@ export const resolvers = {
       logger.info('Completing cleaning', { id, input });
       const cleaning = await dl.completeCleaning(id, input);
       
+      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
+      /*
       // Отправляем уведомление уборщику о завершении
       try {
         if (!cleaning.cleanerId) {
@@ -361,6 +424,7 @@ export const resolvers = {
       } catch (error) {
         logger.error('Failed to send completion notification:', error);
       }
+      */
       
       return cleaning;
     },
@@ -393,6 +457,8 @@ export const resolvers = {
         cleanerName: `${currentCleaner.firstName} ${currentCleaner.lastName}`
       });
       
+      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
+      /*
       // Отправляем подтверждающее уведомление
       try {
         const unit = await prisma.unit.findUnique({
@@ -422,6 +488,7 @@ export const resolvers = {
       } catch (error) {
         logger.error('Failed to send assignment confirmation:', error);
       }
+      */
       
       return cleaning;
     },
@@ -435,6 +502,8 @@ export const resolvers = {
       logger.info('Cancelling cleaning', { id, reason });
       const cleaning = await dl.cancelCleaning(id, reason);
       
+      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
+      /*
       // Отправляем уведомление об отмене
       try {
         if (!cleaning.cleanerId) {
@@ -470,6 +539,7 @@ export const resolvers = {
       } catch (error) {
         logger.error('Failed to send cancellation notification:', error);
       }
+      */
       
       return cleaning;
     },

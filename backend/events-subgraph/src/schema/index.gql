@@ -1,0 +1,270 @@
+# Events Subgraph - Централизованная шина событий
+# Отвечает за прием, хранение и маршрутизацию событий из всех subgraphs
+
+scalar UUID
+scalar DateTime
+scalar JSON
+
+"""
+Тип события в системе.
+"""
+enum EventType {
+  # Cleaning Events
+  CLEANING_SCHEDULED
+  CLEANING_ASSIGNED
+  CLEANING_STARTED
+  CLEANING_COMPLETED
+  CLEANING_CANCELLED
+  
+  # Booking Events
+  BOOKING_CREATED
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOKING_CHECKIN
+  BOOKING_CHECKOUT
+  
+  # Task Events
+  TASK_CREATED
+  TASK_ASSIGNED
+  TASK_STATUS_CHANGED
+  TASK_COMPLETED
+  
+  # User Events
+  USER_CREATED
+  USER_UPDATED
+  USER_LOCKED
+  USER_UNLOCKED
+  
+  # Organization Events
+  ORG_CREATED
+  ORG_UPDATED
+  MEMBER_ADDED
+  MEMBER_REMOVED
+}
+
+"""
+Статус обработки события.
+"""
+enum EventStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+  CANCELLED
+}
+
+"""
+Тип обработчика события.
+"""
+enum HandlerType {
+  NOTIFICATION
+  ANALYTICS
+  AUDIT
+  WEBHOOK
+  CUSTOM
+}
+
+"""
+Событие в системе.
+Представляет любое значимое действие в системе.
+"""
+type Event {
+  """Уникальный идентификатор события"""
+  id: UUID!
+  """Тип события"""
+  type: EventType!
+  """Исходный subgraph"""
+  sourceSubgraph: String!
+  """Тип сущности"""
+  entityType: String!
+  """ID сущности"""
+  entityId: UUID!
+  """ID организации (контекст)"""
+  orgId: String
+  
+  """Пользователь-инициатор"""
+  actorUserId: UUID
+  """Затронутые пользователи"""
+  targetUserIds: [UUID!]!
+  
+  """Данные события"""
+  payload: JSON!
+  """Дополнительные метаданные"""
+  metadata: JSON
+  
+  """Статус обработки"""
+  status: EventStatus!
+  """Время обработки"""
+  processedAt: DateTime
+  """Время создания"""
+  createdAt: DateTime!
+  
+  """Связанные уведомления"""
+  notifications: [EventNotificationLink!]!
+}
+
+"""
+Связь события с уведомлением.
+"""
+type EventNotificationLink {
+  """ID связи"""
+  id: UUID!
+  """ID события"""
+  eventId: UUID!
+  """ID уведомления"""
+  notificationId: UUID!
+  """Время создания связи"""
+  createdAt: DateTime!
+}
+
+"""
+Подписка на события.
+Определяет, какой обработчик получает какие события.
+"""
+type EventSubscription {
+  """ID подписки"""
+  id: UUID!
+  """Тип обработчика"""
+  handlerType: HandlerType!
+  """Типы событий для обработки"""
+  eventTypes: [EventType!]!
+  """URL для webhook (опционально)"""
+  targetUrl: String
+  """Активна ли подписка"""
+  isActive: Boolean!
+  """Конфигурация обработчика"""
+  config: JSON
+  """Время создания"""
+  createdAt: DateTime!
+}
+
+"""
+Соединение событий с пагинацией.
+"""
+type EventConnection {
+  edges: [EventEdge!]!
+  pageInfo: PageInfo!
+}
+
+type EventEdge {
+  node: Event!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+  totalCount: Int
+}
+
+"""
+Статистика событий.
+"""
+type EventStats {
+  """Всего событий"""
+  totalEvents: Int!
+  """Обработано"""
+  processedEvents: Int!
+  """Ошибки"""
+  failedEvents: Int!
+  """События по типам"""
+  eventsByType: [EventTypeStats!]!
+}
+
+type EventTypeStats {
+  type: EventType!
+  count: Int!
+}
+
+"""
+Входные данные для публикации события.
+"""
+input PublishEventInput {
+  """Тип события"""
+  type: EventType!
+  """Исходный subgraph"""
+  sourceSubgraph: String!
+  """Тип сущности"""
+  entityType: String!
+  """ID сущности"""
+  entityId: UUID!
+  """ID организации"""
+  orgId: String
+  
+  """Пользователь-инициатор"""
+  actorUserId: UUID
+  """Затронутые пользователи"""
+  targetUserIds: [UUID!]!
+  
+  """Данные события"""
+  payload: JSON!
+  """Метаданные"""
+  metadata: JSON
+}
+
+"""
+Входные данные для создания подписки.
+"""
+input CreateSubscriptionInput {
+  """Тип обработчика"""
+  handlerType: HandlerType!
+  """Типы событий"""
+  eventTypes: [EventType!]!
+  """URL для webhook"""
+  targetUrl: String
+  """Конфигурация"""
+  config: JSON
+}
+
+type Query {
+  """Получить событие по ID"""
+  event(id: UUID!): Event
+  
+  """Список событий с фильтрацией"""
+  events(
+    type: EventType
+    entityType: String
+    entityId: UUID
+    orgId: String
+    userId: UUID
+    status: EventStatus
+    first: Int
+    after: String
+  ): EventConnection!
+  
+  """Статистика событий"""
+  eventStats(
+    from: DateTime
+    to: DateTime
+    orgId: String
+  ): EventStats!
+  
+  """Получить подписку"""
+  subscription(id: UUID!): EventSubscription
+  
+  """Список подписок"""
+  subscriptions(
+    handlerType: HandlerType
+    isActive: Boolean
+  ): [EventSubscription!]!
+}
+
+type Mutation {
+  """Опубликовать событие"""
+  publishEvent(input: PublishEventInput!): Event!
+  
+  """Создать подписку"""
+  createSubscription(input: CreateSubscriptionInput!): EventSubscription!
+  
+  """Обновить подписку"""
+  updateSubscription(id: UUID!, input: CreateSubscriptionInput!): EventSubscription!
+  
+  """Удалить подписку"""
+  deleteSubscription(id: UUID!): Boolean!
+  
+  """Переотправить событие (replay)"""
+  replayEvent(id: UUID!): Event!
+}
+

@@ -396,8 +396,12 @@ export const resolvers: any = {
       try {
         logger.info('Locking user', { userId, reason });
         
-        // В реальной системе здесь была бы логика блокировки
-        logger.info('User locked successfully', { userId });
+        await dl.updateUser(userId, { 
+          isLocked: true,
+          status: 'SUSPENDED'
+        });
+        
+        logger.info('User locked successfully', { userId, reason });
         return true;
       } catch (error: any) {
         logger.error('Failed to lock user', { error: error.message, userId });
@@ -410,7 +414,11 @@ export const resolvers: any = {
       try {
         logger.info('Unlocking user', { userId });
         
-        // В реальной системе здесь была бы логика разблокировки
+        await dl.updateUser(userId, { 
+          isLocked: false,
+          status: 'ACTIVE'
+        });
+        
         logger.info('User unlocked successfully', { userId });
         return true;
       } catch (error: any) {

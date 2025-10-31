@@ -1,0 +1,28 @@
+{
+  "name": "events-subgraph",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@apollo/subgraph": "^2.9.6",
+    "@repo/datalayer": "workspace:*",
+    "@repo/datalayer-prisma": "workspace:*",
+    "@repo/grpc-sdk": "workspace:*",
+    "@repo/shared-logger": "workspace:*",
+    "graphql": "^16.9.0",
+    "graphql-yoga": "^5.15.2",
+    "nice-grpc": "^2.1.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
+

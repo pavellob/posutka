@@ -8,6 +8,8 @@ export interface User {
   id: UUID;
   email: string;
   name?: string;
+  phoneNumber?: string | null;
+  emailVerified?: boolean;
   password?: string;
   systemRoles?: string[];
   status?: string;

@@ -368,6 +368,8 @@ model User {
   id                     String                      @id @default(cuid())
   email                  String                      @unique
   name                   String?
+  phoneNumber            String?
+  emailVerified          Boolean                     @default(false)
   password               String?                     @default("")
   systemRoles            String[]                    @default(["USER"])
   status                 String                      @default("ACTIVE")
@@ -616,6 +618,7 @@ enum CleaningDocumentType {
 
 model Notification {
   id               String                 @id @default(cuid())
+  eventId          String?                // Ссылка на Event (NEW!)
   orgId            String?
   userId           String?                // Основной получатель (User ID)
   eventType        String
@@ -634,7 +637,9 @@ model Notification {
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   deliveryStatuses NotificationDelivery[]
+  eventLinks       EventNotification[]    // Связь с Events (NEW! many-to-many)
 
+  @@index([eventId])
   @@index([orgId])
   @@index([userId])
   @@index([status])
@@ -732,4 +737,116 @@ enum NotificationPriority {
   NORMAL
   HIGH
   URGENT
+}
+
+// ============================================
+// EVENT BUS MODELS
+// ============================================
+
+model Event {
+  id             String       @id @default(cuid())
+  type           EventType
+  sourceSubgraph String       // cleaning-subgraph, bookings-subgraph...
+  entityType     String       // Cleaning, Booking, Task...
+  entityId       String       // ID сущности
+  orgId          String?      // Контекст организации
+  
+  // Участники события
+  actorUserId    String?      // Кто инициировал
+  targetUserIds  String[]     // Кто затронут (массив)
+  
+  // Данные события
+  payload        Json         // Полные данные события
+  metadata       Json?        // Дополнительные метаданные
+  
+  status         EventStatus  @default(PENDING)
+  processedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  
+  // Связи
+  notifications  EventNotification[]
+  
+  @@index([type])
+  @@index([entityType, entityId])
+  @@index([orgId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model EventSubscription {
+  id          String      @id @default(cuid())
+  handlerType HandlerType // NOTIFICATION, ANALYTICS, AUDIT, WEBHOOK...
+  eventTypes  String[]    // [CLEANING_SCHEDULED, BOOKING_CREATED...]
+  targetUrl   String?     // Для WEBHOOK
+  isActive    Boolean     @default(true)
+  config      Json?       // Дополнительная конфигурация
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@index([handlerType])
+  @@index([isActive])
+}
+
+model EventNotification {
+  id             String   @id @default(cuid())
+  eventId        String
+  notificationId String
+  createdAt      DateTime @default(now())
+  
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  
+  @@unique([eventId, notificationId])
+  @@index([eventId])
+  @@index([notificationId])
+}
+
+enum EventType {
+  // Cleaning
+  CLEANING_SCHEDULED
+  CLEANING_ASSIGNED
+  CLEANING_STARTED
+  CLEANING_COMPLETED
+  CLEANING_CANCELLED
+  
+  // Booking
+  BOOKING_CREATED
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOKING_CHECKIN
+  BOOKING_CHECKOUT
+  
+  // Task
+  TASK_CREATED
+  TASK_ASSIGNED
+  TASK_STATUS_CHANGED
+  TASK_COMPLETED
+  
+  // User
+  USER_CREATED
+  USER_UPDATED
+  USER_LOCKED
+  USER_UNLOCKED
+  
+  // Organization
+  ORG_CREATED
+  ORG_UPDATED
+  MEMBER_ADDED
+  MEMBER_REMOVED
+}
+
+enum EventStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+  CANCELLED
+}
+
+enum HandlerType {
+  NOTIFICATION
+  ANALYTICS
+  AUDIT
+  WEBHOOK
+  CUSTOM
 }

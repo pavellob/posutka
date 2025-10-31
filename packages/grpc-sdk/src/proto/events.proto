@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package events;
+
+// Сервис для публикации и обработки событий
+service EventsService {
+  // Опубликовать событие
+  rpc PublishEvent (PublishEventRequest) returns (PublishEventResponse);
+  
+  // Пакетная публикация событий
+  rpc PublishBulkEvents (PublishBulkEventsRequest) returns (PublishBulkEventsResponse);
+  
+  // Получить статус обработки события
+  rpc GetEventStatus (GetEventStatusRequest) returns (GetEventStatusResponse);
+}
+
+// Тип события
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  
+  // Cleaning
+  EVENT_TYPE_CLEANING_SCHEDULED = 1;
+  EVENT_TYPE_CLEANING_ASSIGNED = 2;
+  EVENT_TYPE_CLEANING_STARTED = 3;
+  EVENT_TYPE_CLEANING_COMPLETED = 4;
+  EVENT_TYPE_CLEANING_CANCELLED = 5;
+  
+  // Booking
+  EVENT_TYPE_BOOKING_CREATED = 10;
+  EVENT_TYPE_BOOKING_CONFIRMED = 11;
+  EVENT_TYPE_BOOKING_CANCELLED = 12;
+  EVENT_TYPE_BOOKING_CHECKIN = 13;
+  EVENT_TYPE_BOOKING_CHECKOUT = 14;
+  
+  // Task
+  EVENT_TYPE_TASK_CREATED = 20;
+  EVENT_TYPE_TASK_ASSIGNED = 21;
+  EVENT_TYPE_TASK_STATUS_CHANGED = 22;
+  EVENT_TYPE_TASK_COMPLETED = 23;
+  
+  // User
+  EVENT_TYPE_USER_CREATED = 30;
+  EVENT_TYPE_USER_UPDATED = 31;
+  EVENT_TYPE_USER_LOCKED = 32;
+  EVENT_TYPE_USER_UNLOCKED = 33;
+}
+
+// Статус события
+enum EventStatus {
+  EVENT_STATUS_UNSPECIFIED = 0;
+  EVENT_STATUS_PENDING = 1;
+  EVENT_STATUS_PROCESSING = 2;
+  EVENT_STATUS_PROCESSED = 3;
+  EVENT_STATUS_FAILED = 4;
+  EVENT_STATUS_CANCELLED = 5;
+}
+
+// Запрос на публикацию события
+message PublishEventRequest {
+  EventType event_type = 1;
+  string source_subgraph = 2;
+  string entity_type = 3;
+  string entity_id = 4;
+  optional string org_id = 5;
+  
+  optional string actor_user_id = 6;
+  repeated string target_user_ids = 7;
+  
+  string payload_json = 8;  // JSON строка
+  optional string metadata_json = 9;
+}
+
+// Ответ на публикацию события
+message PublishEventResponse {
+  string event_id = 1;
+  EventStatus status = 2;
+  string created_at = 3;
+}
+
+// Пакетная публикация
+message PublishBulkEventsRequest {
+  repeated PublishEventRequest events = 1;
+}
+
+message PublishBulkEventsResponse {
+  repeated PublishEventResponse results = 1;
+  int32 success_count = 2;
+  int32 failed_count = 3;
+}
+
+// Получение статуса
+message GetEventStatusRequest {
+  string event_id = 1;
+}
+
+message GetEventStatusResponse {
+  string event_id = 1;
+  EventStatus status = 2;
+  optional string processed_at = 3;
+  optional string error = 4;
+}
+

@@ -211,6 +211,8 @@ export class IdentityDLPrisma implements IIdentityDL {
       id: user.id,
       email: user.email,
       name: user.name,
+      phoneNumber: user.phoneNumber || null,
+      emailVerified: user.emailVerified || false,
       password: user.password,
       systemRoles: user.systemRoles || ['USER'],
       status: user.status || 'ACTIVE',

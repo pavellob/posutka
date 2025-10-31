@@ -45,15 +45,6 @@ export function CreatePropertyDialog({ open, onClose, onSuccess, orgId }: Create
 
   const createPropertyMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log('Creating property with data:', {
-        orgId,
-        title: data.title,
-        address: data.address,
-        propertyType: data.propertyType || null,
-        category: data.category || null,
-        isElite: data.isElite
-      })
-      
       const variables: any = {
         orgId,
         title: data.title,

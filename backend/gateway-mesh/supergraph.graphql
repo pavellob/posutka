@@ -762,6 +762,10 @@ type Property @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: INVENTORY
   yandexBuildingId: String @join__field(graph: INVENTORY_SUBGRAPH)
   """ID дома в Яндекс.Недвижимости"""
   yandexHouseId: String @join__field(graph: INVENTORY_SUBGRAPH)
+  """Дата создания объекта"""
+  createdAt: DateTime! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Дата последнего обновления объекта"""
+  updatedAt: DateTime! @join__field(graph: INVENTORY_SUBGRAPH)
 }
 
 """
@@ -901,6 +905,18 @@ type User @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBG
   email: String! @join__field(graph: IDENTITY_SUBGRAPH)
   """Полное имя пользователя (опционально)"""
   name: String @join__field(graph: IDENTITY_SUBGRAPH)
+  """Номер телефона"""
+  phoneNumber: String @join__field(graph: IDENTITY_SUBGRAPH)
+  """Email подтвержден"""
+  emailVerified: Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Статус пользователя"""
+  status: UserStatus! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Системные роли пользователя"""
+  systemRoles: [SystemRole!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Заблокирован ли пользователь"""
+  isLocked: Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Дата последнего входа"""
+  lastLoginAt: DateTime @join__field(graph: IDENTITY_SUBGRAPH)
   """Дата и время создания аккаунта"""
   createdAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
   """Дата и время последнего обновления"""
@@ -1808,33 +1824,33 @@ enum CleaningDocumentType @join__type(graph: CLEANING_SUBGRAPH) {
 }
 
 """Статус пользователя"""
-enum UserStatus @join__type(graph: IAM_SUBGRAPH) {
+enum UserStatus @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
   """Активный пользователь"""
-  ACTIVE @join__enumValue(graph: IAM_SUBGRAPH)
+  ACTIVE @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Неактивный пользователь"""
-  INACTIVE @join__enumValue(graph: IAM_SUBGRAPH)
+  INACTIVE @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Заблокированный пользователь"""
-  SUSPENDED @join__enumValue(graph: IAM_SUBGRAPH)
+  SUSPENDED @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Удаленный пользователь"""
-  DELETED @join__enumValue(graph: IAM_SUBGRAPH)
+  DELETED @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
 }
 
 """Системные роли"""
-enum SystemRole @join__type(graph: IAM_SUBGRAPH) {
+enum SystemRole @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
   """Супер администратор"""
-  SUPER_ADMIN @join__enumValue(graph: IAM_SUBGRAPH)
+  SUPER_ADMIN @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Администратор"""
-  ADMIN @join__enumValue(graph: IAM_SUBGRAPH)
+  ADMIN @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Менеджер"""
-  MANAGER @join__enumValue(graph: IAM_SUBGRAPH)
+  MANAGER @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Оператор"""
-  OPERATOR @join__enumValue(graph: IAM_SUBGRAPH)
+  OPERATOR @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Уборщик"""
-  CLEANER @join__enumValue(graph: IAM_SUBGRAPH)
+  CLEANER @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Пользователь"""
-  USER @join__enumValue(graph: IAM_SUBGRAPH)
+  USER @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Гость"""
-  GUEST @join__enumValue(graph: IAM_SUBGRAPH)
+  GUEST @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
 }
 
 """Поля для сортировки пользователей"""
