@@ -253,6 +253,12 @@ importers:
       '@apollo/subgraph':
         specifier: ^2.9.6
         version: 2.11.2(graphql@16.11.0)
+      '@graphql-tools/schema':
+        specifier: ^10.0.0
+        version: 10.0.25(graphql@16.11.0)
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
       '@repo/datalayer':
         specifier: workspace:*
         version: link:../../packages/datalayer
@@ -3707,6 +3713,7 @@ packages:
   '@opentelemetry/exporter-jaeger@2.1.0':
     resolution: {integrity: sha512-qtUMsp8061pQn6ZN9dngH6okiiF0NlHYBLWprzLeeCmNN7i5UHM+V8GmxvUH4L/zXlNBsySq7p3fZHIIbmK9xg==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Jaeger now has native support for OTLP. Please use @opentelemetry/exporter-trace-otlp-proto instead.
     peerDependencies:
       '@opentelemetry/api': ^1.0.0
 

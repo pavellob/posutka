@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@apollo/subgraph": "^2.9.6",
+    "@graphql-tools/schema": "^10.0.0",
+    "@prisma/client": "^5.18.0",
     "@repo/datalayer": "workspace:*",
     "@repo/datalayer-prisma": "workspace:*",
     "@repo/grpc-sdk": "workspace:*",
