@@ -113,16 +113,16 @@ export class EventBusService {
       logger.info('Found subscriptions', { 
         eventId: event.id,
         count: subscriptions.length,
-        handlers: subscriptions.map(s => s.handlerType)
+        handlers: subscriptions.map((s: { handlerType: string }) => s.handlerType)
       });
       
       // Отправляем событие каждому подписчику
       const results = await Promise.allSettled(
-        subscriptions.map(sub => this.routeToHandler(sub, event))
+        subscriptions.map((sub: any) => this.routeToHandler(sub, event))
       );
       
       // Проверяем результаты
-      const failed = results.filter(r => r.status === 'rejected');
+      const failed = results.filter((r: PromiseSettledResult<void>) => r.status === 'rejected');
       
       if (failed.length === 0) {
         // Все обработчики успешны
@@ -144,7 +144,7 @@ export class EventBusService {
             processedAt: new Date(),
             metadata: {
               ...event.metadata as any,
-              errors: failed.map(f => (f as any).reason?.message)
+              errors: failed.map((f: PromiseRejectedResult) => f.reason?.message)
             }
           }
         });
@@ -152,7 +152,7 @@ export class EventBusService {
         logger.error('Event processing failed', { 
           eventId,
           failedCount: failed.length,
-          errors: failed.map(f => (f as any).reason?.message)
+          errors: failed.map((f: PromiseRejectedResult) => f.reason?.message)
         });
       }
     } catch (error: any) {
@@ -235,7 +235,7 @@ export class EventBusService {
     const totalCount = await this.prisma.event.count({ where });
     
     return {
-      edges: edges.map(event => ({
+      edges: edges.map((event: any) => ({
         node: event,
         cursor: event.id
       })),
@@ -284,7 +284,7 @@ export class EventBusService {
       totalEvents,
       processedEvents,
       failedEvents,
-      eventsByType: eventsByType.map(e => ({
+      eventsByType: eventsByType.map((e: { type: string; _count: number }) => ({
         type: e.type,
         count: e._count
       }))

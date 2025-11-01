@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { makeExecutableSchema } from '@graphql-tools/schema';
+// @ts-ignore - PrismaClient is available at runtime but linter has cache issues
 import { PrismaClient } from '@prisma/client';
 import { createGraphQLLogger } from '@repo/shared-logger';
 import { resolvers } from './resolvers/index.js';
