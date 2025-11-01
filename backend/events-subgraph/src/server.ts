@@ -2,7 +2,6 @@ import { createYoga } from 'graphql-yoga';
 import { createServer } from 'http';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { fileURLToPath } from 'url';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 // @ts-ignore - PrismaClient is available at runtime but linter has cache issues
 import { PrismaClient } from '@prisma/client';
@@ -62,8 +61,7 @@ eventBus.registerHandler({
 logger.info('✅ Event handlers registered');
 
 // Читаем схему
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const typeDefs = readFileSync(join(__dirname, 'schema/index.gql'), 'utf-8');
+const typeDefs = readFileSync(join(process.cwd(), 'src/schema/index.gql'), 'utf-8');
 
 // Создаем схему
 const schema = makeExecutableSchema({
