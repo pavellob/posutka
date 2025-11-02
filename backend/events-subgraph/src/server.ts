@@ -64,36 +64,58 @@ logger.info('✅ Event handlers registered');
 // Создаем подписку на события для уведомлений (если еще не существует)
 async function ensureNotificationSubscription() {
   try {
-    const existing = await prisma.eventSubscription.findFirst({
+    const existing = await (prisma as any).eventSubscription.findFirst({
       where: {
         handlerType: 'NOTIFICATION',
         isActive: true
       }
     });
 
+    const allEventTypes = [
+      // Cleaning events
+      'CLEANING_AVAILABLE',
+      'CLEANING_ASSIGNED',
+      'CLEANING_STARTED',
+      'CLEANING_COMPLETED',
+      'CLEANING_CANCELLED',
+      // Booking events
+      'BOOKING_CREATED',
+      'BOOKING_CONFIRMED',
+      'BOOKING_CANCELLED',
+      'BOOKING_CHECKIN',
+      'BOOKING_CHECKOUT',
+      // Task events
+      'TASK_CREATED',
+      'TASK_ASSIGNED',
+      'TASK_STATUS_CHANGED',
+      'TASK_COMPLETED',
+      // Payment events
+      'PAYMENT_RECEIVED',
+      'PAYMENT_FAILED',
+      'INVOICE_CREATED',
+      'INVOICE_OVERDUE',
+      // System events
+      'USER_REGISTERED',
+      'USER_LOGIN',
+      'SYSTEM_ALERT'
+    ];
+
     if (!existing) {
-      await prisma.eventSubscription.create({
+      await (prisma as any).eventSubscription.create({
         data: {
           handlerType: 'NOTIFICATION',
-          eventTypes: [
-            'CLEANING_AVAILABLE',
-            'CLEANING_ASSIGNED',
-            'CLEANING_STARTED',
-            'CLEANING_COMPLETED',
-            'CLEANING_CANCELLED',
-            'BOOKING_CREATED',
-            'BOOKING_CONFIRMED',
-            'BOOKING_CANCELLED',
-            'TASK_CREATED',
-            'TASK_ASSIGNED',
-            'TASK_COMPLETED'
-          ],
+          eventTypes: allEventTypes,
           isActive: true
         }
       });
       logger.info('✅ Notification subscription created');
     } else {
-      logger.info('✅ Notification subscription already exists');
+      // Обновляем список eventTypes на случай если были добавлены новые типы
+      await (prisma as any).eventSubscription.update({
+        where: { id: existing.id },
+        data: { eventTypes: allEventTypes }
+      });
+      logger.info('✅ Notification subscription updated');
     }
   } catch (error: any) {
     logger.error('Failed to ensure notification subscription', { error: error.message });

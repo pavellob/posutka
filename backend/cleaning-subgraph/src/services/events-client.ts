@@ -68,10 +68,20 @@ export class EventsClient {
     requiresLinenChange: boolean;
     orgId?: string;
     actorUserId?: string;
+    targetUserId?: string;
   }): Promise<void> {
     try {
       await this.ensureConnected();
       logger.info('Publishing CLEANING_ASSIGNED event', params);
+      
+      // Используем targetUserId если передан, иначе fallback на cleanerId для обратной совместимости
+      const targetUserIds = params.targetUserId ? [params.targetUserId] : [params.cleanerId];
+      
+      logger.info('Using targetUserIds', {
+        targetUserId: params.targetUserId,
+        cleanerId: params.cleanerId,
+        targetUserIds
+      });
       
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_ASSIGNED,
@@ -80,7 +90,7 @@ export class EventsClient {
         entityId: params.cleaningId,
         orgId: params.orgId,
         actorUserId: params.actorUserId,
-        targetUserIds: [params.cleanerId],
+        targetUserIds,
         payload: {
           cleaningId: params.cleaningId,
           cleanerId: params.cleanerId,
@@ -108,10 +118,13 @@ export class EventsClient {
     cleanerId: string;
     unitName: string;
     orgId?: string;
+    targetUserId?: string;
   }): Promise<void> {
     try {
       await this.ensureConnected();
       logger.info('Publishing CLEANING_STARTED event', params);
+      
+      const targetUserIds = params.targetUserId ? [params.targetUserId] : [params.cleanerId];
       
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_STARTED,
@@ -119,7 +132,7 @@ export class EventsClient {
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
-        targetUserIds: [params.cleanerId],
+        targetUserIds,
         payload: {
           cleaningId: params.cleaningId,
           cleanerId: params.cleanerId,
@@ -146,10 +159,13 @@ export class EventsClient {
     unitName: string;
     completedAt: string;
     orgId?: string;
+    targetUserId?: string;
   }): Promise<void> {
     try {
       await this.ensureConnected();
       logger.info('Publishing CLEANING_COMPLETED event', params);
+      
+      const targetUserIds = params.targetUserId ? [params.targetUserId] : [params.cleanerId];
       
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_COMPLETED,
@@ -157,7 +173,7 @@ export class EventsClient {
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
-        targetUserIds: [params.cleanerId],
+        targetUserIds,
         payload: {
           cleaningId: params.cleaningId,
           cleanerId: params.cleanerId,
@@ -184,12 +200,13 @@ export class EventsClient {
     unitName: string;
     reason?: string;
     orgId?: string;
+    targetUserId?: string;
   }): Promise<void> {
     try {
       await this.ensureConnected();
       logger.info('Publishing CLEANING_CANCELLED event', params);
       
-      const targetUserIds = params.cleanerId ? [params.cleanerId] : [];
+      const targetUserIds = params.targetUserId ? [params.targetUserId] : (params.cleanerId ? [params.cleanerId] : []);
       
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_CANCELLED,

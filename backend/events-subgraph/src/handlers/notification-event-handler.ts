@@ -226,11 +226,32 @@ export class NotificationEventHandler {
     try {
       // Маппинг типов событий из events в notifications
       const eventTypeMap: Record<string, NotificationEventType> = {
-        'CLEANING_ASSIGNED': NotificationEventType.EVENT_TYPE_CLEANING_ASSIGNED,
+        // Booking events
+        'BOOKING_CREATED': NotificationEventType.EVENT_TYPE_BOOKING_CREATED,
+        'BOOKING_CONFIRMED': NotificationEventType.EVENT_TYPE_BOOKING_CONFIRMED,
+        'BOOKING_CANCELLED': NotificationEventType.EVENT_TYPE_BOOKING_CANCELLED,
+        'BOOKING_CHECKIN': NotificationEventType.EVENT_TYPE_BOOKING_CHECKIN,
+        'BOOKING_CHECKOUT': NotificationEventType.EVENT_TYPE_BOOKING_CHECKOUT,
+        // Cleaning events
         'CLEANING_AVAILABLE': NotificationEventType.EVENT_TYPE_CLEANING_AVAILABLE,
+        'CLEANING_ASSIGNED': NotificationEventType.EVENT_TYPE_CLEANING_ASSIGNED,
         'CLEANING_STARTED': NotificationEventType.EVENT_TYPE_CLEANING_STARTED,
         'CLEANING_COMPLETED': NotificationEventType.EVENT_TYPE_CLEANING_COMPLETED,
         'CLEANING_CANCELLED': NotificationEventType.EVENT_TYPE_CLEANING_CANCELLED,
+        // Task events
+        'TASK_CREATED': NotificationEventType.EVENT_TYPE_TASK_CREATED,
+        'TASK_ASSIGNED': NotificationEventType.EVENT_TYPE_TASK_ASSIGNED,
+        'TASK_STATUS_CHANGED': NotificationEventType.EVENT_TYPE_TASK_STATUS_CHANGED,
+        'TASK_COMPLETED': NotificationEventType.EVENT_TYPE_TASK_COMPLETED,
+        // Payment events
+        'PAYMENT_RECEIVED': NotificationEventType.EVENT_TYPE_PAYMENT_RECEIVED,
+        'PAYMENT_FAILED': NotificationEventType.EVENT_TYPE_PAYMENT_FAILED,
+        'INVOICE_CREATED': NotificationEventType.EVENT_TYPE_INVOICE_CREATED,
+        'INVOICE_OVERDUE': NotificationEventType.EVENT_TYPE_INVOICE_OVERDUE,
+        // System events
+        'USER_REGISTERED': NotificationEventType.EVENT_TYPE_USER_REGISTERED,
+        'USER_LOGIN': NotificationEventType.EVENT_TYPE_USER_LOGIN,
+        'SYSTEM_ALERT': NotificationEventType.EVENT_TYPE_SYSTEM_ALERT,
       };
 
       // Маппинг приоритетов
@@ -456,6 +477,122 @@ export class NotificationEventHandler {
           actionUrl: `${frontendUrl}/cleanings`
         };
       
+      // Booking events
+      case 'BOOKING_CREATED':
+        return {
+          title: '📅 Новое бронирование',
+          message: `Создано бронирование #${payload.bookingId || 'N/A'}${payload.guestName ? `\nГость: ${payload.guestName}` : ''}`,
+          actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
+        };
+      
+      case 'BOOKING_CONFIRMED':
+        return {
+          title: '✅ Бронирование подтверждено',
+          message: `Бронирование #${payload.bookingId || 'N/A'} подтверждено`,
+          actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
+        };
+      
+      case 'BOOKING_CANCELLED':
+        return {
+          title: '❌ Бронирование отменено',
+          message: `Бронирование #${payload.bookingId || 'N/A'} отменено`,
+          actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
+        };
+      
+      case 'BOOKING_CHECKIN':
+        return {
+          title: '🏠 Гость заселился',
+          message: `Заселение гостя в ${payload.unitName || 'квартире'}`,
+          actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
+        };
+      
+      case 'BOOKING_CHECKOUT':
+        return {
+          title: '🚪 Гость выселился',
+          message: `Выселение гостя из ${payload.unitName || 'квартиры'}`,
+          actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
+        };
+      
+      // Task events
+      case 'TASK_CREATED':
+        return {
+          title: '📋 Новая задача',
+          message: `Создана задача: ${payload.taskName || payload.title || 'Без названия'}`,
+          actionUrl: `${frontendUrl}/tasks/${payload.taskId}`
+        };
+      
+      case 'TASK_ASSIGNED':
+        return {
+          title: '👤 Задача назначена',
+          message: `Вам назначена задача: ${payload.taskName || payload.title || 'Без названия'}`,
+          actionUrl: `${frontendUrl}/tasks/${payload.taskId}`
+        };
+      
+      case 'TASK_STATUS_CHANGED':
+        return {
+          title: '🔄 Статус задачи изменен',
+          message: `Задача "${payload.taskName || payload.title || 'Без названия'}" → ${payload.status || 'новый статус'}`,
+          actionUrl: `${frontendUrl}/tasks/${payload.taskId}`
+        };
+      
+      case 'TASK_COMPLETED':
+        return {
+          title: '✅ Задача выполнена',
+          message: `Задача "${payload.taskName || payload.title || 'Без названия'}" выполнена`,
+          actionUrl: `${frontendUrl}/tasks/${payload.taskId}`
+        };
+      
+      // Payment events
+      case 'PAYMENT_RECEIVED':
+        return {
+          title: '💰 Платеж получен',
+          message: `Получен платеж ${payload.amount ? `на сумму ${payload.amount}` : ''}${payload.currency ? ` ${payload.currency}` : ''}${payload.bookingId ? `\nБронирование #${payload.bookingId}` : ''}`,
+          actionUrl: payload.bookingId ? `${frontendUrl}/bookings/${payload.bookingId}` : `${frontendUrl}/payments`
+        };
+      
+      case 'PAYMENT_FAILED':
+        return {
+          title: '❌ Платеж не прошел',
+          message: `Платеж ${payload.amount ? `на сумму ${payload.amount}` : ''}${payload.currency ? ` ${payload.currency}` : ''} не удалось провести`,
+          actionUrl: `${frontendUrl}/payments`
+        };
+      
+      case 'INVOICE_CREATED':
+        return {
+          title: '📄 Счет создан',
+          message: `Создан счет ${payload.invoiceNumber || ''}${payload.amount ? `\nСумма: ${payload.amount}${payload.currency ? ` ${payload.currency}` : ''}` : ''}`,
+          actionUrl: `${frontendUrl}/invoices/${payload.invoiceId}`
+        };
+      
+      case 'INVOICE_OVERDUE':
+        return {
+          title: '⚠️ Счет просрочен',
+          message: `Счет ${payload.invoiceNumber || ''} просрочен${payload.amount ? `\nСумма: ${payload.amount}${payload.currency ? ` ${payload.currency}` : ''}` : ''}`,
+          actionUrl: `${frontendUrl}/invoices/${payload.invoiceId}`
+        };
+      
+      // System events
+      case 'USER_REGISTERED':
+        return {
+          title: '👋 Добро пожаловать!',
+          message: `Регистрация прошла успешно. Добро пожаловать в систему!`,
+          actionUrl: `${frontendUrl}/profile`
+        };
+      
+      case 'USER_LOGIN':
+        return {
+          title: '🔐 Вход в систему',
+          message: `Выполнен вход в систему${payload.ipAddress ? ` с IP ${payload.ipAddress}` : ''}`,
+          actionUrl: `${frontendUrl}/security`
+        };
+      
+      case 'SYSTEM_ALERT':
+        return {
+          title: '⚠️ Системное оповещение',
+          message: payload.message || payload.description || 'Системное оповещение',
+          actionUrl: frontendUrl
+        };
+      
       default:
         return {
           title: event.type.replace(/_/g, ' '),
@@ -467,15 +604,39 @@ export class NotificationEventHandler {
   
   private determinePriority(eventType: string): string {
     switch (eventType) {
+      // High priority - urgent actions required
       case 'CLEANING_ASSIGNED':
       case 'CLEANING_AVAILABLE':
+      case 'TASK_ASSIGNED':
+      case 'PAYMENT_FAILED':
+      case 'INVOICE_OVERDUE':
         return 'HIGH';
+      
+      // Normal priority - important events
       case 'CLEANING_STARTED':
-        return 'NORMAL';
-      case 'CLEANING_COMPLETED':
-        return 'LOW';
       case 'CLEANING_CANCELLED':
+      case 'BOOKING_CREATED':
+      case 'BOOKING_CONFIRMED':
+      case 'BOOKING_CANCELLED':
+      case 'BOOKING_CHECKIN':
+      case 'BOOKING_CHECKOUT':
+      case 'TASK_CREATED':
+      case 'TASK_STATUS_CHANGED':
+      case 'PAYMENT_RECEIVED':
+      case 'INVOICE_CREATED':
         return 'NORMAL';
+      
+      // Low priority - informational events
+      case 'CLEANING_COMPLETED':
+      case 'TASK_COMPLETED':
+      case 'USER_REGISTERED':
+      case 'USER_LOGIN':
+        return 'LOW';
+      
+      // Urgent priority - critical system events
+      case 'SYSTEM_ALERT':
+        return 'URGENT';
+      
       default:
         return 'NORMAL';
     }

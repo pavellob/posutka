@@ -119,6 +119,12 @@ export const resolvers = {
             where: { id: cleaning.cleanerId }
           });
           const targetUserId = cleaner?.userId || cleaner?.id;
+          logger.info('Determined targetUserId for cleaner', {
+            cleanerId: cleaning.cleanerId,
+            cleanerUserId: cleaner?.userId,
+            cleanerType: cleaner?.type,
+            targetUserId
+          });
           if (targetUserId) {
             targetUserIds.push(targetUserId);
           }
@@ -140,6 +146,7 @@ export const resolvers = {
           await eventsClient.publishCleaningAssigned({
             cleaningId: cleaning.id,
             cleanerId: cleaning.cleanerId,
+            targetUserId: targetUserIds[0], // Используем вычисленный targetUserId
             unitId: cleaning.unitId,
             unitName,
             scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
@@ -150,7 +157,8 @@ export const resolvers = {
           
           logger.info('✅ CLEANING_ASSIGNED event published', { 
             cleaningId: cleaning.id,
-            cleanerId: cleaning.cleanerId
+            cleanerId: cleaning.cleanerId,
+            targetUserId: targetUserIds[0]
           });
         } else if (targetUserIds.length > 0) {
           // Если уборщик НЕ назначен, но есть предпочитаемые - публикуем AVAILABLE
@@ -349,9 +357,11 @@ export const resolvers = {
           
           if (cleaner && unit) {
             const eventsClient = getEventsClient();
+            const targetUserId = cleaner.userId || cleaner.id;
             await eventsClient.publishCleaningStarted({
               cleaningId: cleaning.id,
               cleanerId: cleaning.cleanerId,
+              targetUserId,
               unitName: `${unit.property?.title || ''} - ${unit.name}`,
               orgId: cleaning.orgId || undefined,
             });
@@ -384,9 +394,18 @@ export const resolvers = {
           
           if (cleaner && unit) {
             const eventsClient = getEventsClient();
+            const targetUserId = cleaner.userId || cleaner.id;
+            logger.info('Publishing CLEANING_COMPLETED with targetUserId', {
+              cleaningId: cleaning.id,
+              cleanerId: cleaning.cleanerId,
+              cleanerUserId: cleaner.userId,
+              cleanerType: cleaner.type,
+              targetUserId
+            });
             await eventsClient.publishCleaningCompleted({
               cleaningId: cleaning.id,
               cleanerId: cleaning.cleanerId,
+              targetUserId,
               unitName: `${unit.property?.title || ''} - ${unit.name}`,
               completedAt: cleaning.completedAt || new Date().toISOString(), // Уже строка из datalayer
               orgId: cleaning.orgId || undefined,
@@ -482,9 +501,11 @@ export const resolvers = {
           
           if (cleaner && unit) {
             const eventsClient = getEventsClient();
+            const targetUserId = cleaner.userId || cleaner.id;
             await eventsClient.publishCleaningCancelled({
               cleaningId: cleaning.id,
               cleanerId: cleaning.cleanerId,
+              targetUserId,
               unitName: `${unit.property?.title || ''} - ${unit.name}`,
               reason,
               orgId: cleaning.orgId || undefined,
