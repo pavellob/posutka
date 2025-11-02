@@ -1926,16 +1926,16 @@ enum EventType @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
   BOOKING_CHECKIN @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Выселение гостя"""
   BOOKING_CHECKOUT @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
-  """Уборка запланирована"""
-  CLEANING_SCHEDULED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Уборка доступна для самоназначения"""
+  CLEANING_AVAILABLE @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Уборщик назначен"""
+  CLEANING_ASSIGNED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Уборка начата"""
   CLEANING_STARTED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Уборка завершена"""
   CLEANING_COMPLETED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Уборка отменена"""
   CLEANING_CANCELLED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
-  """Уборщик назначен"""
-  CLEANING_ASSIGNED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Задача создана"""
   TASK_CREATED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Задача назначена"""

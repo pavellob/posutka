@@ -19,6 +19,15 @@ export enum Priority {
   URGENT = 'URGENT',
 }
 
+export interface ActionButton {
+  /** Текст кнопки */
+  text: string;
+  /** URL для действия */
+  url: string;
+  /** Использовать Telegram Mini App (web_app вместо url) */
+  useWebApp?: boolean;
+}
+
 export interface NotificationMessage {
   /** ID уведомления */
   id: string;
@@ -32,10 +41,12 @@ export interface NotificationMessage {
   priority: Priority;
   /** Метаданные */
   metadata?: Record<string, any>;
-  /** URL действия */
+  /** URL действия (для обратной совместимости) */
   actionUrl?: string;
-  /** Текст кнопки */
+  /** Текст кнопки (для обратной совместимости) */
   actionText?: string;
+  /** Массив кнопок действий (новый формат для нескольких кнопок) */
+  actionButtons?: ActionButton[];
   /** Запланировано на */
   scheduledAt?: Date;
 }

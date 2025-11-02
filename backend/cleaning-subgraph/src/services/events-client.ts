@@ -1,4 +1,9 @@
 import { createGraphQLLogger } from '@repo/shared-logger';
+import {
+  createEventsGrpcClient,
+  type EventsGrpcClient,
+  EventsEventType as EventType,
+} from '@repo/grpc-sdk';
 
 const logger = createGraphQLLogger('cleaning-events-client');
 
@@ -6,18 +11,27 @@ const logger = createGraphQLLogger('cleaning-events-client');
  * Клиент для публикации событий в events-subgraph через gRPC.
  */
 export class EventsClient {
-  private grpcClient: any;
+  private grpcClient: EventsGrpcClient;
   private readonly frontendUrl: string;
+  private connected = false;
   
   constructor(
     grpcHost: string = process.env.EVENTS_GRPC_HOST || 'localhost',
-    grpcPort: number = parseInt(process.env.EVENTS_GRPC_PORT || '4112'),
+    grpcPort: number = parseInt(process.env.EVENTS_GRPC_PORT || '4113'),
     frontendUrl?: string
   ) {
     this.frontendUrl = frontendUrl || process.env.FRONTEND_URL || 'http://localhost:3000';
     
-    // TODO: После генерации proto, подключить gRPC клиент
-    // this.grpcClient = createEventsGrpcClient({ host: grpcHost, port: grpcPort });
+    this.grpcClient = createEventsGrpcClient({
+      host: grpcHost,
+      port: grpcPort,
+      retryAttempts: 3,
+      retryDelay: 1000,
+      timeout: 10000,
+    });
+    
+    // Подключаемся к gRPC серверу
+    this.connect();
     
     logger.info('EventsClient initialized', {
       grpcHost,
@@ -26,48 +40,19 @@ export class EventsClient {
     });
   }
   
-  /**
-   * Опубликовать событие CLEANING_SCHEDULED
-   */
-  async publishCleaningScheduled(params: {
-    cleaningId: string;
-    unitId: string;
-    unitName: string;
-    scheduledAt: string;
-    cleanerId?: string;
-    orgId?: string;
-    actorUserId?: string;
-  }): Promise<void> {
+  private async connect(): Promise<void> {
     try {
-      logger.info('Publishing CLEANING_SCHEDULED event', params);
-      
-      const targetUserIds = params.cleanerId ? [params.cleanerId] : [];
-      
-      // TODO: Раскомментировать после генерации gRPC клиента
-      // await this.grpcClient.publishEvent({
-      //   eventType: 1, // CLEANING_SCHEDULED
-      //   sourceSubgraph: 'cleaning-subgraph',
-      //   entityType: 'Cleaning',
-      //   entityId: params.cleaningId,
-      //   orgId: params.orgId,
-      //   actorUserId: params.actorUserId,
-      //   targetUserIds,
-      //   payloadJson: JSON.stringify({
-      //     cleaningId: params.cleaningId,
-      //     unitId: params.unitId,
-      //     unitName: params.unitName,
-      //     scheduledAt: params.scheduledAt,
-      //     cleanerId: params.cleanerId
-      //   })
-      // });
-      
-      logger.info('CLEANING_SCHEDULED event published', { cleaningId: params.cleaningId });
-    } catch (error: any) {
-      logger.error('Failed to publish CLEANING_SCHEDULED event', { 
-        error: error.message,
-        params 
-      });
-      // Не прерываем основной flow
+      await this.grpcClient.connect();
+      this.connected = true;
+      logger.info('EventsClient connected to gRPC server');
+    } catch (error) {
+      logger.error('Failed to connect EventsClient to gRPC server', error);
+    }
+  }
+  
+  private async ensureConnected(): Promise<void> {
+    if (!this.connected) {
+      await this.connect();
     }
   }
   
@@ -85,26 +70,26 @@ export class EventsClient {
     actorUserId?: string;
   }): Promise<void> {
     try {
+      await this.ensureConnected();
       logger.info('Publishing CLEANING_ASSIGNED event', params);
       
-      // TODO: Раскомментировать после генерации gRPC клиента
-      // await this.grpcClient.publishEvent({
-      //   eventType: 2, // CLEANING_ASSIGNED
-      //   sourceSubgraph: 'cleaning-subgraph',
-      //   entityType: 'Cleaning',
-      //   entityId: params.cleaningId,
-      //   orgId: params.orgId,
-      //   actorUserId: params.actorUserId,
-      //   targetUserIds: [params.cleanerId],
-      //   payloadJson: JSON.stringify({
-      //     cleaningId: params.cleaningId,
-      //     cleanerId: params.cleanerId,
-      //     unitId: params.unitId,
-      //     unitName: params.unitName,
-      //     scheduledAt: params.scheduledAt,
-      //     requiresLinenChange: params.requiresLinenChange
-      //   })
-      // });
+      await this.grpcClient.publishEvent({
+        eventType: EventType.EVENT_TYPE_CLEANING_ASSIGNED,
+        sourceSubgraph: 'cleaning-subgraph',
+        entityType: 'Cleaning',
+        entityId: params.cleaningId,
+        orgId: params.orgId,
+        actorUserId: params.actorUserId,
+        targetUserIds: [params.cleanerId],
+        payload: {
+          cleaningId: params.cleaningId,
+          cleanerId: params.cleanerId,
+          unitId: params.unitId,
+          unitName: params.unitName,
+          scheduledAt: params.scheduledAt,
+          requiresLinenChange: params.requiresLinenChange
+        }
+      });
       
       logger.info('CLEANING_ASSIGNED event published', { cleaningId: params.cleaningId });
     } catch (error: any) {
@@ -125,9 +110,23 @@ export class EventsClient {
     orgId?: string;
   }): Promise<void> {
     try {
+      await this.ensureConnected();
       logger.info('Publishing CLEANING_STARTED event', params);
       
-      // TODO: Раскомментировать после генерации gRPC клиента
+      await this.grpcClient.publishEvent({
+        eventType: EventType.EVENT_TYPE_CLEANING_STARTED,
+        sourceSubgraph: 'cleaning-subgraph',
+        entityType: 'Cleaning',
+        entityId: params.cleaningId,
+        orgId: params.orgId,
+        targetUserIds: [params.cleanerId],
+        payload: {
+          cleaningId: params.cleaningId,
+          cleanerId: params.cleanerId,
+          unitName: params.unitName,
+          startedAt: new Date().toISOString()
+        }
+      });
       
       logger.info('CLEANING_STARTED event published', { cleaningId: params.cleaningId });
     } catch (error: any) {
@@ -149,9 +148,23 @@ export class EventsClient {
     orgId?: string;
   }): Promise<void> {
     try {
+      await this.ensureConnected();
       logger.info('Publishing CLEANING_COMPLETED event', params);
       
-      // TODO: Раскомментировать после генерации gRPC клиента
+      await this.grpcClient.publishEvent({
+        eventType: EventType.EVENT_TYPE_CLEANING_COMPLETED,
+        sourceSubgraph: 'cleaning-subgraph',
+        entityType: 'Cleaning',
+        entityId: params.cleaningId,
+        orgId: params.orgId,
+        targetUserIds: [params.cleanerId],
+        payload: {
+          cleaningId: params.cleaningId,
+          cleanerId: params.cleanerId,
+          unitName: params.unitName,
+          completedAt: params.completedAt
+        }
+      });
       
       logger.info('CLEANING_COMPLETED event published', { cleaningId: params.cleaningId });
     } catch (error: any) {
@@ -173,11 +186,26 @@ export class EventsClient {
     orgId?: string;
   }): Promise<void> {
     try {
+      await this.ensureConnected();
       logger.info('Publishing CLEANING_CANCELLED event', params);
       
       const targetUserIds = params.cleanerId ? [params.cleanerId] : [];
       
-      // TODO: Раскомментировать после генерации gRPC клиента
+      await this.grpcClient.publishEvent({
+        eventType: EventType.EVENT_TYPE_CLEANING_CANCELLED,
+        sourceSubgraph: 'cleaning-subgraph',
+        entityType: 'Cleaning',
+        entityId: params.cleaningId,
+        orgId: params.orgId,
+        targetUserIds,
+        payload: {
+          cleaningId: params.cleaningId,
+          cleanerId: params.cleanerId,
+          unitName: params.unitName,
+          reason: params.reason,
+          cancelledAt: new Date().toISOString()
+        }
+      });
       
       logger.info('CLEANING_CANCELLED event published', { cleaningId: params.cleaningId });
     } catch (error: any) {
@@ -185,6 +213,75 @@ export class EventsClient {
         error: error.message,
         params 
       });
+    }
+  }
+  
+  /**
+   * Опубликовать событие CLEANING_AVAILABLE (для самоназначения)
+   */
+  async publishCleaningAvailable(params: {
+    cleaningId: string;
+    unitId: string;
+    unitName: string;
+    scheduledAt: string;
+    requiresLinenChange: boolean;
+    targetUserIds: string[];
+    orgId?: string;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      
+      // Проверяем, что enum значение доступно
+      const eventTypeValue = EventType.EVENT_TYPE_CLEANING_AVAILABLE;
+      if (eventTypeValue === undefined || eventTypeValue === null) {
+        logger.error('EVENT_TYPE_CLEANING_AVAILABLE is not defined!', {
+          EventTypeKeys: Object.keys(EventType),
+          EventTypeValues: Object.values(EventType)
+        });
+        throw new Error('EVENT_TYPE_CLEANING_AVAILABLE is not defined in EventType enum');
+      }
+      
+      logger.info('Publishing CLEANING_AVAILABLE event', {
+        ...params,
+        eventTypeValue,
+        eventTypeName: EventType[eventTypeValue]
+      });
+      
+      await this.grpcClient.publishEvent({
+        eventType: eventTypeValue,
+        sourceSubgraph: 'cleaning-subgraph',
+        entityType: 'Cleaning',
+        entityId: params.cleaningId,
+        orgId: params.orgId,
+        targetUserIds: params.targetUserIds,
+        payload: {
+          cleaningId: params.cleaningId,
+          unitId: params.unitId,
+          unitName: params.unitName,
+          scheduledAt: params.scheduledAt,
+          requiresLinenChange: params.requiresLinenChange
+        }
+      });
+      
+      logger.info('CLEANING_AVAILABLE event published', { cleaningId: params.cleaningId });
+    } catch (error: any) {
+      logger.error('Failed to publish CLEANING_AVAILABLE event', { 
+        error: error.message,
+        params 
+      });
+    }
+  }
+  
+  /**
+   * Отключиться от gRPC сервера.
+   */
+  async disconnect(): Promise<void> {
+    try {
+      await this.grpcClient.disconnect();
+      this.connected = false;
+      logger.info('EventsClient disconnected from gRPC server');
+    } catch (error) {
+      logger.error('Failed to disconnect EventsClient', error);
     }
   }
 }

@@ -26,12 +26,11 @@ enum EventType {
   EVENT_TYPE_BOOKING_CHECKOUT = 5;
   
   // Cleaning events
-  EVENT_TYPE_CLEANING_SCHEDULED = 10;
-  EVENT_TYPE_CLEANING_STARTED = 11;
-  EVENT_TYPE_CLEANING_COMPLETED = 12;
-  EVENT_TYPE_CLEANING_CANCELLED = 13;
-  EVENT_TYPE_CLEANING_ASSIGNED = 14;
-  EVENT_TYPE_CLEANING_AVAILABLE = 15; // Уборка доступна для самоназначения
+  EVENT_TYPE_CLEANING_AVAILABLE = 10; // Уборка доступна для самоназначения
+  EVENT_TYPE_CLEANING_ASSIGNED = 11;
+  EVENT_TYPE_CLEANING_STARTED = 12;
+  EVENT_TYPE_CLEANING_COMPLETED = 13;
+  EVENT_TYPE_CLEANING_CANCELLED = 14;
   
   // Task events
   EVENT_TYPE_TASK_CREATED = 20;
@@ -98,11 +97,26 @@ message NotificationRequest {
   // Запланированное время отправки (Unix timestamp, опционально)
   int64 scheduled_at = 9;
   
-  // URL для action button (опционально)
+  // URL для action button (опционально, для обратной совместимости)
   string action_url = 10;
   
-  // Текст кнопки действия
+  // Текст кнопки действия (опционально, для обратной совместимости)
   string action_text = 11;
+  
+  // Массив кнопок действий (новый формат для нескольких кнопок)
+  repeated ActionButton action_buttons = 12;
+}
+
+// Кнопка действия для уведомления
+message ActionButton {
+  // Текст кнопки
+  string text = 1;
+  
+  // URL для действия
+  string url = 2;
+  
+  // Использовать Telegram Mini App (web_app вместо url)
+  bool use_web_app = 3;
 }
 
 // Ответ на отправку уведомления

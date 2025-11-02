@@ -776,7 +776,7 @@ model Event {
 model EventSubscription {
   id          String      @id @default(cuid())
   handlerType HandlerType // NOTIFICATION, ANALYTICS, AUDIT, WEBHOOK...
-  eventTypes  String[]    // [CLEANING_SCHEDULED, BOOKING_CREATED...]
+  eventTypes  String[]    // [CLEANING_AVAILABLE, BOOKING_CREATED...]
   targetUrl   String?     // Для WEBHOOK
   isActive    Boolean     @default(true)
   config      Json?       // Дополнительная конфигурация
@@ -803,7 +803,7 @@ model EventNotification {
 
 enum EventType {
   // Cleaning
-  CLEANING_SCHEDULED
+  CLEANING_AVAILABLE
   CLEANING_ASSIGNED
   CLEANING_STARTED
   CLEANING_COMPLETED

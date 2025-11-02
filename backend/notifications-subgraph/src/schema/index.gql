@@ -51,16 +51,16 @@ enum EventType {
   """Выселение гостя"""
   BOOKING_CHECKOUT
   
-  """Уборка запланирована"""
-  CLEANING_SCHEDULED
+  """Уборка доступна для самоназначения"""
+  CLEANING_AVAILABLE
+  """Уборщик назначен"""
+  CLEANING_ASSIGNED
   """Уборка начата"""
   CLEANING_STARTED
   """Уборка завершена"""
   CLEANING_COMPLETED
   """Уборка отменена"""
   CLEANING_CANCELLED
-  """Уборщик назначен"""
-  CLEANING_ASSIGNED
   
   """Задача создана"""
   TASK_CREATED

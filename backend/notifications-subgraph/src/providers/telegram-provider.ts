@@ -128,45 +128,94 @@ export class TelegramProvider extends BaseNotificationProvider {
       // Формируем текст сообщения
       let text = `<b>${this.escapeHtml(message.title)}</b>\n\n${this.escapeHtml(message.message)}`;
       
-      // Добавляем метаданные если есть
-      if (message.metadata) {
-        text += `\n\n<i>Подробности:</i>\n`;
-        for (const [key, value] of Object.entries(message.metadata)) {
-          text += `• ${this.escapeHtml(key)}: ${this.escapeHtml(String(value))}\n`;
-        }
-      }
+      // Метаданные больше не показываем - они не нужны пользователю
       
       // Отправляем сообщение
       const options: any = {
         parse_mode: 'HTML',
       };
       
-      // Добавляем кнопку действия если есть
-      if (message.actionUrl && message.actionText) {
-        // Используем web_app для открытия в Telegram Mini App
-        // Если переменная TELEGRAM_USE_MINIAPP=true, используем web_app
-        // Иначе используем обычную url кнопку (для dev/testing)
+      // Добавляем кнопки действий
+      const buttons: any[][] = [];
+      
+      logger.info('Processing Telegram message buttons', {
+        notificationId: message.id,
+        hasActionButtons: !!message.actionButtons,
+        actionButtonsCount: message.actionButtons?.length || 0,
+        actionButtons: message.actionButtons,
+        hasActionUrl: !!message.actionUrl,
+        hasActionText: !!message.actionText,
+      });
+      
+      // Используем новый формат с несколькими кнопками, если есть
+      if (message.actionButtons && message.actionButtons.length > 0) {
+        logger.info('Using actionButtons format', {
+          notificationId: message.id,
+          buttonsCount: message.actionButtons.length,
+        });
         const useMiniApp = process.env.TELEGRAM_USE_MINIAPP === 'true';
         
-        if (useMiniApp) {
-          options.reply_markup = {
-            inline_keyboard: [[
-              {
-                text: message.actionText,
-                web_app: { url: message.actionUrl },
-              },
-            ]],
+        for (const button of message.actionButtons) {
+          const buttonConfig: any = {
+            text: button.text,
           };
-        } else {
-          options.reply_markup = {
-            inline_keyboard: [[
-              {
-                text: message.actionText,
-                url: message.actionUrl,
-              },
-            ]],
-          };
+          
+          if (button.useWebApp || useMiniApp) {
+            buttonConfig.web_app = { url: button.url };
+          } else {
+            buttonConfig.url = button.url;
+          }
+          
+          logger.info('Adding button to keyboard', {
+            notificationId: message.id,
+            buttonText: button.text,
+            buttonUrl: button.url,
+            useWebApp: button.useWebApp || useMiniApp,
+          });
+          
+          // Добавляем кнопки по 2 в ряд
+          if (buttons.length === 0 || buttons[buttons.length - 1].length >= 2) {
+            buttons.push([buttonConfig]);
+          } else {
+            buttons[buttons.length - 1].push(buttonConfig);
+          }
         }
+      } else if (message.actionUrl && message.actionText) {
+        // Обратная совместимость с одной кнопкой
+        logger.info('Using actionUrl/actionText format', {
+          notificationId: message.id,
+          actionText: message.actionText,
+          actionUrl: message.actionUrl,
+        });
+        const useMiniApp = process.env.TELEGRAM_USE_MINIAPP === 'true';
+        const buttonConfig: any = {
+          text: message.actionText,
+        };
+        
+        if (useMiniApp) {
+          buttonConfig.web_app = { url: message.actionUrl };
+        } else {
+          buttonConfig.url = message.actionUrl;
+        }
+        
+        buttons.push([buttonConfig]);
+      }
+      
+      if (buttons.length > 0) {
+        options.reply_markup = {
+          inline_keyboard: buttons,
+        };
+        logger.info('Keyboard configured', {
+          notificationId: message.id,
+          rowsCount: buttons.length,
+          totalButtons: buttons.reduce((sum, row) => sum + row.length, 0),
+        });
+      } else {
+        logger.warn('No buttons configured', {
+          notificationId: message.id,
+          hasActionButtons: !!message.actionButtons,
+          hasActionUrl: !!message.actionUrl,
+        });
       }
       
       const sentMessage = await this.bot.sendMessage(chatId, text, options);

@@ -144,10 +144,10 @@ export class NotificationEventHandler {
           actionUrl: `${frontendUrl}/cleanings?cleaning=${payload.cleaningId}`
         };
       
-      case 'CLEANING_SCHEDULED':
+      case 'CLEANING_AVAILABLE':
         return {
-          title: '📋 Доступна новая уборка',
-          message: `Уборка в ${payload.unitName || 'квартире'} запланирована на ${this.formatDate(payload.scheduledAt)}`,
+          title: '📋 Доступна уборка!',
+          message: `Запланирована уборка в квартире "${payload.unitName || 'квартире'}" на ${this.formatDate(payload.scheduledAt)}`,
           actionUrl: `${frontendUrl}/cleanings?cleaning=${payload.cleaningId}`
         };
       

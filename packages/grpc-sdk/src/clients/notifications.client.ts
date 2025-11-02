@@ -5,6 +5,7 @@ import {
   type NotificationsServiceClient as GeneratedNotificationsServiceClient,
   type NotificationRequest,
   type NotificationResponse,
+  type ActionButton as GeneratedActionButton,
   EventType,
   Priority,
   Channel as NotificationChannel,
@@ -23,6 +24,12 @@ export interface NotificationsGrpcClientConfig {
   timeout?: number;
 }
 
+export interface ActionButton {
+  text: string;
+  url: string;
+  useWebApp?: boolean;
+}
+
 export interface SendNotificationParams {
   eventType: EventType;
   orgId?: string;
@@ -35,6 +42,7 @@ export interface SendNotificationParams {
   scheduledAt?: number;
   actionUrl?: string;
   actionText?: string;
+  actionButtons?: ActionButton[];
 }
 
 export class NotificationsGrpcClient {
@@ -82,6 +90,20 @@ export class NotificationsGrpcClient {
         recipientCount: params.recipientIds.length,
         channels: params.channels.map((c) => NotificationChannel[c]),
         priority: Priority[params.priority],
+        hasActionButtons: !!params.actionButtons,
+        actionButtonsCount: params.actionButtons?.length || 0,
+        actionButtons: params.actionButtons,
+      });
+
+      const actionButtonsArray: GeneratedActionButton[] = params.actionButtons?.map(btn => ({
+        text: btn.text,
+        url: btn.url,
+        useWebApp: btn.useWebApp ?? false,
+      })) || [];
+
+      logger.info('Prepared actionButtons for gRPC request', {
+        actionButtonsCount: actionButtonsArray.length,
+        actionButtons: actionButtonsArray,
       });
 
       const request: NotificationRequest = {
@@ -96,7 +118,13 @@ export class NotificationsGrpcClient {
         scheduledAt: params.scheduledAt || 0,
         actionUrl: params.actionUrl || '',
         actionText: params.actionText || '',
+        actionButtons: actionButtonsArray,
       };
+      
+      logger.info('Sending gRPC request with actionButtons', {
+        actionButtonsCount: request.actionButtons.length,
+        actionButtons: request.actionButtons,
+      });
 
       const response = await this.client!.sendNotification(request);
 

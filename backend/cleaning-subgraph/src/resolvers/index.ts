@@ -1,6 +1,6 @@
 import type { Context } from '../context.js';
 import { createGraphQLLogger } from '@repo/shared-logger';
-// import { notificationClient } from '../services/notification-client.js'; // 🔴 ОТКЛЮЧЕНО - используем Event Bus
+import { getEventsClient } from '../services/events-client.js';
 
 const logger = createGraphQLLogger('cleaning-subgraph-resolvers');
 
@@ -132,33 +132,43 @@ export const resolvers = {
           }
         }
         
-        // Публикуем событие в Event Bus
-        await prisma.event.create({
-          data: {
-            type: cleaning.cleanerId ? 'CLEANING_ASSIGNED' : 'CLEANING_SCHEDULED',
-            sourceSubgraph: 'cleaning-subgraph',
-            entityType: 'Cleaning',
-            entityId: cleaning.id,
-            orgId: cleaning.orgId || null,
-            actorUserId: null, // TODO: получить из context
-            targetUserIds,
-            payload: {
-              cleaningId: cleaning.id,
-              unitId: cleaning.unitId,
-              unitName,
-              scheduledAt: cleaning.scheduledAt,
-              cleanerId: cleaning.cleanerId || null,
-              requiresLinenChange: cleaning.requiresLinenChange
-            },
-            status: 'PENDING'
-          }
-        });
+        // Публикуем событие через Event Bus (gRPC)
+        const eventsClient = getEventsClient();
         
-        logger.info('✅ Event published', { 
-          cleaningId: cleaning.id,
-          eventType: cleaning.cleanerId ? 'CLEANING_ASSIGNED' : 'CLEANING_SCHEDULED',
-          targetUserIds
-        });
+        if (cleaning.cleanerId) {
+          // Если уборщик назначен - публикуем CLEANING_ASSIGNED
+          await eventsClient.publishCleaningAssigned({
+            cleaningId: cleaning.id,
+            cleanerId: cleaning.cleanerId,
+            unitId: cleaning.unitId,
+            unitName,
+            scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
+            requiresLinenChange: cleaning.requiresLinenChange,
+            orgId: cleaning.orgId || undefined,
+            actorUserId: undefined, // TODO: получить из context
+          });
+          
+          logger.info('✅ CLEANING_ASSIGNED event published', { 
+            cleaningId: cleaning.id,
+            cleanerId: cleaning.cleanerId
+          });
+        } else if (targetUserIds.length > 0) {
+          // Если уборщик НЕ назначен, но есть предпочитаемые - публикуем AVAILABLE
+          await eventsClient.publishCleaningAvailable({
+            cleaningId: cleaning.id,
+            unitId: cleaning.unitId,
+            unitName,
+            scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
+            requiresLinenChange: cleaning.requiresLinenChange,
+            targetUserIds,
+            orgId: cleaning.orgId || undefined,
+          });
+          
+          logger.info('✅ CLEANING_AVAILABLE event published', { 
+            cleaningId: cleaning.id,
+            targetUserIdsCount: targetUserIds.length
+          });
+        }
       } catch (error: any) {
         logger.error('❌ Failed to publish event', { error: error.message });
         // Не прерываем основной flow
@@ -325,54 +335,33 @@ export const resolvers = {
       logger.info('Starting cleaning', { id });
       const cleaning = await dl.startCleaning(id);
       
-      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
-      /*
-      // Отправляем уведомление уборщику о начале
+      // Публикуем событие CLEANING_STARTED через Event Bus
       try {
-        if (!cleaning.cleanerId) {
-          logger.warn('No cleaner assigned to send notification', { cleaningId: id });
-          return cleaning;
-        }
-
-        const cleaner = await prisma.cleaner.findUnique({
-          where: { id: cleaning.cleanerId }
-        });
-        
-        if (!cleaner) {
-          logger.warn('Cleaner not found', { cleanerId: cleaning.cleanerId });
-          return cleaning;
-        }
-        
-        const unit = await prisma.unit.findUnique({
-          where: { id: cleaning.unitId },
-          include: { property: true }
-        });
-        
-        if (!unit) {
-          logger.warn('Unit not found', { unitId: cleaning.unitId });
-          return cleaning;
-        }
-        
-        const targetUserId = cleaner.userId || cleaner.id;
-        const settings = await prisma.userNotificationSettings.findUnique({
-          where: { userId: targetUserId },
-        }).catch(() => null);
-        
-        if (settings?.telegramChatId) {
-          await notificationClient.notifyCleaningStarted({
-            userId: targetUserId,
-            telegramChatId: settings.telegramChatId,
-            cleaningId: cleaning.id,
-            unitName: `${unit.property?.title || ''} - ${unit.name}`,
-            cleanerName: `${cleaner.firstName} ${cleaner.lastName}`,
+        if (cleaning.cleanerId) {
+          const cleaner = await prisma.cleaner.findUnique({
+            where: { id: cleaning.cleanerId }
           });
           
-          logger.info('✅ STARTED notification sent', { cleaningId: id });
+          const unit = await prisma.unit.findUnique({
+            where: { id: cleaning.unitId },
+            include: { property: true }
+          });
+          
+          if (cleaner && unit) {
+            const eventsClient = getEventsClient();
+            await eventsClient.publishCleaningStarted({
+              cleaningId: cleaning.id,
+              cleanerId: cleaning.cleanerId,
+              unitName: `${unit.property?.title || ''} - ${unit.name}`,
+              orgId: cleaning.orgId || undefined,
+            });
+            logger.info('✅ CLEANING_STARTED event published', { cleaningId: id });
+          }
         }
       } catch (error) {
-        logger.error('Failed to send start notification:', error);
+        logger.error('Failed to publish CLEANING_STARTED event:', error);
+        // Не прерываем основной flow
       }
-      */
       
       return cleaning;
     },
@@ -381,50 +370,34 @@ export const resolvers = {
       logger.info('Completing cleaning', { id, input });
       const cleaning = await dl.completeCleaning(id, input);
       
-      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
-      /*
-      // Отправляем уведомление уборщику о завершении
+      // Публикуем событие CLEANING_COMPLETED через Event Bus
       try {
-        if (!cleaning.cleanerId) {
-          logger.warn('No cleaner assigned to cleaning, skipping completion notification', { cleaningId: id });
-          return cleaning;
-        }
-        
-        const cleaner = await prisma.cleaner.findUnique({
-          where: { id: cleaning.cleanerId }
-        });
-        
-        const unit = await prisma.unit.findUnique({
-          where: { id: cleaning.unitId },
-          include: { property: true }
-        });
-        
-        const targetUserId = cleaner?.userId || cleaner?.id;
-        const settings = targetUserId 
-          ? await prisma.userNotificationSettings.findUnique({
-              where: { userId: targetUserId },
-            }).catch(() => null)
-          : null;
-        
-        if (cleaner && unit) {
-          // Вычисляем длительность
-          const duration = cleaning.startedAt && cleaning.completedAt
-            ? Math.floor((new Date(cleaning.completedAt).getTime() - new Date(cleaning.startedAt).getTime()) / 60000)
-            : undefined;
-          
-          await notificationClient.notifyCleaningCompleted({
-            userId: targetUserId!,
-            telegramChatId: settings?.telegramChatId || undefined,
-            cleaningId: cleaning.id,
-            unitName: `${unit.property?.title || ''} - ${unit.name}`,
-            cleanerName: `${cleaner.firstName} ${cleaner.lastName}`,
-            duration,
+        if (cleaning.cleanerId) {
+          const cleaner = await prisma.cleaner.findUnique({
+            where: { id: cleaning.cleanerId }
           });
+          
+          const unit = await prisma.unit.findUnique({
+            where: { id: cleaning.unitId },
+            include: { property: true }
+          });
+          
+          if (cleaner && unit) {
+            const eventsClient = getEventsClient();
+            await eventsClient.publishCleaningCompleted({
+              cleaningId: cleaning.id,
+              cleanerId: cleaning.cleanerId,
+              unitName: `${unit.property?.title || ''} - ${unit.name}`,
+              completedAt: cleaning.completedAt || new Date().toISOString(), // Уже строка из datalayer
+              orgId: cleaning.orgId || undefined,
+            });
+            logger.info('✅ CLEANING_COMPLETED event published', { cleaningId: id });
+          }
         }
       } catch (error) {
-        logger.error('Failed to send completion notification:', error);
+        logger.error('Failed to publish CLEANING_COMPLETED event:', error);
+        // Не прерываем основной flow
       }
-      */
       
       return cleaning;
     },
@@ -457,38 +430,31 @@ export const resolvers = {
         cleanerName: `${currentCleaner.firstName} ${currentCleaner.lastName}`
       });
       
-      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
-      /*
-      // Отправляем подтверждающее уведомление
+      // Публикуем событие CLEANING_ASSIGNED через Event Bus
       try {
         const unit = await prisma.unit.findUnique({
           where: { id: cleaning.unitId },
           include: { property: true }
         });
         
-        const targetUserId = currentCleaner.userId || currentCleaner.id;
-        const settings = await prisma.userNotificationSettings.findUnique({
-          where: { userId: targetUserId },
-        }).catch(() => null);
-        
-        if (settings?.telegramChatId && unit) {
-          await notificationClient.notifyCleaningAssigned({
-            userId: targetUserId,
-            telegramChatId: settings.telegramChatId,
-            cleanerId: currentCleaner.id,
+        if (unit) {
+          const eventsClient = getEventsClient();
+          await eventsClient.publishCleaningAssigned({
             cleaningId: cleaning.id,
+            cleanerId: currentCleaner.id,
+            unitId: cleaning.unitId,
             unitName: `${unit.property?.title || ''} - ${unit.name}`,
-            scheduledAt: cleaning.scheduledAt.toISOString(),
+            scheduledAt: cleaning.scheduledAt instanceof Date ? cleaning.scheduledAt.toISOString() : cleaning.scheduledAt, // Prisma возвращает Date
             requiresLinenChange: cleaning.requiresLinenChange,
-            orgId: cleaning.orgId,
+            orgId: cleaning.orgId || undefined,
+            actorUserId: undefined, // TODO: получить из context
           });
-          
-          logger.info('✅ Assignment confirmation sent', { cleaningId });
+          logger.info('✅ CLEANING_ASSIGNED event published', { cleaningId });
         }
       } catch (error) {
-        logger.error('Failed to send assignment confirmation:', error);
+        logger.error('Failed to publish CLEANING_ASSIGNED event:', error);
+        // Не прерываем основной flow
       }
-      */
       
       return cleaning;
     },
@@ -502,44 +468,34 @@ export const resolvers = {
       logger.info('Cancelling cleaning', { id, reason });
       const cleaning = await dl.cancelCleaning(id, reason);
       
-      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
-      /*
-      // Отправляем уведомление об отмене
+      // Публикуем событие CLEANING_CANCELLED через Event Bus
       try {
-        if (!cleaning.cleanerId) {
-          logger.warn('No cleaner assigned to cleaning, skipping cancellation notification', { cleaningId: id });
-          return cleaning;
-        }
-        
-        const cleaner = await prisma.cleaner.findUnique({
-          where: { id: cleaning.cleanerId }
-        });
-        
-        const unit = await prisma.unit.findUnique({
-          where: { id: cleaning.unitId },
-          include: { property: true }
-        });
-        
-        const targetUserId = cleaner?.userId || cleaner?.id;
-        const settings = targetUserId 
-          ? await prisma.userNotificationSettings.findUnique({
-              where: { userId: targetUserId },
-            }).catch(() => null)
-          : null;
-        
-        if (unit) {
-          await notificationClient.notifyCleaningCancelled({
-            userId: targetUserId!,
-            telegramChatId: settings?.telegramChatId || undefined,
-            cleaningId: cleaning.id,
-            unitName: `${unit.property?.title || ''} - ${unit.name}`,
-            reason,
+        if (cleaning.cleanerId) {
+          const cleaner = await prisma.cleaner.findUnique({
+            where: { id: cleaning.cleanerId }
           });
+          
+          const unit = await prisma.unit.findUnique({
+            where: { id: cleaning.unitId },
+            include: { property: true }
+          });
+          
+          if (cleaner && unit) {
+            const eventsClient = getEventsClient();
+            await eventsClient.publishCleaningCancelled({
+              cleaningId: cleaning.id,
+              cleanerId: cleaning.cleanerId,
+              unitName: `${unit.property?.title || ''} - ${unit.name}`,
+              reason,
+              orgId: cleaning.orgId || undefined,
+            });
+            logger.info('✅ CLEANING_CANCELLED event published', { cleaningId: id });
+          }
         }
       } catch (error) {
-        logger.error('Failed to send cancellation notification:', error);
+        logger.error('Failed to publish CLEANING_CANCELLED event:', error);
+        // Не прерываем основной flow
       }
-      */
       
       return cleaning;
     },

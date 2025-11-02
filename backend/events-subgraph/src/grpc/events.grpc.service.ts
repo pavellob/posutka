@@ -137,7 +137,7 @@ export class EventsGrpcService {
    */
   private mapEventType(grpcType: number): string {
     const mapping: Record<number, string> = {
-      1: 'CLEANING_SCHEDULED',
+      1: 'CLEANING_AVAILABLE',
       2: 'CLEANING_ASSIGNED',
       3: 'CLEANING_STARTED',
       4: 'CLEANING_COMPLETED',
@@ -157,7 +157,13 @@ export class EventsGrpcService {
       33: 'USER_UNLOCKED'
     };
     
-    return mapping[grpcType] || 'UNKNOWN';
+    const mapped = mapping[grpcType];
+    if (!mapped) {
+      logger.error('Unknown or unspecified event type received', { grpcType });
+      throw new Error(`Invalid event type: ${grpcType}. Expected valid EventType enum value.`);
+    }
+    
+    return mapped;
   }
   
   /**

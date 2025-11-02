@@ -18,6 +18,8 @@ import {
   ClockIcon,
   CheckCircleIcon,
   CalendarIcon,
+  UserPlusIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 
 const GET_CLEANING = `
@@ -170,10 +172,8 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
-      // Показываем уведомление об успехе и перенаправляем на страницу уборки
-      setTimeout(() => {
-        router.push(`/cleanings/${params.id}`)
-      }, 1000)
+      setShowAssignDialog(false)
+      // Обновляем данные через queryClient
     },
     onError: (error: any) => {
       console.error('Failed to assign cleaning:', error)
@@ -187,7 +187,6 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
 
   const handleConfirmAssign = () => {
     assignCleaningMutation.mutate()
-    setShowAssignDialog(false)
   }
 
   const handleCancelAssign = () => {
@@ -457,11 +456,58 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
           )}
 
           {!cleaning.cleaner && cleaning.status === 'SCHEDULED' && (
-            <section className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-6 border border-amber-200 dark:border-amber-800">
-              <Subheading className="mb-2">Уборщик не назначен</Subheading>
-              <Text className="text-sm text-amber-900 dark:text-amber-100">
-                Уборка ожидает назначения уборщика
-              </Text>
+            <section className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800 shadow-lg hover:shadow-xl transition-all duration-300">
+              {/* Декоративный элемент */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-200/30 to-purple-200/30 dark:from-blue-800/20 dark:to-purple-800/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <UserPlusIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <Subheading className="mb-2 text-blue-900 dark:text-blue-100">Уборщик не назначен</Subheading>
+                    <Text className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                      Эта уборка ожидает назначения уборщика. После назначения вы сможете начать выполнение уборки.
+                    </Text>
+                  </div>
+                </div>
+                
+                {/* Детали уборки */}
+                <div className="bg-white/60 dark:bg-zinc-900/40 backdrop-blur-sm rounded-lg p-4 mb-4 border border-blue-100 dark:border-blue-800/50">
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                      <CalendarIcon className="w-4 h-4" />
+                      <span className="font-medium">Запланирована:</span>
+                      <span>{formattedDate} в {formattedTime}</span>
+                    </div>
+                    {cleaning.requiresLinenChange && (
+                      <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                        <SparklesIcon className="w-4 h-4" />
+                        <span>Требуется смена белья</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <Button 
+                  onClick={handleAssignCleaning}
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  disabled={assignCleaningMutation.isPending}
+                >
+                  {assignCleaningMutation.isPending ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      Назначаем...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <UserPlusIcon className="w-5 h-5" />
+                      Взять уборку в работу
+                    </span>
+                  )}
+                </Button>
+              </div>
             </section>
           )}
 
@@ -587,52 +633,171 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
       </div>
 
       {/* Диалог назначения уборки */}
-      <Dialog open={showAssignDialog} onClose={handleCancelAssign}>
-        <DialogTitle>
-          {data?.cleaner ? '⚠️ Уборка уже назначена' : '🎯 Взять уборку в работу'}
-        </DialogTitle>
-        <DialogDescription>
-          {data?.cleaner 
-            ? `Эта уборка уже назначена на уборщика ${data.cleaner.firstName} ${data.cleaner.lastName}.`
-            : 'Вы хотите взять эту уборку в работу? После назначения вы сможете начать выполнение уборки.'
-          }
-        </DialogDescription>
-        <DialogBody>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <HomeIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+      <Dialog open={showAssignDialog} onClose={handleCancelAssign} size="lg">
+        {data?.cleaner ? (
+          <>
+            <DialogTitle className="flex items-center gap-3 text-amber-900 dark:text-amber-100">
+              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center">
+                <UserIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
-              <div className="ml-3">
-                <Text className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                  {data?.unit?.name}
+              <span>Уборка уже назначена</span>
+            </DialogTitle>
+            <DialogDescription className="text-amber-800 dark:text-amber-200">
+              Эта уборка уже назначена на уборщика{' '}
+              <span className="font-semibold">
+                {data.cleaner.firstName} {data.cleaner.lastName}
+              </span>
+              {data.cleaner.rating && (
+                <span className="ml-2">⭐ {data.cleaner.rating.toFixed(1)}</span>
+              )}
+            </DialogDescription>
+            <DialogBody>
+              <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-200 dark:border-amber-800 rounded-xl p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-16 h-16 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center">
+                    <UserIcon className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <Text className="font-semibold text-lg text-amber-900 dark:text-amber-100 mb-1">
+                      {data.cleaner.firstName} {data.cleaner.lastName}
+                    </Text>
+                    {data.cleaner.telegramUsername && (
+                      <Text className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+                        @{data.cleaner.telegramUsername}
+                      </Text>
+                    )}
+                    {data.cleaner.rating && (
+                      <div className="flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                        <span className="text-lg">⭐</span>
+                        <span className="font-medium">{data.cleaner.rating.toFixed(1)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </DialogBody>
+            <DialogActions>
+              <Button 
+                onClick={handleCancelAssign} 
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                Закрыть
+              </Button>
+            </DialogActions>
+          </>
+        ) : (
+          <>
+            <DialogTitle className="flex items-center gap-3 text-green-700 dark:text-green-400">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
+                <UserPlusIcon className="w-5 h-5 text-white" />
+              </div>
+              <span>Взять уборку в работу</span>
+            </DialogTitle>
+            <DialogDescription className="text-zinc-700 dark:text-zinc-300">
+              Вы уверены, что хотите взять эту уборку в работу? После назначения вы сможете начать выполнение уборки.
+            </DialogDescription>
+            <DialogBody>
+              {/* Информация об уборке */}
+              <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800 mb-4">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <HomeIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <Text className="text-xs text-blue-600 dark:text-blue-400 uppercase font-semibold tracking-wide mb-1">
+                        Квартира
+                      </Text>
+                      <Text className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                        {data?.unit?.name}
+                      </Text>
+                      <Text className="text-sm text-blue-700 dark:text-blue-300">
+                        {data?.unit?.property?.title}
+                      </Text>
+                    </div>
+                    
+                    {data?.scheduledAt && (
+                      <div className="flex items-center gap-2 pt-2 border-t border-blue-200 dark:border-blue-800">
+                        <CalendarIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <div>
+                          <Text className="text-xs text-blue-600 dark:text-blue-400 uppercase font-semibold tracking-wide">
+                            Запланирована
+                          </Text>
+                          <Text className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            {new Date(data.scheduledAt).toLocaleDateString('ru-RU', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Text>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {data?.requiresLinenChange && (
+                      <div className="flex items-center gap-2 pt-2">
+                        <SparklesIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <Text className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                          Требуется смена белья
+                        </Text>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Что будет дальше */}
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <Text className="text-sm font-medium text-green-900 dark:text-green-100 mb-2">
+                  После назначения:
                 </Text>
-                <Text className="text-sm text-blue-600 dark:text-blue-300 mt-1">
-                  {data?.unit?.property?.title}
-                </Text>
-                {data?.scheduledAt && (
-                  <Text className="text-sm text-blue-600 dark:text-blue-300 mt-1">
-                    📅 {new Date(data.scheduledAt).toLocaleString('ru-RU')}
-                  </Text>
+                <ul className="space-y-1 text-sm text-green-800 dark:text-green-200">
+                  <li className="flex items-start gap-2">
+                    <CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Уборка будет назначена на вас</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Вы сможете начать выполнение уборки</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Вы получите доступ к чеклисту уборки</span>
+                  </li>
+                </ul>
+              </div>
+            </DialogBody>
+            <DialogActions>
+              <Button 
+                outline 
+                onClick={handleCancelAssign} 
+                disabled={assignCleaningMutation.isPending}
+                className="flex-1"
+              >
+                Отмена
+              </Button>
+              <Button 
+                onClick={handleConfirmAssign} 
+                disabled={assignCleaningMutation.isPending}
+                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                {assignCleaningMutation.isPending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Назначаем...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <UserPlusIcon className="w-5 h-5" />
+                    Взять уборку
+                  </span>
                 )}
-              </div>
-            </div>
-          </div>
-        </DialogBody>
-        <DialogActions>
-          <Button outline onClick={handleCancelAssign} disabled={assignCleaningMutation.isPending}>
-            {data?.cleaner ? 'Закрыть' : 'Отмена'}
-          </Button>
-          {!data?.cleaner && (
-            <Button 
-              onClick={handleConfirmAssign} 
-              disabled={assignCleaningMutation.isPending}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              {assignCleaningMutation.isPending ? 'Назначаем...' : '🎯 Взять уборку'}
-            </Button>
-          )}
-        </DialogActions>
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
     </div>
   )

@@ -3,6 +3,11 @@ export * from './clients/ops.client.js';
 export * from './clients/bookings.client.js';
 export * from './clients/notifications.client.js';
 export * from './clients/cleaning.client.js';
+export * from './clients/events.client.js';
+
+// Экспорт фабрик для создания клиентов
+export { createNotificationsGrpcClient } from './clients/notifications.client.js';
+export { createEventsGrpcClient } from './clients/events.client.js';
 
 // Экспорт сгенерированных типов для ops
 export {
@@ -58,4 +63,17 @@ export {
   CleaningResponse,
   CleaningServiceDefinition
 } from './generated/cleaning.js';
+
+// Экспорт сгенерированных типов для events
+export {
+  EventType as EventsEventType,
+  EventStatus as EventsEventStatus,
+  PublishEventRequest,
+  PublishEventResponse,
+  PublishBulkEventsRequest,
+  PublishBulkEventsResponse,
+  GetEventStatusRequest,
+  GetEventStatusResponse,
+  EventsServiceDefinition
+} from './generated/events.js';
 

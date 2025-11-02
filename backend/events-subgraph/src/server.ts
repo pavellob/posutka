@@ -9,6 +9,7 @@ import { createGraphQLLogger } from '@repo/shared-logger';
 import { resolvers } from './resolvers/index.js';
 import { EventBusService } from './services/event-bus.service.js';
 import { NotificationEventHandler } from './handlers/notification-event-handler.js';
+import { GrpcTransport } from './transport/grpc.transport.js';
 import type { Context } from './context.js';
 
 const logger = createGraphQLLogger('events-subgraph');
@@ -60,6 +61,48 @@ eventBus.registerHandler({
 
 logger.info('✅ Event handlers registered');
 
+// Создаем подписку на события для уведомлений (если еще не существует)
+async function ensureNotificationSubscription() {
+  try {
+    const existing = await prisma.eventSubscription.findFirst({
+      where: {
+        handlerType: 'NOTIFICATION',
+        isActive: true
+      }
+    });
+
+    if (!existing) {
+      await prisma.eventSubscription.create({
+        data: {
+          handlerType: 'NOTIFICATION',
+          eventTypes: [
+            'CLEANING_AVAILABLE',
+            'CLEANING_ASSIGNED',
+            'CLEANING_STARTED',
+            'CLEANING_COMPLETED',
+            'CLEANING_CANCELLED',
+            'BOOKING_CREATED',
+            'BOOKING_CONFIRMED',
+            'BOOKING_CANCELLED',
+            'TASK_CREATED',
+            'TASK_ASSIGNED',
+            'TASK_COMPLETED'
+          ],
+          isActive: true
+        }
+      });
+      logger.info('✅ Notification subscription created');
+    } else {
+      logger.info('✅ Notification subscription already exists');
+    }
+  } catch (error: any) {
+    logger.error('Failed to ensure notification subscription', { error: error.message });
+  }
+}
+
+// Инициализируем подписку
+await ensureNotificationSubscription();
+
 // Читаем схему
 const typeDefs = readFileSync(join(process.cwd(), 'src/schema/index.gql'), 'utf-8');
 
@@ -88,6 +131,8 @@ const yoga = createYoga<Context>({
 });
 
 const port = parseInt(process.env.PORT || '4013');
+const grpcHost = process.env.GRPC_HOST || 'localhost';
+const grpcPort = parseInt(process.env.GRPC_PORT || '4113');
 
 // Запускаем HTTP сервер
 const server = createServer(yoga);
@@ -97,9 +142,28 @@ server.listen(port, () => {
   logger.info(`📊 GraphiQL available at http://localhost:${port}/graphql`);
 });
 
+// Запускаем GRPC сервер
+const grpcTransport = new GrpcTransport(eventBus, prisma, grpcHost, grpcPort);
+grpcTransport.start().then(() => {
+  logger.info(`✅ GRPC server started on ${grpcHost}:${grpcPort}`);
+}).catch((error) => {
+  logger.error('Failed to start GRPC server', error);
+});
+
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
+  await grpcTransport.stop();
+  await prisma.$disconnect();
+  server.close(() => {
+    logger.info('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  await grpcTransport.stop();
   await prisma.$disconnect();
   server.close(() => {
     logger.info('Server closed');

@@ -24,6 +24,7 @@ const EVENT_GROUPS = {
   cleaning: {
     name: 'Уборки',
     events: [
+      { id: 'CLEANING_AVAILABLE', name: 'Доступна уборка' },
       { id: 'CLEANING_ASSIGNED', name: 'Уборка назначена' },
       { id: 'CLEANING_STARTED', name: 'Уборка начата' },
       { id: 'CLEANING_COMPLETED', name: 'Уборка завершена' },

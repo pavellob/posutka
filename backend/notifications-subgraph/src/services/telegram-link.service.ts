@@ -59,6 +59,7 @@ export class TelegramLinkService {
             enabled: true,
             enabledChannels: ['TELEGRAM', 'WEBSOCKET'],
             subscribedEvents: [
+              'CLEANING_AVAILABLE',
               'CLEANING_ASSIGNED',
               'CLEANING_STARTED', 
               'CLEANING_COMPLETED',
@@ -78,6 +79,7 @@ export class TelegramLinkService {
             enabled: true,
             enabledChannels: ['TELEGRAM', 'WEBSOCKET'],
             subscribedEvents: [
+              'CLEANING_AVAILABLE',
               'CLEANING_ASSIGNED',
               'CLEANING_STARTED',
               'CLEANING_COMPLETED',

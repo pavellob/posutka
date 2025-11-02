@@ -48,6 +48,60 @@ export class NotificationsGrpcService implements NotificationsService {
         parsedMetadata = undefined;
       }
       
+      // Извлекаем actionButtons из запроса
+      // nice-grpc автоматически конвертирует snake_case в camelCase
+      const requestAny = request as any;
+      
+      // Проверяем оба варианта имени поля (на случай если конвертация не сработала)
+      // TypeScript тип может не включать actionButtons, поэтому используем any cast
+      const rawActionButtons = 
+        requestAny.actionButtons || 
+        requestAny.action_buttons || 
+        [];
+      
+      // Детальное логирование для диагностики
+      logger.info('Received notification request - full inspection', {
+        eventType: request.eventType,
+        // Проверяем через any cast
+        hasActionButtonsAny: !!requestAny.actionButtons,
+        actionButtonsAny: requestAny.actionButtons,
+        // Проверяем snake_case вариант
+        hasActionButtonsSnake: !!requestAny.action_buttons,
+        actionButtonsSnake: requestAny.action_buttons,
+        // Финальный результат
+        rawActionButtons: rawActionButtons,
+        rawActionButtonsLength: rawActionButtons?.length || 0,
+        // Все ключи запроса
+        requestKeys: Object.keys(request),
+        requestAnyKeys: Object.keys(requestAny),
+        // Другие поля для проверки
+        actionUrl: request.actionUrl,
+        actionText: request.actionText,
+        // Строковое представление для отладки
+        requestStringified: JSON.stringify(request).substring(0, 500),
+      });
+      
+      const actionButtons = rawActionButtons && Array.isArray(rawActionButtons) && rawActionButtons.length > 0
+        ? rawActionButtons.map((btn: any) => {
+            const mapped = {
+              text: btn.text || btn.Text || '',
+              url: btn.url || btn.Url || '',
+              useWebApp: btn.useWebApp ?? (btn.use_web_app ?? false),
+            };
+            logger.debug('Mapping actionButton', { 
+              originalBtn: btn, 
+              mappedBtn: mapped 
+            });
+            return mapped;
+          })
+        : undefined;
+      
+      logger.info('Processed actionButtons', {
+        hasActionButtons: !!actionButtons,
+        actionButtonsCount: actionButtons?.length || 0,
+        actionButtons: actionButtons,
+      });
+      
       // Базовый объект сообщения (recipientId будет установлен отдельно для каждого канала)
       const message = {
         id: this.generateId(),
@@ -56,8 +110,9 @@ export class NotificationsGrpcService implements NotificationsService {
         message: request.message,
         priority: this.mapPriority(request.priority),
         metadata: parsedMetadata,
-        actionUrl: request.actionUrl || undefined,
-        actionText: request.actionText || undefined,
+        actionUrl: actionButtons ? undefined : (request.actionUrl || undefined),
+        actionText: actionButtons ? undefined : (request.actionText || undefined),
+        actionButtons: actionButtons,
         scheduledAt: request.scheduledAt ? new Date(request.scheduledAt * 1000) : undefined,
       };
       
@@ -133,6 +188,9 @@ export class NotificationsGrpcService implements NotificationsService {
       logger.info('Notification created, sending through providers', {
         notificationId: notification.id,
         deliveryTargetsCount: deliveryTargets.length,
+        hasActionButtons: !!message.actionButtons,
+        actionButtonsCount: message.actionButtons?.length || 0,
+        actionButtons: message.actionButtons,
       });
       
       // Отправляем через провайдеры для каждого deliveryTarget
@@ -146,13 +204,23 @@ export class NotificationsGrpcService implements NotificationsService {
             channel: target.channel,
             recipientType: target.recipientType,
             recipientId: target.recipientId.substring(0, 20) + '...',
+            hasActionButtons: !!message.actionButtons,
+            actionButtonsCount: message.actionButtons?.length || 0,
           });
           
           // Создаем сообщение с правильным recipientId для этого канала
           const channelMessage = {
             ...message,
             recipientId: target.recipientId, // ✅ Для Telegram - telegramChatId, для WebSocket - userId
+            // Явно убеждаемся, что actionButtons передаются
+            actionButtons: message.actionButtons,
           };
+          
+          logger.debug('Channel message prepared', {
+            channel: target.channel,
+            hasActionButtons: !!channelMessage.actionButtons,
+            actionButtonsCount: channelMessage.actionButtons?.length || 0,
+          });
           
           const results = await this.providerManager.sendNotification(
             channelMessage, 
@@ -324,12 +392,11 @@ export class NotificationsGrpcService implements NotificationsService {
       3: 'BOOKING_CANCELLED',
       4: 'BOOKING_CHECKIN',
       5: 'BOOKING_CHECKOUT',
-      10: 'CLEANING_SCHEDULED',
-      11: 'CLEANING_STARTED',
-      12: 'CLEANING_COMPLETED',
-      13: 'CLEANING_CANCELLED',
-      14: 'CLEANING_ASSIGNED',
-      15: 'CLEANING_AVAILABLE',      // ✅ Добавили маппинг для самоназначения
+      10: 'CLEANING_AVAILABLE',
+      11: 'CLEANING_ASSIGNED',
+      12: 'CLEANING_STARTED',
+      13: 'CLEANING_COMPLETED',
+      14: 'CLEANING_CANCELLED',
       20: 'TASK_CREATED',
       21: 'TASK_ASSIGNED',
       22: 'TASK_STATUS_CHANGED',
