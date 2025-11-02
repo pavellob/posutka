@@ -9,7 +9,8 @@ export default defineConfig({
   target: 'es2020',
   outDir: 'dist',
   splitting: false,
-  skipNodeModulesBundle: true,
+  skipNodeModulesBundle: false,
+  noExternal: ['protobufjs', '@protobufjs'],
   tsconfig: './tsconfig.json',
 });
 
