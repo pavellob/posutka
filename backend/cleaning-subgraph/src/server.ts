@@ -4,12 +4,12 @@
 // Локально используем dotenv для загрузки из .env файла
 import { readFileSync } from 'fs';
 import path from 'path';
-import { config } from 'dotenv';
 
 if (process.env.NODE_ENV !== 'production') {
   try {
     // Пробуем загрузить из корневого .env файла
     const rootEnvPath = path.resolve(process.cwd(), '../../.env');
+    const config = await import('dotenv').then(m => m.config);
     config({ path: rootEnvPath });
     // Также пробуем загрузить из локального .env если есть
     const localEnvPath = path.resolve(process.cwd(), '.env');
