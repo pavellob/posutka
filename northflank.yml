@@ -63,13 +63,9 @@ services:
       - name: NOTIFICATIONS_GRPC_PORT
         value: "4111"
       - name: MINIO_URL
-        fromSecret: minio-url
       - name: MINIO_ACCESS_KEY
-        fromSecret: minio-access-key
       - name: MINIO_SECRET_KEY
-        fromSecret: minio-secret-key
       - name: MINIO_BUCKET
-        fromSecret: minio-bucket
     healthCheck:
       path: /graphql
       port: 4000
