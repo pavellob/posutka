@@ -5,20 +5,7 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 
-if (process.env.NODE_ENV !== 'production') {
-  try {
-    // Пробуем загрузить из корневого .env файла
-    const rootEnvPath = path.resolve(process.cwd(), '../../.env');
-    const config = await import('dotenv').then(m => m.config);
-    config({ path: rootEnvPath });
-    // Также пробуем загрузить из локального .env если есть
-    const localEnvPath = path.resolve(process.cwd(), '.env');
-    config({ path: localEnvPath, override: false }); // Не перезаписываем уже загруженные переменные
-  } catch (error) {
-    // dotenv не критичен, переменные могут быть установлены через environment
-    console.warn('⚠️  Could not load .env file, using environment variables only');
-  }
-}
+
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import { createYoga } from 'graphql-yoga';
 import { createServer } from 'http';

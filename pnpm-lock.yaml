@@ -216,9 +216,6 @@ importers:
       '@repo/storage-service':
         specifier: workspace:*
         version: link:../../packages/storage-service
-      dotenv:
-        specifier: ^17.2.3
-        version: 17.2.3
       graphql:
         specifier: ^16.9.0
         version: 16.11.0
@@ -631,9 +628,6 @@ importers:
       '@repo/shared-logger':
         specifier: workspace:*
         version: link:../shared-logger
-      dotenv:
-        specifier: ^17.2.3
-        version: 17.2.3
       graphql:
         specifier: ^16.9.0
         version: 16.11.0
