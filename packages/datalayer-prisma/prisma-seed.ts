@@ -236,6 +236,101 @@ async function main() {
 
   console.log(`Created default cleaning templates for ${allUnits.length} units`);
 
+  // 2.6) Создание дефолтных шаблонов чек-листов (новая модель) для каждого unit
+  const defaultChecklistTemplateItems = [
+    {
+      key: 'item_1',
+      title: 'Проверить чистоту полов',
+      description: 'Полы должны быть чистыми и сухими',
+      type: 'BOOL' as const,
+      required: true,
+      requiresPhoto: true,
+      photoMin: 1,
+      order: 1,
+    },
+    {
+      key: 'item_2',
+      title: 'Проверить чистоту санузла',
+      description: 'Санузел должен быть чистым',
+      type: 'BOOL' as const,
+      required: true,
+      requiresPhoto: true,
+      photoMin: 2,
+      order: 2,
+    },
+    {
+      key: 'item_3',
+      title: 'Проверить состояние мебели',
+      description: 'Мебель должна быть в хорошем состоянии',
+      type: 'BOOL' as const,
+      required: false,
+      requiresPhoto: false,
+      order: 3,
+    },
+    {
+      key: 'item_4',
+      title: 'Проверить наличие постельного белья',
+      description: 'Постельное белье должно быть чистым',
+      type: 'BOOL' as const,
+      required: true,
+      requiresPhoto: true,
+      photoMin: 1,
+      order: 4,
+    },
+    {
+      key: 'item_5',
+      title: 'Проверить состояние техники',
+      description: 'Вся техника должна работать',
+      type: 'BOOL' as const,
+      required: false,
+      requiresPhoto: false,
+      order: 5,
+    },
+    {
+      key: 'item_6',
+      title: 'Проверить наличие расходников',
+      description: 'Туалетная бумага, мыло, полотенца',
+      type: 'BOOL' as const,
+      required: true,
+      requiresPhoto: false,
+      order: 6,
+    },
+    {
+      key: 'item_7',
+      title: 'Проверить работу света',
+      description: 'Все лампы должны работать',
+      type: 'BOOL' as const,
+      required: false,
+      requiresPhoto: false,
+      order: 7,
+    },
+    {
+      key: 'item_8',
+      title: 'Проверить проветривание',
+      description: 'Помещение должно быть проветрено',
+      type: 'BOOL' as const,
+      required: false,
+      requiresPhoto: false,
+      order: 8,
+    },
+  ];
+
+  await Promise.all(
+    allUnits.map(unit =>
+      prisma.checklistTemplate.create({
+        data: {
+          unitId: unit.id,
+          version: 1,
+          items: {
+            create: defaultChecklistTemplateItems,
+          },
+        },
+      })
+    )
+  );
+
+  console.log(`Created default checklist templates (v1) for ${allUnits.length} units`);
+
   // 3) Блокировки календаря
   await prisma.calendarBlock.createMany({
     data: [

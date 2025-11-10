@@ -19,6 +19,7 @@ import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { graphqlClient } from '@/lib/graphql-client'
 import { gql } from 'graphql-request'
 import { useEffect } from 'react'
+import { Switch, SwitchField } from '@/components/switch'
 import {
   ArrowLeftIcon,
   UserCircleIcon,
@@ -40,7 +41,6 @@ const GET_USER_BY_ID = gql`
       id
       email
       name
-      phoneNumber
       emailVerified
       status
       systemRoles
@@ -74,11 +74,46 @@ const UPDATE_USER = gql`
       id
       email
       name
-      phoneNumber
       status
       systemRoles
       isLocked
       updatedAt
+    }
+  }
+`
+
+const GET_MEMBERSHIPS_BY_ORG = gql`
+  query GetMembershipsByOrg($orgId: UUID!) {
+    membershipsByOrg(orgId: $orgId) {
+      id
+      role
+      user {
+        id
+      }
+    }
+  }
+`
+
+const ADD_MEMBER = gql`
+  mutation AddMember($input: AddMemberInput!) {
+    addMember(input: $input) {
+      id
+      role
+      user {
+        id
+      }
+    }
+  }
+`
+
+const UPDATE_MEMBER_ROLE = gql`
+  mutation UpdateMemberRole($input: UpdateMemberRoleInput!) {
+    updateMemberRole(input: $input) {
+      id
+      role
+      user {
+        id
+      }
     }
   }
 `
@@ -100,7 +135,6 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
   const [lockReason, setLockReason] = useState('')
   const [formData, setFormData] = useState({
     name: '',
-    phoneNumber: '',
     status: 'ACTIVE',
     systemRoles: [] as string[]
   })
@@ -117,17 +151,40 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
     enabled: !!params.id
   })
 
+  const { data: membershipsData, isLoading: isMembershipsLoading, refetch: refetchMemberships } = useQuery({
+    queryKey: ['memberships-by-org', currentOrgId],
+    queryFn: async () => {
+      const response = await graphqlClient.request(GET_MEMBERSHIPS_BY_ORG, {
+        orgId: currentOrgId,
+      }) as any
+      return response.membershipsByOrg
+    },
+    enabled: !!currentOrgId,
+  })
+
+  const [membershipId, setMembershipId] = useState<string | null>(null)
+  const [initialOrgManager, setInitialOrgManager] = useState(false)
+  const [orgManager, setOrgManager] = useState(false)
+ 
   // Инициализация формы при загрузке данных
   useEffect(() => {
     if (userData) {
       setFormData({
         name: userData.name || '',
-        phoneNumber: userData.phoneNumber || '',
         status: userData.status || 'ACTIVE',
         systemRoles: userData.systemRoles || ['USER']
       })
     }
   }, [userData])
+
+  useEffect(() => {
+    if (!membershipsData) return
+    const membership = membershipsData.find((item: any) => item.user.id === params.id)
+    setMembershipId(membership?.id ?? null)
+    const isManager = membership?.role === 'MANAGER'
+    setOrgManager(isManager)
+    setInitialOrgManager(isManager)
+  }, [membershipsData, params.id])
 
   const updateUserMutation = useMutation({
     mutationFn: async (input: any) => {
@@ -138,17 +195,76 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user', params.id] })
-      setHasChanges(false)
     }
   })
 
-  const handleSaveChanges = () => {
-    updateUserMutation.mutate({
-      name: formData.name,
-      phoneNumber: formData.phoneNumber || null,
-      status: formData.status,
-      systemRoles: formData.systemRoles
-    })
+  const addMemberMutation = useMutation({
+    mutationFn: async (role: 'MANAGER' | 'STAFF' | 'OWNER') => {
+      if (!currentOrgId) return null
+      const response = await graphqlClient.request(ADD_MEMBER, {
+        input: {
+          userId: params.id,
+          orgId: currentOrgId,
+          role,
+        },
+      }) as any
+      return response.addMember
+    },
+    onSuccess: () => {
+      refetchMemberships()
+    },
+  })
+
+  const updateMemberRoleMutation = useMutation({
+    mutationFn: async ({ membershipId, role }: { membershipId: string; role: 'MANAGER' | 'STAFF' | 'OWNER' }) => {
+      const response = await graphqlClient.request(UPDATE_MEMBER_ROLE, {
+        input: {
+          membershipId,
+          role,
+        },
+      }) as any
+      return response.updateMemberRole
+    },
+    onSuccess: () => {
+      refetchMemberships()
+    },
+  })
+
+  const handleSaveChanges = async () => {
+    try {
+      await updateUserMutation.mutateAsync({
+        name: formData.name,
+        status: formData.status,
+        systemRoles: formData.systemRoles,
+      })
+
+      if (currentOrgId) {
+        if (orgManager) {
+          if (membershipId) {
+            if (!initialOrgManager) {
+              await updateMemberRoleMutation.mutateAsync({ membershipId, role: 'MANAGER' })
+            }
+          } else {
+            const added = await addMemberMutation.mutateAsync('MANAGER')
+            if (added?.id) {
+              setMembershipId(added.id)
+            }
+          }
+        } else if (initialOrgManager && membershipId) {
+          await updateMemberRoleMutation.mutateAsync({ membershipId, role: 'STAFF' })
+        }
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['user', params.id] }),
+        currentOrgId ? queryClient.invalidateQueries({ queryKey: ['memberships-by-org', currentOrgId] }) : Promise.resolve(),
+      ])
+
+      setInitialOrgManager(orgManager)
+      setHasChanges(false)
+    } catch (error) {
+      console.error('Failed to save user changes', error)
+    }
   }
 
   const handleInputChange = (field: string, value: any) => {
@@ -326,11 +442,6 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
                 <EnvelopeIcon className="w-4 h-4" />
                 {userData.email}
               </div>
-              {userData.phoneNumber && (
-                <div className="flex items-center gap-2">
-                  📱 {userData.phoneNumber}
-                </div>
-              )}
               <div className="flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4" />
                 Создан {formatRelativeTime(userData.createdAt)}
@@ -407,7 +518,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'profile' && (
+      {activeTab === 'profile' && userData && (
         <div className="space-y-6">
           <form className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Basic Info - Editable */}
@@ -438,28 +549,6 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
                       placeholder="Введите имя..."
                       required
                     />
-                  </Field>
-                  <Field>
-                    <Label htmlFor="phoneNumber">Телефон</Label>
-                    <Input
-                      id="phoneNumber"
-                      value={formData.phoneNumber}
-                      onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-                      placeholder="+7 999 123-45-67"
-                    />
-                  </Field>
-                  <Field>
-                    <Label htmlFor="status">Статус</Label>
-                    <Select
-                      id="status"
-                      value={formData.status}
-                      onChange={(e) => handleInputChange('status', e.target.value)}
-                    >
-                      <option value="ACTIVE">Активен</option>
-                      <option value="INACTIVE">Неактивен</option>
-                      <option value="SUSPENDED">Заблокирован</option>
-                      <option value="DELETED">Удален</option>
-                    </Select>
                   </Field>
                 </div>
               </Fieldset>
@@ -562,6 +651,35 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
           </div>
           </form>
 
+          {currentOrgId && (
+            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
+              <Subheading className="flex items-center gap-2">
+                <BuildingOfficeIcon className="w-5 h-5" />
+                Роль в организации
+              </Subheading>
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                Управление доступом пользователя в текущей организации.
+              </Text>
+              <SwitchField>
+                <Switch
+                  name="orgManager"
+                  checked={orgManager}
+                  onChange={(checked) => {
+                    setOrgManager(checked)
+                    setHasChanges(true)
+                  }}
+                  disabled={isMembershipsLoading || addMemberMutation.isPending || updateMemberRoleMutation.isPending}
+                />
+                <div className="ml-3">
+                  <Text className="font-medium">Менеджер организации</Text>
+                  <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Даёт доступ к утверждению уборок и другим менеджерским функциям.
+                  </Text>
+                </div>
+              </SwitchField>
+            </div>
+          )}
+
           {/* Save Button */}
           {hasChanges && (
             <div className="flex justify-end gap-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
@@ -570,10 +688,10 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
                 onClick={() => {
                   setFormData({
                     name: userData?.name || '',
-                    phoneNumber: userData?.phoneNumber || '',
                     status: userData?.status || 'ACTIVE',
                     systemRoles: userData?.systemRoles || ['USER']
                   })
+                  setOrgManager(initialOrgManager)
                   setHasChanges(false)
                 }}
               >
@@ -581,10 +699,10 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
               </Button>
               <Button 
                 onClick={handleSaveChanges}
-                disabled={updateUserMutation.isPending || !formData.name.trim()}
+                disabled={updateUserMutation.isPending || addMemberMutation.isPending || updateMemberRoleMutation.isPending || !formData.name.trim()}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {updateUserMutation.isPending ? 'Сохранение...' : 'Сохранить изменения'}
+                {updateUserMutation.isPending || addMemberMutation.isPending || updateMemberRoleMutation.isPending ? 'Сохранение...' : 'Сохранить изменения'}
               </Button>
             </div>
           )}

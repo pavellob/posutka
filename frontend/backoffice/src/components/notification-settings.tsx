@@ -28,6 +28,8 @@ const EVENT_GROUPS = {
       { id: 'CLEANING_ASSIGNED', name: 'Уборка назначена' },
       { id: 'CLEANING_STARTED', name: 'Уборка начата' },
       { id: 'CLEANING_COMPLETED', name: 'Уборка завершена' },
+      { id: 'CLEANING_PRECHECK_COMPLETED', name: 'Приёмка завершена' },
+      { id: 'CLEANING_READY_FOR_REVIEW', name: 'Требуется финальная проверка' },
       { id: 'CLEANING_CANCELLED', name: 'Уборка отменена' },
     ],
   },
@@ -92,6 +94,7 @@ export function NotificationSettings({ userId }: NotificationSettingsProps) {
       setTelegramChatId('');
     } catch (error) {
       console.error('Failed to save Telegram chat ID:', error);
+      alert('Не удалось сохранить Telegram ID. Проверьте подключение и повторите попытку.');
     } finally {
       setIsSavingTelegram(false);
     }

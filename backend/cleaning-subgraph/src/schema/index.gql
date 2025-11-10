@@ -3,6 +3,8 @@
 
 scalar UUID
 scalar DateTime
+scalar Upload
+scalar JSON
 
 """
 Информация о пагинации для соединений (connections).
@@ -83,6 +85,22 @@ type Query {
     """Курсор для пагинации"""
     after: String
   ): CleaningConnection!
+  
+  """Получить список чеклистов для квартиры"""
+  checklistsByUnit(unitId: UUID!): [ChecklistTemplate!]!
+  
+  # ===== Новая модель чек-листов (Template → Instance → Promote) =====
+  
+  """Получить инстанс чек-листа по ID"""
+  checklistInstance(id: UUID!): ChecklistInstance
+  
+  """Получить инстанс чек-листа по юниту и стадии"""
+  checklistByUnitAndStage(unitId: UUID!, stage: ChecklistStage!): ChecklistInstance
+  """Получить инстанс чек-листа по уборке и стадии"""
+  checklistByCleaning(cleaningId: UUID!, stage: ChecklistStage!): ChecklistInstance
+  
+  """Получить шаблон чек-листа для юнита"""
+  checklistTemplate(unitId: UUID!, version: Int): ChecklistTemplate
 }
 
 """
@@ -122,6 +140,9 @@ type Mutation {
   """Завершить уборку"""
   completeCleaning(id: UUID!, input: CompleteCleaningInput!): Cleaning!
   
+  """Одобрить уборку менеджером"""
+  approveCleaning(id: UUID!, managerId: UUID!, comment: String): Cleaning!
+  
   """Отменить уборку"""
   cancelCleaning(id: UUID!, reason: String): Cleaning!
   
@@ -150,6 +171,77 @@ type Mutation {
   
   """Удалить фото из документа"""
   deletePhotoFromDocument(photoId: UUID!): Boolean!
+  
+  # Чек-листы с фото
+  """Создать чек-лист"""
+  createChecklist(input: CreateChecklistInput!): Checklist!
+  
+  """Активировать чек-лист (деактивирует остальные для этого юнита)"""
+  activateChecklist(id: UUID!): Checklist!
+  
+  """Удалить чек-лист"""
+  deleteChecklist(id: UUID!): Boolean!
+  
+  """Обновить порядок пунктов чек-листа"""
+  updateChecklistItemOrder(checklistId: UUID!, itemIds: [UUID!]!): Checklist!
+  
+  # ===== Новая модель чек-листов (Template → Instance → Promote) =====
+  
+  """Создать инстанс чек-листа"""
+  createChecklistInstance(unitId: UUID!, stage: ChecklistStage!, cleaningId: UUID): ChecklistInstance!
+  
+  """Добавить пункт в инстанс"""
+  addItem(input: AddItemInput!): ChecklistInstance!
+  
+  """Обновить пункт в инстансе"""
+  updateItem(input: UpdateItemInput!): ChecklistInstance!
+  
+  """Удалить пункт из инстанса"""
+  removeItem(instanceId: UUID!, itemKey: String!): ChecklistInstance!
+  
+  """Промоут инстанса в следующую стадию"""
+  promoteChecklist(fromInstanceId: UUID!, toStage: ChecklistStage!): ChecklistInstance!
+  
+  """Отправить чек-лист"""
+  submitChecklist(id: UUID!): ChecklistInstance!
+  
+  """Заблокировать чек-лист"""
+  lockChecklist(id: UUID!): ChecklistInstance!
+  
+  """Добавить ответ на пункт"""
+  answer(input: AnswerInput!): ChecklistInstance!
+  
+  """Добавить аттачмент (фото) к пункту"""
+  attach(input: AttachmentInput!): ChecklistInstance!
+  
+  """Получить presigned URLs для загрузки фото к ответам"""
+  getChecklistAttachmentUploadUrls(input: GetChecklistAttachmentUploadUrlsInput!): [PresignedUploadUrl!]!
+  
+  """Удалить аттачмент (фото) из пункта"""
+  removeChecklistAttachment(attachmentId: UUID!): Boolean!
+  
+  # ===== Редактирование шаблона =====
+  
+  """Добавить пункт в шаблон"""
+  addTemplateItem(input: AddTemplateItemInput!): ChecklistTemplate!
+  
+  """Обновить пункт в шаблоне"""
+  updateTemplateItem(input: UpdateTemplateItemInput!): ChecklistTemplate!
+  
+  """Удалить пункт из шаблона"""
+  removeTemplateItem(templateId: UUID!, itemKey: String!): ChecklistTemplate!
+  
+  """Обновить порядок пунктов в шаблоне"""
+  updateTemplateItemOrder(templateId: UUID!, itemKeys: [String!]!): ChecklistTemplate!
+  
+  """Добавить пример фото к пункту шаблона"""
+  addTemplateItemExampleMedia(input: AddTemplateItemExampleMediaInput!): [ChecklistItemTemplateMedia!]!
+  
+  """Удалить пример фото из пункта шаблона"""
+  removeTemplateItemExampleMedia(mediaId: UUID!): Boolean!
+  
+  """Получить presigned URLs для загрузки примеров фото"""
+  getTemplateItemExampleMediaUploadUrls(input: GetTemplateItemExampleMediaUploadUrlsInput!): [PresignedUploadUrl!]!
 }
 
 # ===== Типы =====
@@ -321,6 +413,8 @@ type Cleaning {
   requiresLinenChange: Boolean!
   """Чеклист уборки"""
   checklistItems: [CleaningChecklist!]!
+  """Ревью менеджеров"""
+  reviews: [CleaningReview!]!
   """Документы уборки (приемка и сдача)"""
   documents: [CleaningDocument!]!
   """Дата создания"""
@@ -441,8 +535,34 @@ enum CleaningStatus {
   IN_PROGRESS
   """Завершена"""
   COMPLETED
+  """Проверена менеджером"""
+  APPROVED
   """Отменена"""
   CANCELLED
+}
+
+"""
+Ревью уборки менеджером
+"""
+type CleaningReview {
+  """Уникальный идентификатор ревью"""
+  id: UUID!
+  """ID уборки"""
+  cleaningId: UUID!
+  """Менеджер, утвердивший уборку"""
+  managerId: UUID!
+  """Статус ревью"""
+  status: CleaningReviewStatus!
+  """Комментарий менеджера"""
+  comment: String
+  """Дата создания"""
+  createdAt: DateTime!
+}
+
+"""Статус ревью уборки"""
+enum CleaningReviewStatus {
+  """Уборка подтверждена менеджером"""
+  APPROVED
 }
 
 """
@@ -608,5 +728,472 @@ input AddPhotoInput {
   caption: String
   """Порядок отображения"""
   order: Int
+}
+
+# ===== Checklist Types =====
+
+"""
+Чек-лист для уборки.
+"""
+type Checklist {
+  """Уникальный идентификатор чек-листа"""
+  id: UUID!
+  """Название чек-листа"""
+  name: String!
+  """Требования (JSON)"""
+  requirements: JSON!
+  """Требуется ли фото по каждому пункту"""
+  requirePhotoPerItem: Boolean!
+  """Активен ли чек-лист (только один активный на юнит)"""
+  isActive: Boolean!
+  """Пункты чек-листа"""
+  items: [ChecklistItem!]!
+  """Квартира (опционально)"""
+  unit: Unit
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Пункт чек-листа.
+"""
+type ChecklistItem {
+  """Уникальный идентификатор пункта"""
+  id: UUID!
+  """Порядок отображения"""
+  order: Int!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Требуется ли фото для этого пункта"""
+  requiresPhoto: Boolean!
+  """Эталонные фото (шаблон)"""
+  templateMedia: [ChecklistItemTemplateMedia!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Эталонное фото пункта чек-листа.
+"""
+type ChecklistItemTemplateMedia {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Ключ объекта в хранилище"""
+  objectKey: String!
+  """URL фотографии"""
+  url: String!
+  """MIME тип"""
+  mimeType: String
+  """Дата создания"""
+  createdAt: DateTime!
+}
+
+# ===== Новая модель чек-листов (Template → Instance → Promote) =====
+
+enum ChecklistStage {
+  PRE_CLEANING
+  CLEANING
+  FINAL_REPORT
+}
+
+enum ChecklistStatus {
+  DRAFT
+  SUBMITTED
+  LOCKED
+}
+
+enum ItemType {
+  BOOL
+  NUMBER
+  TEXT
+  SELECT
+  MULTISELECT
+  PHOTO_ONLY
+}
+
+"""
+Шаблон чек-листа (версионируемый).
+"""
+type ChecklistTemplate {
+  """Уникальный идентификатор шаблона"""
+  id: UUID!
+  """ID юнита"""
+  unitId: UUID!
+  """Юнит"""
+  unit: Unit!
+  """Версия шаблона"""
+  version: Int!
+  """Пункты шаблона"""
+  items: [ChecklistItemTemplate!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Пункт шаблона чек-листа.
+"""
+type ChecklistItemTemplate {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Стабильный ключ"""
+  key: String!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType!
+  """Обязателен ли пункт"""
+  required: Boolean!
+  """Требуется ли фото"""
+  requiresPhoto: Boolean!
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int!
+  """Примеры фото для пункта"""
+  exampleMedia: [ChecklistItemTemplateMedia!]!
+}
+
+"""
+Пример фото для пункта шаблона.
+"""
+type ChecklistItemTemplateMedia {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """URL фото"""
+  url: String!
+  """Ключ объекта в хранилище"""
+  objectKey: String!
+  """MIME тип"""
+  mimeType: String
+  """Подпись к фото"""
+  caption: String
+  """Порядок отображения"""
+  order: Int!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Инстанс чек-листа (для конкретной стадии).
+"""
+type ChecklistInstance {
+  """Уникальный идентификатор инстанса"""
+  id: UUID!
+  """ID юнита"""
+  unitId: UUID!
+  """Юнит"""
+  unit: Unit!
+  """ID уборки"""
+  cleaningId: UUID
+  """Уборка"""
+  cleaning: Cleaning
+  """Стадия чек-листа"""
+  stage: ChecklistStage!
+  """Статус чек-листа"""
+  status: ChecklistStatus!
+  """ID шаблона"""
+  templateId: UUID!
+  """Шаблон"""
+  template: ChecklistTemplate!
+  """Версия шаблона"""
+  templateVersion: Int!
+  """ID родительского инстанса (для промоута)"""
+  parentInstanceId: UUID
+  """Родительский инстанс"""
+  parentInstance: ChecklistInstance
+  """Пункты чек-листа (полная копия)"""
+  items: [ChecklistInstanceItem!]!
+  """Ответы на пункты"""
+  answers: [ChecklistAnswer!]!
+  """Аттачменты (фото)"""
+  attachments: [ChecklistAttachment!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Пункт инстанса чек-листа.
+"""
+type ChecklistInstanceItem {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Ключ пункта"""
+  key: String!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType!
+  """Обязателен ли пункт"""
+  required: Boolean!
+  """Требуется ли фото"""
+  requiresPhoto: Boolean!
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int!
+}
+
+"""
+Ответ на пункт чек-листа.
+"""
+type ChecklistAnswer {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Значение ответа (JSON)"""
+  value: JSON
+  """Заметка"""
+  note: String
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Аттачмент (фото) к пункту чек-листа.
+"""
+type ChecklistAttachment {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """URL фото (MinIO)"""
+  url: String!
+  """Подпись к фото"""
+  caption: String
+  """Дата создания"""
+  createdAt: DateTime!
+}
+
+"""
+Presigned URL для прямой загрузки файла.
+"""
+type PresignedUploadUrl {
+  """Presigned PUT URL для загрузки"""
+  url: String!
+  """Ключ объекта в хранилище"""
+  objectKey: String!
+  """Время жизни URL в секундах"""
+  expiresIn: Int!
+  """MIME тип файла"""
+  mimeType: String
+}
+
+# ===== Checklist Inputs =====
+
+"""
+Входные данные для создания чек-листа.
+"""
+input CreateChecklistInput {
+  """Название чек-листа"""
+  name: String!
+  """Требуется ли фото по каждому пункту (по умолчанию: true)"""
+  requirePhotoPerItem: Boolean = true
+  """Пункты чек-листа"""
+  items: [CreateChecklistItemInput!]!
+  """ID квартиры (опционально)"""
+  unitId: UUID
+  """Требования (JSON)"""
+  requirements: JSON
+}
+
+"""
+Входные данные для создания пункта чек-листа.
+"""
+input CreateChecklistItemInput {
+  """ID пункта (для обновления существующего пункта)"""
+  id: UUID
+  """Порядок отображения"""
+  order: Int!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Требуется ли фото для этого пункта (по умолчанию: true)"""
+  requiresPhoto: Boolean = true
+}
+
+"""
+Входные данные для получения presigned URLs для загрузки фото выполнения пункта.
+"""
+input GetSubmissionMediaUploadUrlsInput {
+  """ID заполнения пункта"""
+  checklistSubmissionId: UUID!
+  """Количество файлов"""
+  count: Int!
+  """MIME типы файлов (по индексу)"""
+  mimeTypes: [String!]
+}
+
+# ===== Inputs для новой модели чек-листов =====
+
+input AddItemInput {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта (уникальный в рамках инстанса)"""
+  key: String!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType!
+  """Обязателен ли пункт"""
+  required: Boolean = false
+  """Требуется ли фото"""
+  requiresPhoto: Boolean = false
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int
+}
+
+input UpdateItemInput {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Название пункта"""
+  title: String
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType
+  """Обязателен ли пункт"""
+  required: Boolean
+  """Требуется ли фото"""
+  requiresPhoto: Boolean
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int
+}
+
+input AnswerInput {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Значение ответа (JSON)"""
+  value: JSON
+  """Заметка"""
+  note: String
+}
+
+input AttachmentInput {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Ключ объекта в хранилище"""
+  objectKey: String!
+  """URL фото (опционально, если не указан - будет создан из objectKey)"""
+  url: String
+  """Подпись к фото"""
+  caption: String
+}
+
+input GetChecklistAttachmentUploadUrlsInput {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Количество файлов"""
+  count: Int!
+  """MIME типы файлов (по индексу)"""
+  mimeTypes: [String!]
+}
+
+# ===== Inputs для редактирования шаблона =====
+
+input AddTemplateItemInput {
+  """ID шаблона"""
+  templateId: UUID!
+  """Ключ пункта (уникальный в рамках шаблона)"""
+  key: String!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType = BOOL
+  """Обязателен ли пункт"""
+  required: Boolean = false
+  """Требуется ли фото"""
+  requiresPhoto: Boolean = false
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int
+}
+
+input UpdateTemplateItemInput {
+  """ID шаблона"""
+  templateId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Название пункта"""
+  title: String
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType
+  """Обязателен ли пункт"""
+  required: Boolean
+  """Требуется ли фото"""
+  requiresPhoto: Boolean
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int
+}
+
+input TemplateItemExampleFileInput {
+  """Ключ объекта в хранилище"""
+  objectKey: String!
+  """MIME тип"""
+  mimeType: String
+  """URL фото (опционально, если не указан - будет создан из objectKey)"""
+  url: String
+  """Подпись к фото"""
+  caption: String
+}
+
+input AddTemplateItemExampleMediaInput {
+  """ID шаблона"""
+  templateId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Загруженные файлы"""
+  files: [TemplateItemExampleFileInput!]!
+}
+
+input GetTemplateItemExampleMediaUploadUrlsInput {
+  """ID шаблона"""
+  templateId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Количество файлов"""
+  count: Int!
+  """MIME типы файлов (по индексу)"""
+  mimeTypes: [String!]
 }
 

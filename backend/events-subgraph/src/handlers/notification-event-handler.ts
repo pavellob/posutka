@@ -118,6 +118,26 @@ export class NotificationEventHandler {
         logger.warn('⚠️ No subscribed events array for user', { userId });
         return false;
       }
+
+      if (event.type === 'CLEANING_READY_FOR_REVIEW' && !settings.subscribedEvents.includes('CLEANING_READY_FOR_REVIEW')) {
+        const updatedEvents = [...settings.subscribedEvents, 'CLEANING_READY_FOR_REVIEW'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to CLEANING_READY_FOR_REVIEW', { userId });
+      }
+
+      if (event.type === 'CLEANING_PRECHECK_COMPLETED' && !settings.subscribedEvents.includes('CLEANING_PRECHECK_COMPLETED')) {
+        const updatedEvents = [...settings.subscribedEvents, 'CLEANING_PRECHECK_COMPLETED'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to CLEANING_PRECHECK_COMPLETED', { userId });
+      }
       
       // Проверяем подписку на событие (без автоподписки - управление через UI)
       if (!settings.subscribedEvents.includes(event.type)) {
@@ -237,7 +257,9 @@ export class NotificationEventHandler {
         'CLEANING_ASSIGNED': NotificationEventType.EVENT_TYPE_CLEANING_ASSIGNED,
         'CLEANING_STARTED': NotificationEventType.EVENT_TYPE_CLEANING_STARTED,
         'CLEANING_COMPLETED': NotificationEventType.EVENT_TYPE_CLEANING_COMPLETED,
+        'CLEANING_READY_FOR_REVIEW': NotificationEventType.EVENT_TYPE_CLEANING_READY_FOR_REVIEW,
         'CLEANING_CANCELLED': NotificationEventType.EVENT_TYPE_CLEANING_CANCELLED,
+        'CLEANING_PRECHECK_COMPLETED': NotificationEventType.EVENT_TYPE_CLEANING_PRECHECK_COMPLETED,
         // Task events
         'TASK_CREATED': NotificationEventType.EVENT_TYPE_TASK_CREATED,
         'TASK_ASSIGNED': NotificationEventType.EVENT_TYPE_TASK_ASSIGNED,
@@ -469,6 +491,13 @@ export class NotificationEventHandler {
           message: `Уборка в ${payload.unitName || 'квартире'} успешно завершена`,
           actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
+
+      case 'CLEANING_PRECHECK_COMPLETED':
+        return {
+          title: '🧾 Приёмка завершена',
+          message: `Приёмка уборки в ${payload.unitName || 'квартире'} завершена.`,
+          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
+        };
       
       case 'CLEANING_CANCELLED':
         return {
@@ -614,6 +643,7 @@ export class NotificationEventHandler {
       
       // Normal priority - important events
       case 'CLEANING_STARTED':
+      case 'CLEANING_PRECHECK_COMPLETED':
       case 'CLEANING_CANCELLED':
       case 'BOOKING_CREATED':
       case 'BOOKING_CONFIRMED':

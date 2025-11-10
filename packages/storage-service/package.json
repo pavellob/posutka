@@ -1,0 +1,38 @@
+{
+  "name": "@repo/storage-service",
+  "version": "0.1.0",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "pnpm run clean"
+  },
+  "dependencies": {
+    "minio": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "rimraf": "^5.0.7",
+    "tsup": "^8.5.0",
+    "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "pino": "^9.7.0"
+  }
+}
+

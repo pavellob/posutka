@@ -1,10 +1,65 @@
+import type { PrismaClient } from '@prisma/client';
 import type { Context } from '../context.js';
 import { createGraphQLLogger } from '@repo/shared-logger';
 import { getEventsClient } from '../services/events-client.js';
 
 const logger = createGraphQLLogger('cleaning-subgraph-resolvers');
 
-export const resolvers = {
+async function resolveManagerUserIds(prisma: PrismaClient, orgId?: string | null) {
+  const managerIds = new Set<string>();
+
+  if (orgId) {
+    const orgManagers = await prisma.user.findMany({
+      where: {
+        systemRoles: {
+          has: 'MANAGER',
+        },
+        memberships: {
+          some: {
+            orgId,
+          },
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    orgManagers.forEach((user) => managerIds.add(user.id));
+
+    if (managerIds.size === 0) {
+      logger.info('No manager users linked to organization via membership', {
+        orgId,
+      });
+    }
+  }
+
+  if (managerIds.size === 0) {
+    const globalManagers = await prisma.user.findMany({
+      where: {
+        systemRoles: {
+          has: 'MANAGER',
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    globalManagers.forEach((user) => managerIds.add(user.id));
+
+    if (orgId && globalManagers.length > 0) {
+      logger.info('Falling back to global MANAGER system role users for organization notifications', {
+        orgId,
+        count: globalManagers.length,
+      });
+    }
+  }
+
+  return Array.from(managerIds);
+}
+
+export const resolvers: any = {
   Query: {
     // Unit preferred cleaners query
     unitPreferredCleaners: async (_: unknown, { unitId }: { unitId: string }, context: Context) => {
@@ -51,6 +106,7 @@ export const resolvers = {
     
     cleanings: (_: unknown, params: any, { dl }: Context) => 
       dl.listCleanings(params),
+    
   },
 
   Mutation: {
@@ -394,23 +450,50 @@ export const resolvers = {
           
           if (cleaner && unit) {
             const eventsClient = getEventsClient();
-            const targetUserId = cleaner.userId || cleaner.id;
-            logger.info('Publishing CLEANING_COMPLETED with targetUserId', {
-              cleaningId: cleaning.id,
-              cleanerId: cleaning.cleanerId,
-              cleanerUserId: cleaner.userId,
-              cleanerType: cleaner.type,
-              targetUserId
-            });
-            await eventsClient.publishCleaningCompleted({
-              cleaningId: cleaning.id,
-              cleanerId: cleaning.cleanerId,
-              targetUserId,
-              unitName: `${unit.property?.title || ''} - ${unit.name}`,
-              completedAt: cleaning.completedAt || new Date().toISOString(), // Уже строка из datalayer
-              orgId: cleaning.orgId || undefined,
-            });
-            logger.info('✅ CLEANING_COMPLETED event published', { cleaningId: id });
+            const cleanerTargetIds: string[] = [];
+            const managerTargetIds: string[] = [];
+            const cleanerTarget = cleaner.userId || cleaner.id;
+            if (cleanerTarget) {
+              cleanerTargetIds.push(cleanerTarget);
+            }
+
+            const managerIds = await resolveManagerUserIds(prisma, cleaning.orgId);
+            if (managerIds.length === 0) {
+              logger.info('No users with MANAGER system role available for notifications', {
+                cleaningId: cleaning.id,
+                orgId: cleaning.orgId,
+              });
+            } else {
+              managerTargetIds.push(...managerIds);
+            }
+
+            if (cleanerTargetIds.length > 0) {
+              logger.info('Publishing CLEANING_COMPLETED for cleaner', {
+                cleaningId: cleaning.id,
+                cleanerId: cleaning.cleanerId,
+                cleanerUserId: cleaner.userId,
+                targetUserIds: cleanerTargetIds,
+              });
+              await eventsClient.publishCleaningCompleted({
+                cleaningId: cleaning.id,
+                cleanerId: cleaning.cleanerId,
+                targetUserIds: cleanerTargetIds,
+                unitName: `${unit.property?.title || ''} - ${unit.name}`,
+                completedAt: cleaning.completedAt || new Date().toISOString(),
+                orgId: cleaning.orgId || undefined,
+              });
+              logger.info('✅ CLEANING_COMPLETED event published', { cleaningId: id });
+            }
+
+            if (managerTargetIds.length > 0) {
+              await eventsClient.publishCleaningReadyForReview({
+                cleaningId: cleaning.id,
+                managerIds: managerTargetIds,
+                unitName: `${unit.property?.title || ''} - ${unit.name}`,
+                completedAt: cleaning.completedAt || new Date().toISOString(),
+                orgId: cleaning.orgId || undefined,
+              });
+            }
           }
         }
       } catch (error) {
@@ -421,7 +504,16 @@ export const resolvers = {
       return cleaning;
     },
     
-    assignCleaningToMe: async (_: unknown, { cleaningId }: { cleaningId: string }, { prisma }: Context) => {
+    approveCleaning: async (
+      _: unknown,
+      { id, managerId, comment }: { id: string; managerId: string; comment?: string },
+      { dl }: Context
+    ) => {
+      logger.info('Approving cleaning', { id, managerId });
+      return dl.approveCleaning(id, managerId, comment);
+    },
+    
+    assignCleaningToMe: async (_: unknown, { cleaningId }: { cleaningId: string }, { prisma, dl }: Context) => {
       logger.info('🎯 Assigning cleaning to current user', { cleaningId });
       
       // TODO: Получить текущего пользователя из context/JWT
@@ -435,13 +527,16 @@ export const resolvers = {
       }
       
       // Обновляем уборку - назначаем уборщика
-      const cleaning = await prisma.cleaning.update({
+      await prisma.cleaning.update({
         where: { id: cleaningId },
         data: {
           cleanerId: currentCleaner.id,
-          status: 'SCHEDULED', // Подтверждаем назначение
         },
       });
+      const cleaning = await dl.getCleaningById(cleaningId);
+      if (!cleaning) {
+        throw new Error('Cleaning not found after assignment');
+      }
       
       logger.info('✅ Cleaning assigned to cleaner', { 
         cleaningId, 
@@ -463,10 +558,11 @@ export const resolvers = {
             cleanerId: currentCleaner.id,
             unitId: cleaning.unitId,
             unitName: `${unit.property?.title || ''} - ${unit.name}`,
-            scheduledAt: cleaning.scheduledAt instanceof Date ? cleaning.scheduledAt.toISOString() : cleaning.scheduledAt, // Prisma возвращает Date
+            scheduledAt: cleaning.scheduledAt,
             requiresLinenChange: cleaning.requiresLinenChange,
             orgId: cleaning.orgId || undefined,
             actorUserId: undefined, // TODO: получить из context
+            targetUserId: currentCleaner.userId || currentCleaner.id,
           });
           logger.info('✅ CLEANING_ASSIGNED event published', { cleaningId });
         }
@@ -698,6 +794,7 @@ export const resolvers = {
         updatedAt: doc.updatedAt.toISOString(),
       }));
     },
+    reviews: (parent: any) => parent.reviews ?? [],
   },
 
   CleaningDocument: {
@@ -705,5 +802,344 @@ export const resolvers = {
       return dl.getCleaningById(parent.cleaningId);
     },
   },
+
+  // Старые резолверы удалены - используем новую модель
+  
+  // Резолвер для обратной совместимости со старым типом ChecklistItem
+  ChecklistItem: {
+    templateMedia: (_parent: any, _: unknown, _context: Context) => {
+      // В новой модели нет templateMedia для items, возвращаем пустой массив
+      return [];
+    },
+  },
+  
+  // ===== Новая модель чек-листов (Template → Instance → Promote) =====
+  
+  ChecklistTemplate: {
+    unit: (parent: any, _: unknown, { inventoryDL }: Context) => {
+      return { id: parent.unitId };
+    },
+  },
+  
+  ChecklistItemTemplate: {
+    exampleMedia: (parent: any, _: unknown, { prisma }: Context) => {
+      // Если exampleMedia уже загружен (из include), возвращаем его
+      if (parent.exampleMedia) {
+        return parent.exampleMedia;
+      }
+      // Иначе загружаем из БД
+      return prisma.checklistItemTemplateMedia.findMany({
+        where: {
+          templateId: parent.templateId || parent.template?.id || parent.templateId,
+          itemKey: parent.key
+        },
+        orderBy: { order: 'asc' }
+      });
+    },
+  },
+  
+  ChecklistInstance: {
+    unit: (parent: any, _: unknown, { inventoryDL }: Context) => {
+      return { id: parent.unitId };
+    },
+    cleaning: (parent: any, _: unknown, { dl }: Context) => {
+      if (!parent.cleaningId) return null;
+      return dl.getCleaningById(parent.cleaningId);
+    },
+    template: async (parent: any, _: unknown, { checklistInstanceService }: Context) => {
+      return checklistInstanceService.getChecklistTemplate(parent.unitId, parent.templateVersion);
+    },
+    parentInstance: async (parent: any, _: unknown, { checklistInstanceService }: Context) => {
+      if (!parent.parentInstanceId) return null;
+      return checklistInstanceService.getChecklistInstance(parent.parentInstanceId);
+    },
+  },
 };
+
+// Extend existing resolvers
+Object.assign(resolvers.Query, {
+  // Старые запросы для CleaningRun удалены - используем новую модель
+  checklistsByUnit: async (
+    _: unknown,
+    { unitId }: { unitId: string },
+    { checklistInstanceService }: Context
+  ) => {
+    try {
+      logger.info('Getting checklists by unit', { unitId });
+      // Возвращаем шаблоны чек-листов для юнита (новая модель)
+      const template = await checklistInstanceService.getChecklistTemplate(unitId);
+      if (!template) {
+        logger.info('No template found for unit', { unitId });
+        return [];
+      }
+      logger.info('Template found', { templateId: template.id, unitId, itemsCount: template.items?.length || 0 });
+      // Возвращаем шаблон в формате новой модели
+      return [template];
+    } catch (error: any) {
+      logger.error('Error getting checklists by unit', { unitId, error: error.message, stack: error.stack });
+      throw error;
+    }
+  },
+  
+  // ===== Новая модель чек-листов (Template → Instance → Promote) =====
+  
+  checklistInstance: async (
+    _: unknown,
+    { id }: { id: string },
+    { checklistInstanceService }: Context
+  ) => {
+    return checklistInstanceService.getChecklistInstance(id);
+  },
+  
+  checklistByUnitAndStage: async (
+    _: unknown,
+    { unitId, stage }: { unitId: string; stage: string },
+    { checklistInstanceService }: Context
+  ) => {
+    return checklistInstanceService.getChecklistByUnitAndStage(unitId, stage as any);
+  },
+
+  checklistByCleaning: async (
+    _: unknown,
+    { cleaningId, stage }: { cleaningId: string; stage: string },
+    { checklistInstanceService }: Context
+  ) => {
+    return checklistInstanceService.getChecklistByCleaningAndStage(cleaningId, stage as any);
+  },
+  
+  checklistTemplate: async (
+    _: unknown,
+    { unitId, version }: { unitId: string; version?: number },
+    { checklistInstanceService }: Context
+  ) => {
+    return checklistInstanceService.getChecklistTemplate(unitId, version);
+  },
+});
+
+// Добавляем новые мутации, сохраняя старые
+Object.assign(resolvers.Mutation, {
+    // ===== Новая модель чек-листов (Template → Instance → Promote) =====
+    
+    createChecklistInstance: async (
+      _: unknown,
+      { unitId, stage, cleaningId }: { unitId: string; stage: string; cleaningId?: string },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Creating checklist instance', { unitId, stage, cleaningId });
+      return checklistInstanceService.createChecklistInstance(unitId, stage as any, cleaningId);
+    },
+    
+    addItem: async (
+      _: unknown,
+      { input }: { input: any },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Adding item to checklist instance', { instanceId: input.instanceId, key: input.key });
+      return checklistInstanceService.addItem(input);
+    },
+    
+    updateItem: async (
+      _: unknown,
+      { input }: { input: any },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Updating item in checklist instance', { instanceId: input.instanceId, itemKey: input.itemKey });
+      return checklistInstanceService.updateItem(input);
+    },
+    
+    removeItem: async (
+      _: unknown,
+      { instanceId, itemKey }: { instanceId: string; itemKey: string },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Removing item from checklist instance', { instanceId, itemKey });
+      return checklistInstanceService.removeItem({ instanceId, itemKey });
+    },
+    
+    promoteChecklist: async (
+      _: unknown,
+      { fromInstanceId, toStage }: { fromInstanceId: string; toStage: string },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Promoting checklist', { fromInstanceId, toStage });
+      return checklistInstanceService.promoteChecklist(fromInstanceId, toStage as any);
+    },
+    
+    submitChecklist: async (
+      _: unknown,
+      { id }: { id: string },
+      { checklistInstanceService, prisma }: Context
+    ) => {
+      logger.info('Submitting checklist', { id });
+      try {
+        const submitted = await checklistInstanceService.submitChecklist(id);
+
+        if (submitted?.stage === 'PRE_CLEANING' && submitted.cleaningId) {
+          try {
+            const cleaning = await prisma.cleaning.findUnique({
+              where: { id: submitted.cleaningId },
+              include: { cleaner: true },
+            });
+
+            if (!cleaning) {
+              logger.warn('Cleaning not found while publishing CLEANING_PRECHECK_COMPLETED', {
+                checklistId: id,
+                cleaningId: submitted.cleaningId,
+              });
+              return submitted;
+            }
+
+            const unit = await prisma.unit.findUnique({
+              where: { id: cleaning.unitId },
+              include: { property: true },
+            });
+
+            const managerIds = await resolveManagerUserIds(prisma, cleaning.orgId);
+            const eventsClient = getEventsClient();
+
+            if (managerIds.length > 0) {
+              const unitNameParts = [
+                unit?.property?.title ?? '',
+                unit?.name ?? '',
+              ].filter(Boolean);
+
+              await eventsClient.publishCleaningPrecheckCompleted({
+                cleaningId: cleaning.id,
+                managerIds,
+                unitName: unitNameParts.length > 0 ? unitNameParts.join(' - ') : 'квартире',
+                submittedAt: new Date().toISOString(),
+                orgId: cleaning.orgId || undefined,
+                cleanerId: cleaning.cleanerId ?? null,
+              });
+            } else {
+              logger.info('No users with MANAGER system role available for precheck completed notifications', {
+                cleaningId: cleaning.id,
+                orgId: cleaning.orgId,
+              });
+            }
+          } catch (eventError: any) {
+            logger.error('Failed to publish CLEANING_PRECHECK_COMPLETED event', {
+              checklistId: id,
+              error: eventError?.message ?? eventError,
+            });
+          }
+        }
+
+        return submitted;
+      } catch (error: any) {
+        logger.error('Failed to submit checklist', { id, error: error.message });
+        throw error;
+      }
+    },
+    
+    lockChecklist: async (
+      _: unknown,
+      { id }: { id: string },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Locking checklist', { id });
+      return checklistInstanceService.lockChecklist(id);
+    },
+    
+    answer: async (
+      _: unknown,
+      { input }: { input: any },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Adding answer to checklist item', { instanceId: input.instanceId, itemKey: input.itemKey });
+      return checklistInstanceService.answer(input);
+    },
+    
+    attach: async (
+      _: unknown,
+      { input }: { input: any },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Adding attachment to checklist item', { instanceId: input.instanceId, itemKey: input.itemKey });
+      return checklistInstanceService.attach(input);
+    },
+    
+    getChecklistAttachmentUploadUrls: async (
+      _: unknown,
+      { input }: { input: { instanceId: string; itemKey: string; count: number; mimeTypes?: string[] } },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Getting attachment upload URLs for checklist item', { instanceId: input.instanceId, itemKey: input.itemKey });
+      return checklistInstanceService.getAttachmentUploadUrls(input);
+    },
+    
+    removeChecklistAttachment: async (
+      _: unknown,
+      { attachmentId }: { attachmentId: string },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Removing checklist attachment', { attachmentId });
+      return checklistInstanceService.removeAttachment(attachmentId);
+    },
+    
+    // ===== Редактирование шаблона =====
+    
+    addTemplateItem: async (
+      _: unknown,
+      { input }: { input: any },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Adding item to checklist template', { templateId: input.templateId, key: input.key });
+      return checklistInstanceService.addTemplateItem(input);
+    },
+    
+    updateTemplateItem: async (
+      _: unknown,
+      { input }: { input: any },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Updating item in checklist template', { templateId: input.templateId, itemKey: input.itemKey });
+      return checklistInstanceService.updateTemplateItem(input);
+    },
+    
+    removeTemplateItem: async (
+      _: unknown,
+      { templateId, itemKey }: { templateId: string; itemKey: string },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Removing item from checklist template', { templateId, itemKey });
+      return checklistInstanceService.removeTemplateItem({ templateId, itemKey });
+    },
+    
+    updateTemplateItemOrder: async (
+      _: unknown,
+      { templateId, itemKeys }: { templateId: string; itemKeys: string[] },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Updating item order in checklist template', { templateId, itemCount: itemKeys.length });
+      return checklistInstanceService.updateTemplateItemOrder({ templateId, itemKeys });
+    },
+    
+    addTemplateItemExampleMedia: async (
+      _: unknown,
+      { input }: { input: any },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Adding example media to template item', { templateId: input.templateId, itemKey: input.itemKey });
+      return checklistInstanceService.addTemplateItemExampleMedia(input);
+    },
+    
+    removeTemplateItemExampleMedia: async (
+      _: unknown,
+      { mediaId }: { mediaId: string },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Removing example media from template item', { mediaId });
+      return checklistInstanceService.removeTemplateItemExampleMedia(mediaId);
+    },
+    
+    getTemplateItemExampleMediaUploadUrls: async (
+      _: unknown,
+      { input }: { input: { templateId: string; itemKey: string; count: number; mimeTypes?: string[] } },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Getting example media upload URLs for template item', { templateId: input.templateId, itemKey: input.itemKey });
+      return checklistInstanceService.getTemplateItemExampleMediaUploadUrls(input);
+    },
+});
 

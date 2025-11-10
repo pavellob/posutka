@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -96,17 +96,19 @@ model Property {
 }
 
 model Unit {
-  id                String               @id @default(cuid())
-  propertyId        String
-  name              String
-  capacity          Int
-  beds              Int
-  bathrooms         Int
-  amenities         String[]
-  property          Property             @relation(fields: [propertyId], references: [id])
-  preferredCleaners UnitPreferredCleaner[] // Привязанные уборщики для этой квартиры
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  id                 String                 @id @default(cuid())
+  propertyId         String
+  name               String
+  capacity           Int
+  beds               Int
+  bathrooms          Int
+  amenities          String[]
+  property           Property               @relation(fields: [propertyId], references: [id])
+  preferredCleaners  UnitPreferredCleaner[] // Привязанные уборщики для этой квартиры
+  checklistTemplates ChecklistTemplate[] // Шаблоны чек-листов
+  checklistInstances ChecklistInstance[] // Инстансы чек-листов
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 }
 
 // Связь Unit ↔ Cleaner (many-to-many)
@@ -365,21 +367,21 @@ enum PaymentMethod {
 }
 
 model User {
-  id                     String                      @id @default(cuid())
-  email                  String                      @unique
-  name                   String?
-  phoneNumber            String?
-  emailVerified          Boolean                     @default(false)
-  password               String?                     @default("")
-  systemRoles            String[]                    @default(["USER"])
-  status                 String                      @default("ACTIVE")
-  isLocked               Boolean                     @default(false)
-  lastLoginAt            DateTime?
-  createdAt              DateTime                    @default(now())
-  updatedAt              DateTime                    @updatedAt
-  memberships            Membership[]
-  refreshTokens          RefreshToken[]
-  notificationSettings   UserNotificationSettings?
+  id                   String                    @id @default(cuid())
+  email                String                    @unique
+  name                 String?
+  phoneNumber          String?
+  emailVerified        Boolean                   @default(false)
+  password             String?                   @default("")
+  systemRoles          String[]                  @default(["USER"])
+  status               String                    @default("ACTIVE")
+  isLocked             Boolean                   @default(false)
+  lastLoginAt          DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  memberships          Membership[]
+  refreshTokens        RefreshToken[]
+  notificationSettings UserNotificationSettings?
 }
 
 model Membership {
@@ -478,23 +480,23 @@ model LegalDepositTransaction {
 // ===== Cleaning Models =====
 
 model Cleaner {
-  id                String                 @id @default(cuid())
-  type              CleanerType            @default(EXTERNAL)
-  userId            String? // Для сотрудников (internal)
-  orgId             String
-  firstName         String
-  lastName          String
-  phone             String?
-  email             String?
-  telegramUsername  String? // Username в Telegram (без @) для автопривязки
-  rating            Float?                 @default(0)
-  isActive          Boolean                @default(true)
-  deletedAt         DateTime? // Soft delete - дата деактивации
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
-  cleanings         Cleaning[]
-  tasks             Task[] // Задачи, назначенные на уборщика
-  preferredUnits    UnitPreferredCleaner[] // Квартиры, где этот уборщик предпочтителен
+  id               String                 @id @default(cuid())
+  type             CleanerType            @default(EXTERNAL)
+  userId           String? // Для сотрудников (internal)
+  orgId            String
+  firstName        String
+  lastName         String
+  phone            String?
+  email            String?
+  telegramUsername String? // Username в Telegram (без @) для автопривязки
+  rating           Float?                 @default(0)
+  isActive         Boolean                @default(true)
+  deletedAt        DateTime? // Soft delete - дата деактивации
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  cleanings        Cleaning[]
+  tasks            Task[] // Задачи, назначенные на уборщика
+  preferredUnits   UnitPreferredCleaner[] // Квартиры, где этот уборщик предпочтителен
 
   @@index([orgId])
   @@index([userId])
@@ -554,6 +556,8 @@ model Cleaning {
   cleaner             Cleaner?            @relation(fields: [cleanerId], references: [id])
   documents           CleaningDocument[]
   checklistItems      CleaningChecklist[]
+  reviews             CleaningReview[]
+  checklistInstances  ChecklistInstance[]
 
   @@index([orgId])
   @@index([cleanerId])
@@ -561,6 +565,18 @@ model Cleaning {
   @@index([bookingId])
   @@index([taskId])
   @@index([scheduledAt])
+}
+
+model CleaningReview {
+  id         String                @id @default(cuid())
+  cleaningId String
+  managerId  String
+  status     CleaningReviewStatus
+  comment    String?
+  createdAt  DateTime              @default(now())
+  cleaning   Cleaning              @relation(fields: [cleaningId], references: [id], onDelete: Cascade)
+
+  @@index([cleaningId])
 }
 
 model CleaningChecklist {
@@ -606,7 +622,12 @@ enum CleaningStatus {
   SCHEDULED
   IN_PROGRESS
   COMPLETED
+  APPROVED
   CANCELLED
+}
+
+enum CleaningReviewStatus {
+  APPROVED
 }
 
 enum CleaningDocumentType {
@@ -614,13 +635,177 @@ enum CleaningDocumentType {
   POST_CLEANING_HANDOVER
 }
 
+// ===== Checklist Models (REFACTORED - Template → Instance → Promote) =====
+
+// Шаблоны (версионируемые)
+model ChecklistTemplate {
+  id        String   @id @default(cuid())
+  unitId    String
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit      Unit                    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  items     ChecklistItemTemplate[]
+  instances ChecklistInstance[]
+  templateMedia ChecklistItemTemplateMedia[]
+
+  @@unique([unitId, version])
+  @@index([unitId])
+}
+
+model ChecklistItemTemplate {
+  id            String   @id @default(cuid())
+  templateId    String
+  key           String // Стабильный ключ
+  title         String
+  description   String?
+  type          ItemType @default(BOOL)
+  required      Boolean  @default(false)
+  requiresPhoto Boolean  @default(false)
+  photoMin      Int?
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  exampleMedia ChecklistItemTemplateMedia[] // Примеры фото для пункта
+
+  @@unique([templateId, key])
+  @@index([templateId])
+}
+
+// Примеры фото для пункта шаблона
+model ChecklistItemTemplateMedia {
+  id            String   @id @default(cuid())
+  templateId    String
+  itemKey       String   // Ключ пункта шаблона
+  url           String   // MinIO URL
+  objectKey     String   // Ключ объекта в MinIO
+  mimeType      String?
+  caption       String?  // Подпись к фото
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  item     ChecklistItemTemplate @relation(fields: [templateId, itemKey], references: [templateId, key], onDelete: Cascade)
+
+  @@index([templateId, itemKey])
+  @@index([templateId])
+}
+
+enum ItemType {
+  BOOL
+  NUMBER
+  TEXT
+  SELECT
+  MULTISELECT
+  PHOTO_ONLY
+}
+
+// Инстансы (с полной копией items)
+model ChecklistInstance {
+  id               String          @id @default(cuid())
+  unitId           String
+  stage            ChecklistStage
+  status           ChecklistStatus @default(DRAFT)
+  templateId       String
+  templateVersion  Int
+  cleaningId       String?
+  parentInstanceId String? // Для промоута
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  unit           Unit                    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  template       ChecklistTemplate       @relation(fields: [templateId], references: [id])
+  cleaning       Cleaning?               @relation(fields: [cleaningId], references: [id], onDelete: Cascade)
+  parentInstance ChecklistInstance?      @relation("InstancePromotion", fields: [parentInstanceId], references: [id])
+  childInstances ChecklistInstance[]     @relation("InstancePromotion")
+  items          ChecklistInstanceItem[] // Полная копия items (можно редактировать)
+  answers        ChecklistAnswer[]
+  attachments    ChecklistAttachment[]
+
+  @@index([unitId, stage])
+  @@index([templateId, templateVersion])
+  @@index([cleaningId, stage])
+  @@index([parentInstanceId])
+}
+
+enum ChecklistStage {
+  PRE_CLEANING
+  CLEANING
+  FINAL_REPORT
+}
+
+enum ChecklistStatus {
+  DRAFT
+  SUBMITTED
+  LOCKED
+}
+
+// Items инстанса (копия из шаблона, но можно редактировать)
+model ChecklistInstanceItem {
+  id            String   @id @default(cuid())
+  instanceId    String
+  key           String // Ключ из шаблона (или новый для добавленных)
+  title         String
+  description   String?
+  type          ItemType
+  required      Boolean
+  requiresPhoto Boolean
+  photoMin      Int?
+  order         Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  instance    ChecklistInstance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  answers     ChecklistAnswer[]
+  attachments ChecklistAttachment[]
+
+  @@unique([instanceId, key])
+  @@index([instanceId])
+}
+
+// Ответы и доказательства
+model ChecklistAnswer {
+  id         String   @id @default(cuid())
+  instanceId String
+  itemKey    String // Ссылка на ChecklistInstanceItem.key
+  value      Json? // Значение ответа
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  instance ChecklistInstance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  item     ChecklistInstanceItem @relation(fields: [instanceId, itemKey], references: [instanceId, key], onDelete: Cascade)
+
+  @@unique([instanceId, itemKey])
+  @@index([instanceId])
+}
+
+model ChecklistAttachment {
+  id         String   @id @default(cuid())
+  instanceId String
+  itemKey    String // Ссылка на ChecklistInstanceItem.key
+  url        String // MinIO URL
+  caption    String?
+  createdAt  DateTime @default(now())
+
+  instance ChecklistInstance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  item     ChecklistInstanceItem @relation(fields: [instanceId, itemKey], references: [instanceId, key], onDelete: Cascade)
+
+  @@index([instanceId])
+  @@index([instanceId, itemKey])
+}
+
 // ===== Notification Models =====
 
 model Notification {
   id               String                 @id @default(cuid())
-  eventId          String?                // Ссылка на Event (NEW!)
+  eventId          String? // Ссылка на Event (NEW!)
   orgId            String?
-  userId           String?                // Основной получатель (User ID)
+  userId           String? // Основной получатель (User ID)
   eventType        String
   priority         NotificationPriority   @default(NORMAL)
   status           NotificationStatus     @default(PENDING)
@@ -637,7 +822,7 @@ model Notification {
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   deliveryStatuses NotificationDelivery[]
-  eventLinks       EventNotification[]    // Связь с Events (NEW! many-to-many)
+  eventLinks       EventNotification[] // Связь с Events (NEW! many-to-many)
 
   @@index([eventId])
   @@index([orgId])
@@ -648,18 +833,18 @@ model Notification {
 }
 
 model NotificationDelivery {
-  id             String                @id @default(cuid())
+  id             String              @id @default(cuid())
   notificationId String
-  channel        NotificationChannel   // TELEGRAM | WEBSOCKET | EMAIL | SMS
-  recipientType  RecipientType         // USER_ID | TELEGRAM_CHAT_ID | EMAIL | PHONE
-  recipientId    String                // Идентификатор получателя для конкретного канала
-  status         DeliveryStatus        @default(PENDING)
-  externalId     String?               // ID в системе провайдера (message_id в Telegram)
+  channel        NotificationChannel // TELEGRAM | WEBSOCKET | EMAIL | SMS
+  recipientType  RecipientType // USER_ID | TELEGRAM_CHAT_ID | EMAIL | PHONE
+  recipientId    String // Идентификатор получателя для конкретного канала
+  status         DeliveryStatus      @default(PENDING)
+  externalId     String? // ID в системе провайдера (message_id в Telegram)
   deliveredAt    DateTime?
   error          String?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  notification   Notification          @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  notification   Notification        @relation(fields: [notificationId], references: [id], onDelete: Cascade)
 
   @@index([notificationId])
   @@index([channel])
@@ -744,28 +929,28 @@ enum NotificationPriority {
 // ============================================
 
 model Event {
-  id             String       @id @default(cuid())
+  id             String    @id @default(cuid())
   type           EventType
-  sourceSubgraph String       // cleaning-subgraph, bookings-subgraph...
-  entityType     String       // Cleaning, Booking, Task...
-  entityId       String       // ID сущности
-  orgId          String?      // Контекст организации
-  
+  sourceSubgraph String // cleaning-subgraph, bookings-subgraph...
+  entityType     String // Cleaning, Booking, Task...
+  entityId       String // ID сущности
+  orgId          String? // Контекст организации
+
   // Участники события
-  actorUserId    String?      // Кто инициировал
-  targetUserIds  String[]     // Кто затронут (массив)
-  
+  actorUserId   String? // Кто инициировал
+  targetUserIds String[] // Кто затронут (массив)
+
   // Данные события
-  payload        Json         // Полные данные события
-  metadata       Json?        // Дополнительные метаданные
-  
-  status         EventStatus  @default(PENDING)
-  processedAt    DateTime?
-  createdAt      DateTime     @default(now())
-  
+  payload  Json // Полные данные события
+  metadata Json? // Дополнительные метаданные
+
+  status      EventStatus @default(PENDING)
+  processedAt DateTime?
+  createdAt   DateTime    @default(now())
+
   // Связи
-  notifications  EventNotification[]
-  
+  notifications EventNotification[]
+
   @@index([type])
   @@index([entityType, entityId])
   @@index([orgId])
@@ -776,13 +961,13 @@ model Event {
 model EventSubscription {
   id          String      @id @default(cuid())
   handlerType HandlerType // NOTIFICATION, ANALYTICS, AUDIT, WEBHOOK...
-  eventTypes  String[]    // [CLEANING_AVAILABLE, BOOKING_CREATED...]
-  targetUrl   String?     // Для WEBHOOK
+  eventTypes  String[] // [CLEANING_AVAILABLE, BOOKING_CREATED...]
+  targetUrl   String? // Для WEBHOOK
   isActive    Boolean     @default(true)
-  config      Json?       // Дополнительная конфигурация
+  config      Json? // Дополнительная конфигурация
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  
+
   @@index([handlerType])
   @@index([isActive])
 }
@@ -792,10 +977,10 @@ model EventNotification {
   eventId        String
   notificationId String
   createdAt      DateTime @default(now())
-  
+
   event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  
+
   @@unique([eventId, notificationId])
   @@index([eventId])
   @@index([notificationId])
@@ -807,27 +992,29 @@ enum EventType {
   CLEANING_ASSIGNED
   CLEANING_STARTED
   CLEANING_COMPLETED
+  CLEANING_READY_FOR_REVIEW
   CLEANING_CANCELLED
-  
+  CLEANING_PRECHECK_COMPLETED
+
   // Booking
   BOOKING_CREATED
   BOOKING_CONFIRMED
   BOOKING_CANCELLED
   BOOKING_CHECKIN
   BOOKING_CHECKOUT
-  
+
   // Task
   TASK_CREATED
   TASK_ASSIGNED
   TASK_STATUS_CHANGED
   TASK_COMPLETED
-  
+
   // User
   USER_CREATED
   USER_UPDATED
   USER_LOCKED
   USER_UNLOCKED
-  
+
   // Organization
   ORG_CREATED
   ORG_UPDATED

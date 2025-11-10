@@ -59,8 +59,12 @@ enum EventType {
   CLEANING_STARTED
   """Уборка завершена"""
   CLEANING_COMPLETED
+  """Уборка ожидает проверки менеджера"""
+  CLEANING_READY_FOR_REVIEW
   """Уборка отменена"""
   CLEANING_CANCELLED
+  """Приёмка перед уборкой завершена"""
+  CLEANING_PRECHECK_COMPLETED
   
   """Задача создана"""
   TASK_CREATED

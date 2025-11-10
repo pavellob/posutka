@@ -6,6 +6,10 @@ import {
 } from '@repo/grpc-sdk';
 
 const logger = createGraphQLLogger('cleaning-events-client');
+const EVENT_TYPE_CLEANING_READY_FOR_REVIEW =
+  (EventType as any).EVENT_TYPE_CLEANING_READY_FOR_REVIEW ?? (15 as EventType);
+const EVENT_TYPE_CLEANING_PRECHECK_COMPLETED =
+  (EventType as any).EVENT_TYPE_CLEANING_PRECHECK_COMPLETED ?? (7 as EventType);
 
 /**
  * Клиент для публикации событий в events-subgraph через gRPC.
@@ -160,12 +164,17 @@ export class EventsClient {
     completedAt: string;
     orgId?: string;
     targetUserId?: string;
+    targetUserIds?: string[];
   }): Promise<void> {
     try {
       await this.ensureConnected();
       logger.info('Publishing CLEANING_COMPLETED event', params);
       
-      const targetUserIds = params.targetUserId ? [params.targetUserId] : [params.cleanerId];
+      const targetUserIds = (params.targetUserIds && params.targetUserIds.length > 0)
+        ? params.targetUserIds
+        : params.targetUserId
+          ? [params.targetUserId]
+          : [params.cleanerId];
       
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_COMPLETED,
@@ -187,6 +196,102 @@ export class EventsClient {
       logger.error('Failed to publish CLEANING_COMPLETED event', { 
         error: error.message,
         params 
+      });
+    }
+  }
+
+  /**
+   * Опубликовать событие CLEANING_PRECHECK_COMPLETED
+   */
+  async publishCleaningPrecheckCompleted(params: {
+    cleaningId: string;
+    managerIds: string[];
+    unitName: string;
+    submittedAt: string;
+    orgId?: string;
+    cleanerId?: string | null;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      if (params.managerIds.length === 0) {
+        logger.info('No managers to notify for CLEANING_PRECHECK_COMPLETED', {
+          cleaningId: params.cleaningId,
+        });
+        return;
+      }
+
+      logger.info('Publishing CLEANING_PRECHECK_COMPLETED event', params);
+
+      await this.grpcClient.publishEvent({
+        eventType: EVENT_TYPE_CLEANING_PRECHECK_COMPLETED,
+        sourceSubgraph: 'cleaning-subgraph',
+        entityType: 'Cleaning',
+        entityId: params.cleaningId,
+        orgId: params.orgId,
+        targetUserIds: params.managerIds,
+        payload: {
+          cleaningId: params.cleaningId,
+          unitName: params.unitName,
+          submittedAt: params.submittedAt,
+          cleanerId: params.cleanerId ?? undefined,
+        },
+      });
+
+      logger.info('CLEANING_PRECHECK_COMPLETED event published', {
+        cleaningId: params.cleaningId,
+        managerIds: params.managerIds,
+      });
+    } catch (error: any) {
+      logger.error('Failed to publish CLEANING_PRECHECK_COMPLETED event', {
+        error: error.message,
+        params,
+      });
+    }
+  }
+
+  /**
+   * Опубликовать событие CLEANING_READY_FOR_REVIEW
+   */
+  async publishCleaningReadyForReview(params: {
+    cleaningId: string;
+    managerIds: string[];
+    unitName: string;
+    completedAt: string;
+    orgId?: string;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      if (params.managerIds.length === 0) {
+        logger.info('No managers to notify for CLEANING_READY_FOR_REVIEW', {
+          cleaningId: params.cleaningId,
+        });
+        return;
+      }
+
+      logger.info('Publishing CLEANING_READY_FOR_REVIEW event', params);
+
+      await this.grpcClient.publishEvent({
+        eventType: EVENT_TYPE_CLEANING_READY_FOR_REVIEW,
+        sourceSubgraph: 'cleaning-subgraph',
+        entityType: 'Cleaning',
+        entityId: params.cleaningId,
+        orgId: params.orgId,
+        targetUserIds: params.managerIds,
+        payload: {
+          cleaningId: params.cleaningId,
+          unitName: params.unitName,
+          completedAt: params.completedAt,
+        },
+      });
+
+      logger.info('CLEANING_READY_FOR_REVIEW event published', {
+        cleaningId: params.cleaningId,
+        managerIds: params.managerIds,
+      });
+    } catch (error: any) {
+      logger.error('Failed to publish CLEANING_READY_FOR_REVIEW event', {
+        error: error.message,
+        params,
       });
     }
   }

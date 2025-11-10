@@ -61,9 +61,11 @@ export class TelegramLinkService {
             subscribedEvents: [
               'CLEANING_AVAILABLE',
               'CLEANING_ASSIGNED',
-              'CLEANING_STARTED', 
+              'CLEANING_STARTED',
               'CLEANING_COMPLETED',
+              'CLEANING_READY_FOR_REVIEW',
               'CLEANING_CANCELLED',
+              'CLEANING_PRECHECK_COMPLETED',
             ],
             updatedAt: new Date(),
           },
@@ -83,7 +85,9 @@ export class TelegramLinkService {
               'CLEANING_ASSIGNED',
               'CLEANING_STARTED',
               'CLEANING_COMPLETED',
+              'CLEANING_READY_FOR_REVIEW',
               'CLEANING_CANCELLED',
+              'CLEANING_PRECHECK_COMPLETED',
             ],
           },
         });

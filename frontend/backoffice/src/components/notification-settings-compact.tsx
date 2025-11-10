@@ -20,6 +20,8 @@ const QUICK_CHANNELS = [
 
 const QUICK_EVENTS = [
   { id: 'CLEANING_ASSIGNED', name: 'Уборки назначены' },
+  { id: 'CLEANING_PRECHECK_COMPLETED', name: 'Приёмка завершена' },
+  { id: 'CLEANING_READY_FOR_REVIEW', name: 'Уборки ждут проверки' },
   { id: 'TASK_ASSIGNED', name: 'Задачи назначены' },
   { id: 'BOOKING_CREATED', name: 'Новые бронирования' },
 ];

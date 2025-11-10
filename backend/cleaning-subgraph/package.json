@@ -19,6 +19,7 @@
     "@repo/datalayer-prisma": "workspace:*",
     "@repo/grpc-sdk": "workspace:*",
     "@repo/shared-logger": "workspace:*",
+    "@repo/storage-service": "workspace:*",
     "dotenv": "^17.2.3",
     "graphql": "^16.9.0",
     "graphql-tag": "^2.12.6",

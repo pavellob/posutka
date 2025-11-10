@@ -31,6 +31,8 @@ import {
   StarIcon
 } from '@heroicons/react/24/outline'
 import { UnitChecklistTemplate } from '@/components/unit-checklist-template'
+import { UnitChecklistView } from '@/components/unit-checklist-view'
+import { UnitChecklistEditorView } from '@/components/unit-checklist-editor-view'
 
 type UnitDetailsPageProps = {
   params: Promise<{
@@ -52,8 +54,22 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
     const tab = searchParams.get('tab')
     if (tab === 'checklist') {
       setActiveTab('checklist')
+    } else if (tab === 'cleaners') {
+      setActiveTab('cleaners')
     }
   }, [searchParams])
+
+  // Обновляем URL при переключении вкладок
+  const handleTabChange = (tab: 'cleaners' | 'checklist') => {
+    setActiveTab(tab)
+    const params = new URLSearchParams(searchParams.toString())
+    if (tab === 'checklist') {
+      params.set('tab', 'checklist')
+    } else {
+      params.delete('tab')
+    }
+    router.push(`${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`, { scroll: false })
+  }
 
   const { data: unitData, isLoading: unitLoading } = useQuery({
     queryKey: ['unit', params.id],
@@ -256,7 +272,7 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
           {/* Вкладки */}
           <div className="flex gap-2 mb-6 border-b border-zinc-200 dark:border-zinc-800">
             <button
-              onClick={() => setActiveTab('cleaners')}
+              onClick={() => handleTabChange('cleaners')}
               className={`
                 px-4 py-3 font-medium transition-colors border-b-2
                 ${activeTab === 'cleaners'
@@ -268,7 +284,7 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
               Уборщики
             </button>
             <button
-              onClick={() => setActiveTab('checklist')}
+              onClick={() => handleTabChange('checklist')}
               className={`
                 px-4 py-3 font-medium transition-colors border-b-2
                 ${activeTab === 'checklist'
@@ -420,9 +436,9 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
             )}
 
             {activeTab === 'checklist' && (
-              <UnitChecklistTemplate 
-                unitId={params.id} 
-                propertyId={unitData?.property?.id}
+              <UnitChecklistEditorView 
+                unitId={params.id}
+                unitName={unitData?.name}
               />
             )}
           </div>
@@ -474,6 +490,7 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
           background: #71717a;
         }
       `}</style>
+
     </div>
   )
 }

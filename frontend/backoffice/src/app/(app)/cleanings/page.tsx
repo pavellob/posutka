@@ -15,7 +15,6 @@ import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { ScheduleCleaningDialog } from '@/components/schedule-cleaning-dialog'
 import { CleaningDetailsDialog } from '@/components/cleaning-details-dialog'
-import { CleaningExecutionDialog } from '@/components/cleaning-execution-dialog'
 import { CreateCleanerDialog } from '@/components/create-cleaner-dialog'
 import { CleanerDetailsDialog } from '@/components/cleaner-details-dialog'
 import { EditCleanerDialog } from '@/components/edit-cleaner-dialog'
@@ -27,7 +26,6 @@ import {
   GET_CLEANERS,
   GET_PROPERTIES_BY_ORG,
   GET_UNITS_BY_PROPERTY,
-  START_CLEANING,
   COMPLETE_CLEANING,
   CANCEL_CLEANING,
   DEACTIVATE_CLEANER,
@@ -46,9 +44,7 @@ function CleaningsPageContent() {
   })
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
-  const [isExecutionDialogOpen, setIsExecutionDialogOpen] = useState(false)
   const [selectedCleaningId, setSelectedCleaningId] = useState<string | null>(null)
-  const [selectedCleaningTaskId, setSelectedCleaningTaskId] = useState<string | null>(null)
   const [isCreateCleanerDialogOpen, setIsCreateCleanerDialogOpen] = useState(false)
   const [isCleanerDetailsDialogOpen, setIsCleanerDetailsDialogOpen] = useState(false)
   const [isEditCleanerDialogOpen, setIsEditCleanerDialogOpen] = useState(false)
@@ -122,14 +118,7 @@ function CleaningsPageContent() {
 
   const allUnits = unitsQueries.data || []
 
-  // Мутации
-  const startCleaningMutation = useMutation({
-    mutationFn: (id: string) => graphqlClient.request(START_CLEANING, { id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cleanings'] })
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    }
-  })
+  // Мутации - startCleaningMutation удалена, теперь используем диалог
 
   const completeCleaningMutation = useMutation({
     mutationFn: ({ id, input }: { id: string; input: any }) => 
@@ -188,6 +177,7 @@ function CleaningsPageContent() {
       'SCHEDULED': { color: 'orange' as const, text: 'Запланирована' },
       'IN_PROGRESS': { color: 'blue' as const, text: 'В процессе' },
       'COMPLETED': { color: 'green' as const, text: 'Завершена' },
+      'APPROVED': { color: 'green' as const, text: 'Проверена' },
       'CANCELLED': { color: 'red' as const, text: 'Отменена' }
     }
     const statusInfo = statusMap[status as keyof typeof statusMap] || { color: 'zinc' as const, text: status }
@@ -224,6 +214,7 @@ function CleaningsPageContent() {
   const scheduledCleanings = cleanings.filter((c: any) => c.status === 'SCHEDULED').length
   const inProgressCleanings = cleanings.filter((c: any) => c.status === 'IN_PROGRESS').length
   const completedCleanings = cleanings.filter((c: any) => c.status === 'COMPLETED').length
+  const approvedCleanings = cleanings.filter((c: any) => c.status === 'APPROVED').length
   const cancelledCleanings = cleanings.filter((c: any) => c.status === 'CANCELLED').length
 
   // Подсчет статистики для уборщиков
@@ -305,7 +296,7 @@ function CleaningsPageContent() {
       {activeTab === 'cleanings' && (
         <>
           {/* Статистика уборок */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <div className="p-6">
           <Heading level={3} className="mb-4">Всего уборок</Heading>
           <Text className="text-2xl font-bold text-blue-600">{totalCleanings}</Text>
@@ -337,6 +328,14 @@ function CleaningsPageContent() {
         </div>
 
         <div className="p-6">
+          <Heading level={3} className="mb-4">Проверены</Heading>
+          <Text className="text-2xl font-bold text-green-700">{approvedCleanings}</Text>
+          <Text className="text-sm text-zinc-500">
+            {totalCleanings > 0 ? `${Math.round((approvedCleanings / totalCleanings) * 100)}%` : '0%'}
+          </Text>
+        </div>
+
+        <div className="p-6">
           <Heading level={3} className="mb-4">Отменены</Heading>
           <Text className="text-2xl font-bold text-red-600">{cancelledCleanings}</Text>
           <Text className="text-sm text-zinc-500">
@@ -359,6 +358,7 @@ function CleaningsPageContent() {
               <option value="SCHEDULED">Запланирована</option>
               <option value="IN_PROGRESS">В процессе</option>
               <option value="COMPLETED">Завершена</option>
+              <option value="APPROVED">Проверена</option>
               <option value="CANCELLED">Отменена</option>
             </Select>
           </div>
@@ -429,7 +429,7 @@ function CleaningsPageContent() {
               if (status === 'COMPLETED') {
                 completeCleaningMutation.mutate({ id: cleaningId, input: {} })
               } else if (status === 'IN_PROGRESS') {
-                startCleaningMutation.mutate(cleaningId)
+                router.push(`/cleanings/${cleaningId}`)
               } else if (status === 'CANCELLED') {
                 cancelCleaningMutation.mutate({ id: cleaningId, reason: 'Отменено' })
               }
@@ -823,17 +823,6 @@ function CleaningsPageContent() {
           router.push('/cleanings')
         }}
         cleaningId={selectedCleaningId}
-      />
-
-      {/* Диалог выполнения уборки */}
-      <CleaningExecutionDialog
-        isOpen={isExecutionDialogOpen}
-        onClose={() => {
-          setIsExecutionDialogOpen(false)
-          setSelectedCleaningTaskId(null)
-        }}
-        task={selectedCleaningTaskId as any}
-        orgId={orgId || ''}
       />
 
       {/* Диалог создания уборщика */}

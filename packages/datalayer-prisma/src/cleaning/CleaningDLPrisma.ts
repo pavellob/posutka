@@ -9,6 +9,7 @@ import type {
   CleaningTemplate,
   CleaningDocument,
   CleaningDocumentPhoto,
+  CleaningReview,
   CreateCleanerInput,
   UpdateCleanerInput,
   CreateCleaningTemplateInput,
@@ -278,7 +279,12 @@ export class CleaningDLPrisma implements ICleaningDL {
   async getCleaningById(id: string): Promise<Cleaning | null> {
     const cleaning = await this.prisma.cleaning.findUnique({
       where: { id },
-      include: { checklistItems: true },
+      include: {
+        checklistItems: true,
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
     
     if (!cleaning) return null;
@@ -289,7 +295,12 @@ export class CleaningDLPrisma implements ICleaningDL {
   async getCleaningByTaskId(taskId: string): Promise<Cleaning | null> {
     const cleaning = await this.prisma.cleaning.findFirst({
       where: { taskId },
-      include: { checklistItems: true },
+      include: {
+        checklistItems: true,
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
     
     if (!cleaning) return null;
@@ -319,7 +330,12 @@ export class CleaningDLPrisma implements ICleaningDL {
     const [cleanings, totalCount] = await Promise.all([
       this.prisma.cleaning.findMany({
         where,
-        include: { checklistItems: true },
+        include: {
+          checklistItems: true,
+          reviews: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
         take: first + 1,
         skip,
         cursor,
@@ -434,7 +450,12 @@ export class CleaningDLPrisma implements ICleaningDL {
             }
           : undefined,
       },
-      include: { checklistItems: true },
+      include: {
+        checklistItems: true,
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     // Обновить связанную задачу - назначен уборщик, задача в работе
@@ -471,7 +492,12 @@ export class CleaningDLPrisma implements ICleaningDL {
         status: 'IN_PROGRESS',
         startedAt: new Date(),
       },
-      include: { checklistItems: true },
+      include: {
+        checklistItems: true,
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     // Обновить связанную задачу
@@ -501,7 +527,12 @@ export class CleaningDLPrisma implements ICleaningDL {
         completedAt: new Date(),
         notes: input.notes,
       },
-      include: { checklistItems: true },
+      include: {
+        checklistItems: true,
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     // Обновить связанную задачу - перевести в DONE
@@ -518,6 +549,30 @@ export class CleaningDLPrisma implements ICleaningDL {
     return this.mapCleaningFromPrisma(cleaning);
   }
 
+  async approveCleaning(id: string, managerId: string, comment?: string): Promise<Cleaning> {
+    const cleaning = await this.prisma.cleaning.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        reviews: {
+          create: {
+            managerId,
+            status: 'APPROVED',
+            comment,
+          },
+        },
+      },
+      include: {
+        checklistItems: true,
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    return this.mapCleaningFromPrisma(cleaning);
+  }
+
   async cancelCleaning(id: string, reason?: string): Promise<Cleaning> {
     const cleaning = await this.prisma.cleaning.update({
       where: { id },
@@ -525,7 +580,12 @@ export class CleaningDLPrisma implements ICleaningDL {
         status: 'CANCELLED',
         notes: reason ? `Cancelled: ${reason}` : undefined,
       },
-      include: { checklistItems: true },
+      include: {
+        checklistItems: true,
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     // Обновить связанную задачу - перевести в CANCELED
@@ -584,7 +644,12 @@ export class CleaningDLPrisma implements ICleaningDL {
 
     const cleaning = await this.prisma.cleaning.findUnique({
       where: { id },
-      include: { checklistItems: true },
+      include: {
+        checklistItems: true,
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
     
     console.log('📊 Final checklist items count:', cleaning?.checklistItems.length);
@@ -705,7 +770,7 @@ export class CleaningDLPrisma implements ICleaningDL {
     return {
       id: cleaning.id,
       orgId: cleaning.orgId,
-      cleanerId: cleaning.cleanerId,
+      cleanerId: cleaning.cleanerId ?? null,
       unitId: cleaning.unitId,
       bookingId: cleaning.bookingId,
       taskId: cleaning.taskId,
@@ -725,6 +790,9 @@ export class CleaningDLPrisma implements ICleaningDL {
             createdAt: item.createdAt.toISOString(),
             updatedAt: item.updatedAt.toISOString(),
           }))
+        : [],
+      reviews: cleaning.reviews
+        ? cleaning.reviews.map((review: any) => this.mapCleaningReviewFromPrisma(review))
         : [],
       createdAt: cleaning.createdAt.toISOString(),
       updatedAt: cleaning.updatedAt.toISOString(),
@@ -754,6 +822,17 @@ export class CleaningDLPrisma implements ICleaningDL {
       order: photo.order,
       createdAt: photo.createdAt.toISOString(),
       updatedAt: photo.updatedAt.toISOString(),
+    };
+  }
+
+  private mapCleaningReviewFromPrisma(review: any): CleaningReview {
+    return {
+      id: review.id,
+      cleaningId: review.cleaningId,
+      managerId: review.managerId,
+      status: review.status,
+      comment: review.comment ?? undefined,
+      createdAt: review.createdAt.toISOString(),
     };
   }
 }

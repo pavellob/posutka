@@ -1,114 +1,58 @@
 'use client'
 
-import { use, useState, useEffect, useCallback } from 'react'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { graphqlClient } from '@/lib/graphql-client'
 import { Heading, Subheading } from '@/components/heading'
 import { Text } from '@/components/text'
-import { Button } from '@/components/button'
 import { Badge } from '@/components/badge'
-import { Checkbox, CheckboxField, CheckboxGroup } from '@/components/checkbox'
-import { Label } from '@/components/fieldset'
-import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/dialog'
-import { graphqlClient } from '@/lib/graphql-client'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { Button } from '@/components/button'
+import { Dialog, DialogBody, DialogTitle, DialogActions, DialogDescription } from '@/components/dialog'
+import { Textarea } from '@/components/textarea'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { ChecklistInstanceDialog } from '@/components/checklist-instance-dialog'
+import {
+  GET_CLEANING,
+  GET_CHECKLIST_BY_CLEANING_AND_STAGE,
+  GET_CHECKLIST_TEMPLATE,
+  CREATE_CHECKLIST_INSTANCE,
+  ASSIGN_CLEANING_TO_ME,
+  APPROVE_CLEANING,
+  COMPLETE_CLEANING,
+  START_CLEANING,
+} from '@/lib/graphql-queries'
 import {
   ArrowLeftIcon,
+  CalendarIcon,
+  CheckCircleIcon,
+  ClockIcon,
   HomeIcon,
   UserIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  CalendarIcon,
-  UserPlusIcon,
-  SparklesIcon,
 } from '@heroicons/react/24/outline'
 
-const GET_CLEANING = `
-  query GetCleaning($id: UUID!) {
-    cleaning(id: $id) {
-      id
-      status
-      scheduledAt
-      startedAt
-      completedAt
-      requiresLinenChange
-      notes
-      unit {
-        id
-        name
-        property {
-          id
-          title
-        }
-      }
-      cleaner {
-        id
-        firstName
-        lastName
-        telegramUsername
-        rating
-      }
-      checklistItems {
-        id
-        label
-        isChecked
-        order
-      }
-    }
-  }
-`
+type Stage = 'PRE_CLEANING' | 'CLEANING' | 'FINAL_REPORT'
 
-const START_CLEANING = `
-  mutation StartCleaning($id: UUID!) {
-    startCleaning(id: $id) {
-      id
-      status
-      startedAt
-    }
-  }
-`
-
-const COMPLETE_CLEANING = `
-  mutation CompleteCleaning($id: UUID!) {
-    completeCleaning(id: $id, input: {}) {
-      id
-      status
-      completedAt
-    }
-  }
-`
-
-const UPDATE_CHECKLIST = `
-  mutation UpdateCleaningChecklist($id: UUID!, $items: [ChecklistItemInput!]!) {
-    updateCleaningChecklist(id: $id, items: $items) {
-      id
-      checklistItems {
-        id
-        label
-        isChecked
-        order
-      }
-    }
-  }
-`
-
-const ASSIGN_CLEANING_TO_ME = `
-  mutation AssignCleaningToMe($cleaningId: UUID!) {
-    assignCleaningToMe(cleaningId: $cleaningId) {
-      id
-      status
-      cleaner {
-        id
-        firstName
-        lastName
-      }
-    }
-  }
-`
+const STAGE_CONFIG: Record<Stage, { label: string; description: string; color: 'blue' | 'green' | 'purple' }> = {
+  PRE_CLEANING: {
+    label: 'Приёмка',
+    description: 'Подготовка квартиры перед уборкой',
+    color: 'blue',
+  },
+  CLEANING: {
+    label: 'Уборка',
+    description: 'Основной чек-лист уборщика',
+    color: 'green',
+  },
+  FINAL_REPORT: {
+    label: 'Финальный отчёт',
+    description: 'Завершение уборки и отчёт для менеджера',
+    color: 'purple',
+  },
+}
 
 type CleaningDetailsPageProps = {
-  params: Promise<{
-    id: string
-  }>
+  params: Promise<{ id: string }>
 }
 
 export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
@@ -116,689 +60,983 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'details' | 'checklist'>('details')
-  const [showAssignDialog, setShowAssignDialog] = useState(false)
+  const { currentUserId } = useCurrentUser()
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+  const [assignDialogStage, setAssignDialogStage] = useState<Stage | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['cleaning', params.id],
     queryFn: async () => {
-      const response = await graphqlClient.request(GET_CLEANING, {
-        id: params.id
-      }) as any
+      const response = await graphqlClient.request(GET_CLEANING, { id: params.id }) as any
       return response.cleaning
-    }
+    },
   })
 
-  const startMutation = useMutation({
-    mutationFn: async () => {
-      return await graphqlClient.request(START_CLEANING, {
-        id: params.id
+  const unitId = data?.unit?.id
+  const cleaningId = data?.id
+
+  const {
+    data: templateData,
+    isLoading: isTemplateLoading,
+    error: templateError,
+  } = useQuery({
+    queryKey: ['checklist-template', unitId],
+    queryFn: async () => {
+      if (!unitId) return null
+      const response = await graphqlClient.request(GET_CHECKLIST_TEMPLATE, { unitId }) as any
+      return response.checklistTemplate ?? null
+    },
+    enabled: !!unitId,
+  })
+  const hasTemplate = !!templateData
+  const templateMissing = !isTemplateLoading && !templateData && !templateError
+
+  const { data: preCleaningData } = useQuery({
+    queryKey: ['checklist-instance', cleaningId, 'PRE_CLEANING'],
+    queryFn: async () => {
+      if (!cleaningId) return null
+      const response = await graphqlClient.request(GET_CHECKLIST_BY_CLEANING_AND_STAGE, { cleaningId, stage: 'PRE_CLEANING' }) as any
+      return response.checklistByCleaning ?? null
+    },
+    enabled: !!cleaningId,
+  })
+
+  const { data: cleaningData } = useQuery({
+    queryKey: ['checklist-instance', cleaningId, 'CLEANING'],
+    queryFn: async () => {
+      if (!cleaningId) return null
+      const response = await graphqlClient.request(GET_CHECKLIST_BY_CLEANING_AND_STAGE, { cleaningId, stage: 'CLEANING' }) as any
+      return response.checklistByCleaning ?? null
+    },
+    enabled: !!cleaningId,
+  })
+
+  const { data: finalReportData } = useQuery({
+    queryKey: ['checklist-instance', cleaningId, 'FINAL_REPORT'],
+    queryFn: async () => {
+      if (!cleaningId) return null
+      const response = await graphqlClient.request(GET_CHECKLIST_BY_CLEANING_AND_STAGE, { cleaningId, stage: 'FINAL_REPORT' }) as any
+      return response.checklistByCleaning ?? null
+    },
+    enabled: !!cleaningId,
+  })
+
+  const instances: Record<Stage, any> = {
+    PRE_CLEANING: preCleaningData,
+    CLEANING: cleaningData,
+    FINAL_REPORT: finalReportData,
+  }
+
+  const assignmentRequestedRef = useRef(false)
+  const completionRequestedRef = useRef(false)
+  const startRequestedRef = useRef(false)
+  const statusColor =
+    data?.status === 'APPROVED'
+      ? 'green'
+      : data?.status === 'COMPLETED'
+        ? 'green'
+        : data?.status === 'IN_PROGRESS'
+          ? 'blue'
+          : 'zinc'
+  const assignedCleanerUserId = data?.cleaner?.user?.id
+  const canEditChecklists = !data?.cleaner || assignedCleanerUserId === currentUserId
+  const workerStages: Stage[] = ['PRE_CLEANING', 'CLEANING']
+  const finalInstance = instances.FINAL_REPORT
+  const isSubmitted = (status?: string | null) => status === 'SUBMITTED' || status === 'LOCKED'
+  const preSubmitted = isSubmitted(preCleaningData?.status)
+  const cleaningSubmitted = isSubmitted(cleaningData?.status)
+  const stageActive: Record<Stage, boolean> = {
+    PRE_CLEANING: canEditChecklists && !preSubmitted,
+    CLEANING: canEditChecklists && preSubmitted && !cleaningSubmitted,
+    FINAL_REPORT: cleaningSubmitted && data?.status !== 'APPROVED',
+  }
+
+  const autoCreatedRef = useRef<Record<Stage, boolean>>({
+    PRE_CLEANING: false,
+    CLEANING: false,
+    FINAL_REPORT: false,
+  })
+  const [creationError, setCreationError] = useState<string | null>(null)
+  const [approvalComment, setApprovalComment] = useState('')
+  const [approvalError, setApprovalError] = useState<string | null>(null)
+  const [expandedStages, setExpandedStages] = useState<Record<Stage, boolean>>({
+    PRE_CLEANING: true,
+    CLEANING: true,
+    FINAL_REPORT: true,
+  })
+  const [photoPreview, setPhotoPreview] = useState<Array<{ url: string; caption?: string }>>(
+    []
+  )
+  const [photoPreviewIndex, setPhotoPreviewIndex] = useState(0)
+
+  const createInstanceMutation = useMutation({
+    mutationFn: async (stage: Stage) => {
+      return graphqlClient.request(CREATE_CHECKLIST_INSTANCE, {
+        unitId,
+        stage,
+        cleaningId,
       })
+    },
+    onSuccess: (_, stage) => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-instance', cleaningId, stage] })
+      queryClient.invalidateQueries({ queryKey: ['checklists', unitId] })
+      setCreationError(null)
+    },
+    onError: (error: unknown, stage) => {
+      const message = error instanceof Error ? error.message : 'Не удалось создать чек-лист'
+      console.error('[CleaningDetailsPage] createChecklistInstance failed', { error, stage, unitId })
+      setCreationError(message)
+      if (stage) {
+        autoCreatedRef.current[stage as Stage] = false
+      }
+    },
+  })
+
+  const { mutate: createChecklistInstance, isPending: isCreatingInstance } = createInstanceMutation
+
+  const {
+    mutateAsync: assignCleaningToMe,
+    isPending: isAssigningCleaning,
+  } = useMutation({
+    mutationFn: async (cleaningId: string) => {
+      return graphqlClient.request(ASSIGN_CLEANING_TO_ME, { id: cleaningId }) as any
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
-    }
+      setCreationError(null)
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : 'Не удалось взять уборку в работу'
+      setCreationError(message)
+      console.error('[CleaningDetailsPage] assignCleaningToMe failed', { error, cleaningId: params.id })
+    },
   })
 
-  const updateChecklistMutation = useMutation({
-    mutationFn: async (items: Array<{ label: string; isChecked: boolean; order: number }>) => {
-      return await graphqlClient.request(UPDATE_CHECKLIST, {
+  const {
+    mutateAsync: approveCleaningMutation,
+    isPending: isApprovingCleaning,
+  } = useMutation({
+    mutationFn: async (comment?: string) => {
+      if (!currentUserId) {
+        throw new Error('Не удалось определить текущего пользователя')
+      }
+      return graphqlClient.request(APPROVE_CLEANING, {
         id: params.id,
-        items
-      })
+        managerId: currentUserId,
+        comment,
+      }) as any
     },
     onSuccess: () => {
-      // Просто перезагружаем данные с сервера
       queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
-    }
+      setApprovalError(null)
+      setApprovalComment('')
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : 'Не удалось подтвердить уборку'
+      setApprovalError(message)
+      console.error('[CleaningDetailsPage] approveCleaning failed', { error, cleaningId: params.id })
+    },
   })
 
-  const completeMutation = useMutation({
+  const {
+    mutateAsync: startCleaningMutation,
+    isPending: isStartingCleaning,
+  } = useMutation({
     mutationFn: async () => {
-      return await graphqlClient.request(COMPLETE_CLEANING, {
-        id: params.id
-      })
+      return graphqlClient.request(START_CLEANING, { id: params.id }) as any
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
-    }
+    },
+    onError: () => {
+      startRequestedRef.current = false
+    },
   })
 
-  const assignCleaningMutation = useMutation({
+  const {
+    mutateAsync: completeCleaningMutation,
+    isPending: isCompletingCleaning,
+  } = useMutation({
     mutationFn: async () => {
-      return await graphqlClient.request(ASSIGN_CLEANING_TO_ME, {
-        cleaningId: params.id
-      })
+      return graphqlClient.request(COMPLETE_CLEANING, { id: params.id, input: {} }) as any
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
-      setShowAssignDialog(false)
-      // Обновляем данные через queryClient
     },
-    onError: (error: any) => {
-      console.error('Failed to assign cleaning:', error)
-      alert('❌ Ошибка при назначении уборки: ' + (error.message || 'Неизвестная ошибка'))
-    }
+    onError: () => {
+      completionRequestedRef.current = false
+    },
   })
 
-  const handleAssignCleaning = useCallback(() => {
-    setShowAssignDialog(true)
+  useEffect(() => {
+    if (data?.startedAt || data?.status === 'IN_PROGRESS' || data?.status === 'COMPLETED' || data?.status === 'APPROVED') {
+      startRequestedRef.current = true
+    }
+  }, [data?.startedAt, data?.status])
+
+  const handleStartCleaning = useCallback(() => {
+    if (startRequestedRef.current || isStartingCleaning) return
+    startRequestedRef.current = true
+    startCleaningMutation().catch(() => {
+      startRequestedRef.current = false
+    })
+  }, [isStartingCleaning, startCleaningMutation])
+
+  const ensureAssignment = useCallback(async () => {
+    if (!data) return false
+    if (!currentUserId) {
+      setCreationError('Не удалось определить текущего пользователя.')
+      return false
+    }
+    const assignedUserId = data.cleaner?.user?.id
+    if (assignedUserId === currentUserId) {
+      assignmentRequestedRef.current = false
+    }
+    if (assignedUserId && assignedUserId !== currentUserId) {
+      setCreationError('Уборка уже в работе у другого исполнителя.')
+      return false
+    }
+    if (!data.cleaner) {
+      if (assignmentRequestedRef.current) {
+        return true
+      }
+      try {
+        assignmentRequestedRef.current = true
+        await assignCleaningToMe(data.id)
+        await queryClient.refetchQueries({ queryKey: ['cleaning', params.id] })
+        assignmentRequestedRef.current = false
+      } catch {
+        assignmentRequestedRef.current = false
+        return false
+      }
+    }
+
+    return true
+  }, [assignCleaningToMe, currentUserId, data, params.id, queryClient])
+
+  const openPhotoPreview = useCallback((attachments: Array<{ url: string; caption?: string }>, index = 0) => {
+    if (!attachments.length) return
+    setPhotoPreview(attachments)
+    setPhotoPreviewIndex(Math.min(index, attachments.length - 1))
   }, [])
 
-  const handleConfirmAssign = () => {
-    assignCleaningMutation.mutate()
-  }
+  const closePhotoPreview = useCallback(() => {
+    setPhotoPreview([])
+    setPhotoPreviewIndex(0)
+  }, [])
 
-  const handleCancelAssign = () => {
-    setShowAssignDialog(false)
-  }
+  const showPrevPhoto = useCallback(() => {
+    setPhotoPreviewIndex((prev) => (prev > 0 ? prev - 1 : prev))
+  }, [])
 
-  // Открываем нужную вкладку из URL параметра
+  const showNextPhoto = useCallback(() => {
+    setPhotoPreviewIndex((prev) => (photoPreview && prev < photoPreview.length - 1 ? prev + 1 : prev))
+  }, [photoPreview])
+
+  const isPhotoPreviewOpen = photoPreview.length > 0
+
+  const [dialogStage, setDialogStage] = useState<Stage | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  const handleOpenDialog = useCallback((stage: Stage) => {
+    setDialogStage(stage)
+    setDialogOpen(true)
+  }, [])
+
+  const handleCloseDialog = useCallback(() => {
+    setDialogOpen(false)
+    setDialogStage(null)
+  }, [])
+
+  const orderedReviews = useMemo(() => {
+    if (!data?.reviews) return []
+    return [...data.reviews].sort(
+      (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [data?.reviews])
+  const latestReview = orderedReviews[0]
+
   useEffect(() => {
-    const tab = searchParams.get('tab')
-    const action = searchParams.get('action')
-    
-    if (tab === 'checklist') {
-      setActiveTab('checklist')
-    }
-    
-    if (action === 'assign') {
-      // Показываем диалог назначения уборки
-      handleAssignCleaning()
-    }
-  }, [searchParams, handleAssignCleaning])
+    if (!unitId) return
+    if (isCreatingInstance) return
+    if (isTemplateLoading) return
+    if (!hasTemplate) return
 
-  const handleToggleCheckbox = (itemId: string) => {
-    if (!data?.checklistItems || updateChecklistMutation.isPending) return
-    
-    console.log('🖱️ Checkbox clicked:', {
-      itemId,
-      currentItemsCount: data.checklistItems.length,
-      hasDuplicates: data.checklistItems.length !== new Set(data.checklistItems.map((i: any) => i.id)).size
+    const stageDataMap: Record<Stage, typeof preCleaningData> = {
+      PRE_CLEANING: preCleaningData,
+      CLEANING: cleaningData,
+      FINAL_REPORT: finalReportData,
+    }
+
+    for (const stage of Object.keys(stageDataMap) as Stage[]) {
+      if (typeof stageDataMap[stage] === 'undefined') {
+        return
+      }
+    }
+
+    for (const stage of Object.keys(stageDataMap) as Stage[]) {
+      if (!stageDataMap[stage] && !autoCreatedRef.current[stage] && stageActive[stage]) {
+        autoCreatedRef.current[stage] = true
+        createChecklistInstance(stage)
+        break
+      }
+    }
+  }, [
+    unitId,
+    preCleaningData,
+    cleaningData,
+    finalReportData,
+    isCreatingInstance,
+    createChecklistInstance,
+    hasTemplate,
+    isTemplateLoading,
+    stageActive,
+  ])
+
+  const action = searchParams.get('action')
+  const stageParam = searchParams.get('stage')
+  const assignStage: Stage =
+    stageParam === 'PRE_CLEANING' || stageParam === 'CLEANING' || stageParam === 'FINAL_REPORT'
+      ? stageParam
+      : 'PRE_CLEANING'
+  const isAssignStageDataUndefined =
+    assignStage === 'PRE_CLEANING'
+      ? typeof preCleaningData === 'undefined'
+      : assignStage === 'CLEANING'
+        ? typeof cleaningData === 'undefined'
+        : typeof finalReportData === 'undefined'
+
+  useEffect(() => {
+    if (action !== 'assign') {
+      setAssignDialogOpen(false)
+      setAssignDialogStage(null)
+      return
+    }
+    if (!unitId || !data) return
+    if (isCreatingInstance) return
+    if (isAssignStageDataUndefined) return
+    if (!hasTemplate) return
+
+    if (!stageActive[assignStage]) {
+      setCreationError('Уборка уже занята другим исполнителем или недоступна для редактирования.')
+      router.replace(`/cleanings/${params.id}`, { scroll: false })
+      return
+    }
+
+    if (!assignDialogOpen || assignDialogStage !== assignStage) {
+      setAssignDialogStage(assignStage)
+      setAssignDialogOpen(true)
+    }
+  }, [
+    action,
+    assignStage,
+    assignDialogOpen,
+    assignDialogStage,
+    data,
+    hasTemplate,
+    isAssignStageDataUndefined,
+    isCreatingInstance,
+    params.id,
+    router,
+    stageActive,
+    unitId,
+  ])
+
+  const handleConfirmAssign = useCallback(async () => {
+    const ok = await ensureAssignment()
+    if (!ok) return
+    if (assignDialogStage) {
+      setExpandedStages((prev) => ({
+        ...prev,
+        [assignDialogStage]: true,
+      }))
+    }
+    setAssignDialogOpen(false)
+    setAssignDialogStage(null)
+    router.replace(`/cleanings/${params.id}`, { scroll: false })
+  }, [assignDialogStage, ensureAssignment, params.id, router])
+
+  const handleCancelAssign = useCallback(() => {
+    setAssignDialogOpen(false)
+    setAssignDialogStage(null)
+    router.replace(`/cleanings/${params.id}`, { scroll: false })
+  }, [params.id, router])
+
+  useEffect(() => {
+    if (!data) return
+    if (data.status === 'COMPLETED' || data.status === 'APPROVED') {
+      completionRequestedRef.current = true
+      return
+    }
+    if (completionRequestedRef.current) return
+    if (isCompletingCleaning) return
+    if (!cleaningSubmitted) return
+    if (data.status !== 'IN_PROGRESS') return
+
+    completionRequestedRef.current = true
+    completeCleaningMutation().catch(() => {
+      completionRequestedRef.current = false
     })
-    
-    // Отправляем обновление на сервер (все items с актуальным состоянием)
-    const updatedItems = data.checklistItems.map((item: any) => ({
-      label: item.label,
-      isChecked: item.id === itemId ? !item.isChecked : item.isChecked,
-      order: item.order
+  }, [cleaningSubmitted, completeCleaningMutation, data, isCompletingCleaning])
+
+  const formatManagerId = (id?: string | null) => (id ? id.slice(0, 8) : '—')
+  const renderChecklistCell = useCallback(
+    (cell: { item: any; answer?: any; attachments: any[] } | undefined, emptyText: string) => {
+      if (!cell) {
+        return (
+          <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40 p-4 text-sm text-zinc-500">
+            {emptyText}
+          </div>
+        )
+      }
+
+      const { item, answer, attachments } = cell
+      const title = item?.title ?? item?.label ?? 'Без названия'
+      const description = item?.description
+      const requiresPhoto = item?.requiresPhoto
+      const photosCount = attachments?.length ?? 0
+      const hasAnswerValue = answer?.value !== undefined && answer?.value !== null
+      const isBool = item?.type === 'BOOL'
+      const isNegative = isBool && answer?.value === false
+      const displayedAnswer = (() => {
+        if (hasAnswerValue) {
+          if (isBool) {
+            return answer?.value ? 'Да' : 'Нет'
+          }
+          if (typeof answer?.value === 'string') {
+            return answer.value
+          }
+          if (typeof answer?.value === 'number') {
+            return answer.value.toString()
+          }
+          if (typeof answer?.value === 'object') {
+            try {
+              return JSON.stringify(answer?.value)
+            } catch (error) {
+              return String(answer?.value)
+            }
+          }
+          return String(answer?.value)
+        }
+
+        if (answer?.note) {
+          return answer.note
+        }
+
+        if (requiresPhoto && photosCount > 0) {
+          return `${photosCount} фото`
+        }
+
+        return null
+      })()
+      const previewItems = (attachments ?? []).map((attachment: any) => ({
+        url: attachment.url,
+        caption: attachment.caption,
+      }))
+
+      return (
+        <div
+          className={`rounded-xl border p-4 space-y-2 transition-colors ${
+            isNegative
+              ? 'border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20'
+              : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <Heading level={6} className="mb-0">
+              {title}
+            </Heading>
+            {item?.required && <Badge color="red">Обязательно</Badge>}
+          </div>
+          {description && (
+            <Text className="text-sm text-zinc-600 dark:text-zinc-400">{description}</Text>
+          )}
+          <div className="text-sm text-zinc-700 dark:text-zinc-200 space-y-1">
+            {displayedAnswer ? (
+              <p className="whitespace-pre-wrap break-words">{displayedAnswer}</p>
+            ) : (
+              <p className="text-zinc-500 dark:text-zinc-400">
+                {requiresPhoto ? 'Фото не загружены' : 'Ответ не заполнен'}
+              </p>
+            )}
+            {photosCount > 0 && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Фото: {photosCount}
+              </p>
+            )}
+          </div>
+          {answer?.note && hasAnswerValue && (
+            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300">
+              Комментарий: {answer.note}
+            </div>
+          )}
+          {photosCount > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {previewItems.map((attachment, idx) => (
+                <button
+                  key={attachment.url}
+                  type="button"
+                  onClick={() => openPhotoPreview(previewItems, idx)}
+                  className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg"
+                >
+                  <img
+                    src={attachment.url}
+                    alt={attachment.caption || 'Фото'}
+                    className="w-20 h-20 object-cover rounded-lg border border-zinc-200 dark:border-zinc-700"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    },
+    [openPhotoPreview]
+  )
+
+  const toggleStageExpansion = useCallback((stage: Stage) => {
+    setExpandedStages((prev) => ({
+      ...prev,
+      [stage]: !prev[stage],
     }))
-    
-    console.log('📤 Sending to server:', {
-      itemsCount: updatedItems.length,
-      items: updatedItems
-    })
-    
-    updateChecklistMutation.mutate(updatedItems)
+  }, [])
+
+  const handleCreateChecklist = useCallback(
+    async (stage: Stage) => {
+      if (!unitId) return
+      if (!hasTemplate) {
+        setCreationError('Для этого юнита не настроен шаблон чек-листа. Создайте его, чтобы открыть чек-лист уборки.')
+        return
+      }
+
+      if (!stageActive[stage]) {
+        setCreationError('Эта стадия пока недоступна. Завершите предыдущий этап.')
+        return
+      }
+
+      if (stage !== 'FINAL_REPORT') {
+        const ok = await ensureAssignment()
+        if (!ok) return
+      }
+
+      if (autoCreatedRef.current[stage]) return
+      autoCreatedRef.current[stage] = true
+      createChecklistInstance(stage, {
+        onSuccess: () => {
+          setExpandedStages((prev) => ({
+            ...prev,
+            [stage]: true,
+          }))
+        },
+        onError: () => {
+          autoCreatedRef.current[stage] = false
+        },
+      })
+    },
+    [createChecklistInstance, ensureAssignment, hasTemplate, stageActive, unitId]
+  )
+
+  const handleApproveCleaning = async () => {
+    try {
+      await approveCleaningMutation(approvalComment ? approvalComment.trim() : undefined)
+    } catch (error) {
+      // Ошибка уже обработана в onError мутации
+    }
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <Text>Загрузка...</Text>
-        </div>
+      <div className="max-w-6xl mx-auto py-12 flex justify-center">
+        <Text className="text-zinc-500">Загрузка уборки...</Text>
       </div>
     )
   }
 
   if (error || !data) {
     return (
-      <div className="max-w-2xl mx-auto mt-12 text-center">
-        <Heading>Уборка не найдена</Heading>
-        <Button onClick={() => router.push('/cleanings')} className="mt-4">
-          Вернуться к списку
+      <div className="max-w-4xl mx-auto py-12 text-center space-y-4">
+        <Text className="text-red-600 dark:text-red-400">
+          {error ? 'Ошибка загрузки уборки' : 'Уборка не найдена'}
+        </Text>
+        <Button onClick={() => router.push('/cleanings')} outline>
+          <ArrowLeftIcon className="w-4 h-4 mr-2" />
+          К списку уборок
         </Button>
       </div>
     )
   }
 
-  const cleaning = data
-  const scheduledDate = new Date(cleaning.scheduledAt)
-  const formattedDate = scheduledDate.toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-  const formattedTime = scheduledDate.toLocaleTimeString('ru-RU', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-
-  const statusColors: Record<string, string> = {
-    SCHEDULED: 'blue',
-    IN_PROGRESS: 'yellow',
-    COMPLETED: 'green',
-    CANCELLED: 'red',
-  }
-
-  const statusLabels: Record<string, string> = {
-    SCHEDULED: 'Запланирована',
-    IN_PROGRESS: 'В процессе',
-    COMPLETED: 'Завершена',
-    CANCELLED: 'Отменена',
-  }
-
-  const completedItems = cleaning.checklistItems?.filter((item: any) => item.isChecked).length || 0
-  const totalItems = cleaning.checklistItems?.length || 0
-
   return (
-    <div className="max-w-5xl mx-auto">
-      {/* Хлебные крошки */}
-      <div className="flex items-center gap-2 text-sm mb-6">
+    <div className="max-w-6xl mx-auto py-8 space-y-8">
+      <div className="flex items-center gap-2 text-sm text-zinc-500">
         <button 
           onClick={() => router.push('/cleanings')}
-          className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+          className="flex items-center gap-1 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
         >
-          Уборки
-        </button>
-        <span className="text-zinc-400">/</span>
-        <span className="text-zinc-900 dark:text-white font-medium">
-          {cleaning.unit.property?.title} - {cleaning.unit.name}
-        </span>
-      </div>
-
-      {/* Заголовок */}
-      <div className="flex items-start justify-between mb-8">
-        <div className="flex-1">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center">
-              <HomeIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <Heading>{cleaning.unit.property?.title}</Heading>
-              <Text className="text-zinc-600 dark:text-zinc-400">{cleaning.unit.name}</Text>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge color={statusColors[cleaning.status] as any}>
-              {statusLabels[cleaning.status] || cleaning.status}
-            </Badge>
-            {cleaning.requiresLinenChange && (
-              <Badge color="amber">Требуется смена белья</Badge>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-3">
-          {cleaning.status === 'SCHEDULED' && (
-            <Button 
-              onClick={() => startMutation.mutate()} 
-              disabled={startMutation.isPending}
-              color="blue"
-            >
-              {startMutation.isPending ? 'Начинаем...' : '▶️ Начать'}
-            </Button>
-          )}
-          {cleaning.status === 'IN_PROGRESS' && (
-            <>
-              <Button 
-                onClick={() => completeMutation.mutate()} 
-                disabled={completeMutation.isPending || completedItems < totalItems}
-                color="green"
-                title={completedItems < totalItems ? 'Выполните все пункты чеклиста' : ''}
-              >
-                {completeMutation.isPending ? 'Завершение...' : '✅ Завершить'}
-              </Button>
-              {completedItems < totalItems && (
-                <Badge color="amber" className="self-center">
-                  Осталось: {totalItems - completedItems}
-                </Badge>
-              )}
-            </>
-          )}
-          <Button onClick={() => router.back()} outline>
             <ArrowLeftIcon className="w-4 h-4" />
             Назад
-          </Button>
-        </div>
+          </button>
       </div>
 
-      {/* Вкладки */}
-      <div className="border-b border-gray-200 dark:border-zinc-700 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('details')}
-            className={`
-              py-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'details'
-                ? 'border-black dark:border-white text-black dark:text-white'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-              }
-            `}
-          >
-            📄 Детали
-          </button>
-          <button
-            onClick={() => setActiveTab('checklist')}
-            className={`
-              py-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'checklist'
-                ? 'border-black dark:border-white text-black dark:text-white'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-              }
-            `}
-          >
-            ✅ Чеклист {totalItems > 0 && `(${completedItems}/${totalItems})`}
-          </button>
-        </nav>
-      </div>
-
-      {/* Контент вкладки "Детали" */}
-      {activeTab === 'details' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Левая колонка */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Информация о времени */}
-          <section className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
-            <Subheading className="mb-4">Время</Subheading>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <CalendarIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div className="flex-1">
-                  <Text className="text-xs text-zinc-500 mb-1">Запланирована</Text>
-                  <Text className="font-medium">{formattedDate}</Text>
-                  <Text className="text-sm text-zinc-600 dark:text-zinc-400">{formattedTime}</Text>
-                </div>
-              </div>
-              
-              {cleaning.startedAt && (
-                <div className="flex items-start gap-3">
-                  <ClockIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
-                  <div className="flex-1">
-                    <Text className="text-xs text-zinc-500 mb-1">Начата</Text>
-                    <Text className="font-medium">
-                      {new Date(cleaning.startedAt).toLocaleString('ru-RU')}
-                    </Text>
-                  </div>
-                </div>
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div className="space-y-2">
+            <Heading level={3}>
+              Уборка #{data.id.slice(0, 8)}
+            </Heading>
+            <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
+              {data.unit && (
+                <span className="inline-flex items-center gap-1"><HomeIcon className="w-4 h-4" /> {data.unit.property?.title} · {data.unit.name}</span>
               )}
-              
-              {cleaning.completedAt && (
-                <div className="flex items-start gap-3">
-                  <CheckCircleIcon className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
-                  <div className="flex-1">
-                    <Text className="text-xs text-zinc-500 mb-1">Завершена</Text>
-                    <Text className="font-medium">
-                      {new Date(cleaning.completedAt).toLocaleString('ru-RU')}
-                    </Text>
-                  </div>
-                </div>
+              {data.cleaner && (
+                <span className="inline-flex items-center gap-1"><UserIcon className="w-4 h-4" /> {data.cleaner.firstName} {data.cleaner.lastName}</span>
               )}
-            </div>
-          </section>
-
-          {/* Уборщик */}
-          {cleaning.cleaner && (
-            <section className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
-              <Subheading className="mb-4">Уборщик</Subheading>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold">
-                  {cleaning.cleaner.firstName[0]}{cleaning.cleaner.lastName[0]}
-                </div>
-                <div className="flex-1">
-                  <Text className="font-medium">
-                    {cleaning.cleaner.firstName} {cleaning.cleaner.lastName}
-                  </Text>
-                  {cleaning.cleaner.telegramUsername && (
-                    <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                      @{cleaning.cleaner.telegramUsername}
-                    </Text>
-                  )}
-                  {cleaning.cleaner.rating && (
-                    <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                      ⭐ {cleaning.cleaner.rating.toFixed(1)}
-                    </Text>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {!cleaning.cleaner && cleaning.status === 'SCHEDULED' && (
-            <section className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800 shadow-lg hover:shadow-xl transition-all duration-300">
-              {/* Декоративный элемент */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-200/30 to-purple-200/30 dark:from-blue-800/20 dark:to-purple-800/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <UserPlusIcon className="w-6 h-6 text-white" />
+              {data.scheduledAt && (
+                <span className="inline-flex items-center gap-1"><CalendarIcon className="w-4 h-4" />{new Date(data.scheduledAt).toLocaleString('ru-RU')}</span>
+              )}
+              {data.startedAt && (
+                <span className="inline-flex items-center gap-1"><ClockIcon className="w-4 h-4" />Старт: {new Date(data.startedAt).toLocaleString('ru-RU')}</span>
+              )}
+              {data.completedAt && (
+                <span className="inline-flex items-center gap-1"><CheckCircleIcon className="w-4 h-4" />Завершено: {new Date(data.completedAt).toLocaleString('ru-RU')}</span>
+              )}
                   </div>
-                  <div className="flex-1">
-                    <Subheading className="mb-2 text-blue-900 dark:text-blue-100">Уборщик не назначен</Subheading>
-                    <Text className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
-                      Эта уборка ожидает назначения уборщика. После назначения вы сможете начать выполнение уборки.
-                    </Text>
                   </div>
+          <Badge color={statusColor as any} className="self-start">
+            {data.status === 'SCHEDULED' && 'Запланирована'}
+            {data.status === 'IN_PROGRESS' && 'В работе'}
+            {data.status === 'COMPLETED' && 'Завершена'}
+            {data.status === 'APPROVED' && 'Проверена'}
+          </Badge>
                 </div>
                 
-                {/* Детали уборки */}
-                <div className="bg-white/60 dark:bg-zinc-900/40 backdrop-blur-sm rounded-lg p-4 mb-4 border border-blue-100 dark:border-blue-800/50">
-                  <div className="grid grid-cols-1 gap-2 text-sm">
-                    <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
-                      <CalendarIcon className="w-4 h-4" />
-                      <span className="font-medium">Запланирована:</span>
-                      <span>{formattedDate} в {formattedTime}</span>
-                    </div>
-                    {cleaning.requiresLinenChange && (
-                      <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
-                        <SparklesIcon className="w-4 h-4" />
-                        <span>Требуется смена белья</span>
+        {data.notes && (
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-sm text-blue-800 dark:text-blue-200">
+            {data.notes}
                       </div>
                     )}
-                  </div>
                 </div>
                 
-                <Button 
-                  onClick={handleAssignCleaning}
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                  disabled={assignCleaningMutation.isPending}
-                >
-                  {assignCleaningMutation.isPending ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                      Назначаем...
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <UserPlusIcon className="w-5 h-5" />
-                      Взять уборку в работу
-                    </span>
-                  )}
-                </Button>
-              </div>
-            </section>
-          )}
-
-          {/* Заметки */}
-          {cleaning.notes && (
-            <section className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
-              <Subheading className="mb-3">Заметки</Subheading>
-              <Text className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
-                {cleaning.notes}
-              </Text>
-            </section>
-          )}
-        </div>
-      </div>
-      )}
-
-      {/* Контент вкладки "Чеклист" */}
-      {activeTab === 'checklist' && (
-        <div className="max-w-4xl">
-          {cleaning.status !== 'IN_PROGRESS' && (
-            <div className="mb-6 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-              <Text className="text-sm text-amber-900 dark:text-amber-100">
-                {cleaning.status === 'SCHEDULED' ? (
-                  <>⏸️ Чеклист станет доступен после начала уборки. Нажмите кнопку &quot;▶️ Начать&quot; выше.</>
-                ) : cleaning.status === 'COMPLETED' ? (
-                  <>✅ Уборка завершена. Чеклист доступен только для просмотра.</>
-                ) : (
-                  <>❌ Чеклист недоступен для редактирования.</>
-                )}
-              </Text>
-            </div>
-          )}
-
-          <section className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-800">
-            <div className="flex items-center justify-between mb-6">
-              <Subheading>Чеклист</Subheading>
-              <div className="flex items-center gap-4">
-                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                  {completedItems} из {totalItems} выполнено
-                </Text>
-                <Badge color={completedItems === totalItems && totalItems > 0 ? 'green' : 'amber'}>
-                  {Math.round((completedItems / (totalItems || 1)) * 100)}%
-                </Badge>
-              </div>
-            </div>
-
-            {cleaning.checklistItems && cleaning.checklistItems.length > 0 ? (
-              <CheckboxGroup>
-                {cleaning.checklistItems
-                  .sort((a: any, b: any) => a.order - b.order)
-                  .map((item: any) => {
-                    const canEdit = cleaning.status === 'IN_PROGRESS'
-                    
-                    return (
-                      <CheckboxField key={item.id}>
-                        <Checkbox
-                          checked={item.isChecked}
-                          onChange={() => handleToggleCheckbox(item.id)}
-                          disabled={!canEdit || updateChecklistMutation.isPending}
-                          color="green"
-                        />
-                        <Label className={item.isChecked ? 'line-through text-zinc-500' : ''}>
-                          <span className="text-zinc-500 font-mono text-xs mr-2">{item.order}.</span>
-                          {item.label}
-                        </Label>
-                      </CheckboxField>
-                    )
-                  })}
-              </CheckboxGroup>
-            ) : (
-              <div className="text-center py-12">
-                <Text className="text-zinc-500">Чеклист пуст</Text>
-              </div>
-            )}
-
-            {/* Прогресс бар */}
-            {totalItems > 0 && (
-              <div className="mt-6">
-                <div className="h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-500 transition-all duration-300"
-                    style={{ width: `${(completedItems / totalItems) * 100}%` }}
-                  />
-                </div>
-                <Text className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 text-center">
-                  {completedItems === totalItems && totalItems > 0
-                    ? '🎉 Все пункты выполнены! Можно завершить уборку.'
-                    : `Осталось выполнить: ${totalItems - completedItems} пунктов`}
-                </Text>
-              </div>
-            )}
-          </section>
-        </div>
-      )}
-
-      {/* Техническая информация */}
-      <div className="mt-8">
-        <details className="group">
-          <summary className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors">
-            Техническая информация
-          </summary>
-          <div className="mt-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800">
-            <dl className="space-y-2 text-sm">
-              <div className="flex">
-                <dt className="w-32 text-zinc-600 dark:text-zinc-400">ID уборки:</dt>
-                <dd className="font-mono text-zinc-900 dark:text-white">{cleaning.id}</dd>
-              </div>
-              {cleaning.unit && (
-                <div className="flex">
-                  <dt className="w-32 text-zinc-600 dark:text-zinc-400">ID юнита:</dt>
-                  <dd className="font-mono text-zinc-900 dark:text-white">{cleaning.unit.id}</dd>
-                </div>
-              )}
-              {cleaning.cleaner && (
-                <div className="flex">
-                  <dt className="w-32 text-zinc-600 dark:text-zinc-400">ID уборщика:</dt>
-                  <dd className="font-mono text-zinc-900 dark:text-white">{cleaning.cleaner.id}</dd>
-                </div>
-              )}
-            </dl>
+                  <div className="space-y-4">
+        <Subheading>Чек-листы уборки</Subheading>
+        {templateError && (
+          <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
+            Не удалось загрузить шаблон чек-листа. Обновите страницу или попробуйте позже.
           </div>
-        </details>
-      </div>
-
-      {/* Диалог назначения уборки */}
-      <Dialog open={showAssignDialog} onClose={handleCancelAssign} size="lg">
-        {data?.cleaner ? (
-          <>
-            <DialogTitle className="flex items-center gap-3 text-amber-900 dark:text-amber-100">
-              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center">
-                <UserIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              <span>Уборка уже назначена</span>
-            </DialogTitle>
-            <DialogDescription className="text-amber-800 dark:text-amber-200">
-              Эта уборка уже назначена на уборщика{' '}
-              <span className="font-semibold">
-                {data.cleaner.firstName} {data.cleaner.lastName}
-              </span>
-              {data.cleaner.rating && (
-                <span className="ml-2">⭐ {data.cleaner.rating.toFixed(1)}</span>
-              )}
-            </DialogDescription>
-            <DialogBody>
-              <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-200 dark:border-amber-800 rounded-xl p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-16 h-16 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center">
-                    <UserIcon className="w-8 h-8 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="flex-1">
-                    <Text className="font-semibold text-lg text-amber-900 dark:text-amber-100 mb-1">
-                      {data.cleaner.firstName} {data.cleaner.lastName}
-                    </Text>
-                    {data.cleaner.telegramUsername && (
-                      <Text className="text-sm text-amber-700 dark:text-amber-300 mb-2">
-                        @{data.cleaner.telegramUsername}
-                      </Text>
-                    )}
-                    {data.cleaner.rating && (
-                      <div className="flex items-center gap-1 text-amber-700 dark:text-amber-300">
-                        <span className="text-lg">⭐</span>
-                        <span className="font-medium">{data.cleaner.rating.toFixed(1)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </DialogBody>
-            <DialogActions>
-              <Button 
-                onClick={handleCancelAssign} 
-                className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+        )}
+        {templateMissing && unitId && (
+          <div className="p-4 rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-800 space-y-3 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
+            <div>Для этого юнита ещё не настроен шаблон чек-листа. Создайте шаблон, чтобы уборщики могли работать без ручных действий.</div>
+            <Button
+              outline
+              onClick={() => router.push(`/inventory/units/${unitId}?tab=checklist`)}
+            >
+              Открыть редактор шаблона
+            </Button>
+          </div>
+        )}
+        {creationError && !templateMissing && (
+          <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
+            {creationError}
+          </div>
+        )}
+        {!canEditChecklists && (
+          <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
+            Уборка уже назначена исполнителю {data.cleaner?.firstName} {data.cleaner?.lastName}. Только он может редактировать чек-листы.
+          </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {workerStages.map((stage) => {
+            const config = STAGE_CONFIG[stage]
+            const instance = instances[stage]
+            const isCompleted = instance?.status === 'SUBMITTED'
+            const isLocked = instance?.status === 'LOCKED'
+            const isStagePreparing = autoCreatedRef.current[stage] && !instance
+            const isActive = stageActive[stage]
+                      
+                      return (
+              <div
+                key={stage}
+                className={`p-6 rounded-2xl border-2 transition-all duration-200 ${
+                  instance
+                    ? isCompleted
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-400 dark:border-green-700'
+                      : isLocked
+                      ? 'bg-zinc-100 dark:bg-zinc-900/30 border-zinc-300 dark:border-zinc-700'
+                      : 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-700'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500'
+                }`}
               >
-                Закрыть
-              </Button>
-            </DialogActions>
-          </>
-        ) : (
-          <>
-            <DialogTitle className="flex items-center gap-3 text-green-700 dark:text-green-400">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
-                <UserPlusIcon className="w-5 h-5 text-white" />
-              </div>
-              <span>Взять уборку в работу</span>
-            </DialogTitle>
-            <DialogDescription className="text-zinc-700 dark:text-zinc-300">
-              Вы уверены, что хотите взять эту уборку в работу? После назначения вы сможете начать выполнение уборки.
-            </DialogDescription>
-            <DialogBody>
-              {/* Информация об уборке */}
-              <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800 mb-4">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <HomeIcon className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <div>
-                      <Text className="text-xs text-blue-600 dark:text-blue-400 uppercase font-semibold tracking-wide mb-1">
-                        Квартира
-                      </Text>
-                      <Text className="text-lg font-bold text-blue-900 dark:text-blue-100">
-                        {data?.unit?.name}
-                      </Text>
-                      <Text className="text-sm text-blue-700 dark:text-blue-300">
-                        {data?.unit?.property?.title}
-                      </Text>
-                    </div>
-                    
-                    {data?.scheduledAt && (
-                      <div className="flex items-center gap-2 pt-2 border-t border-blue-200 dark:border-blue-800">
-                        <CalendarIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        <div>
-                          <Text className="text-xs text-blue-600 dark:text-blue-400 uppercase font-semibold tracking-wide">
-                            Запланирована
-                          </Text>
-                          <Text className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                            {new Date(data.scheduledAt).toLocaleDateString('ru-RU', {
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </Text>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {data?.requiresLinenChange && (
-                      <div className="flex items-center gap-2 pt-2">
-                        <SparklesIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                        <Text className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                          Требуется смена белья
-                        </Text>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Что будет дальше */}
-              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                <Text className="text-sm font-medium text-green-900 dark:text-green-100 mb-2">
-                  После назначения:
+                <div className="space-y-3">
+              <div>
+                    <Heading level={5} className="mb-1 flex items-center gap-2">
+                      {config.label}
+                      {isCompleted && <Badge color="green">Готово</Badge>}
+                      {isLocked && <Badge color="zinc">Закрыт</Badge>}
+                      {!isCompleted && isActive && <Badge color="blue">Активно</Badge>}
+                      {!isCompleted && !isActive && <Badge color="zinc">Ожидает</Badge>}
+                    </Heading>
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                      {config.description}
                 </Text>
-                <ul className="space-y-1 text-sm text-green-800 dark:text-green-200">
-                  <li className="flex items-start gap-2">
-                    <CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span>Уборка будет назначена на вас</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span>Вы сможете начать выполнение уборки</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span>Вы получите доступ к чеклисту уборки</span>
-                  </li>
+            </div>
+
+                  {instance && (
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Обновлён: {new Date(instance.updatedAt).toLocaleString('ru-RU')}
+              </div>
+            )}
+
+              {instance ? (
+                <div className="space-y-3">
+                  <Button
+                    plain
+                    className="px-0 justify-start text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+                    onClick={() => toggleStageExpansion(stage)}
+                  >
+                    {expandedStages[stage] ? 'Скрыть детали' : 'Показать детали'}
+                  </Button>
+                  {expandedStages[stage] && (
+                    <div className="space-y-3">
+                      {(() => {
+                        const answers = new Map(
+                          (instance.answers ?? []).map((answer: any) => [
+                            answer.itemKey ?? answer.itemId ?? answer.id,
+                            answer,
+                          ])
+                        )
+                        const attachmentsMap = new Map<string, any[]>();
+                        (instance.attachments ?? []).forEach((attachment: any) => {
+                          const itemKey = attachment.itemKey
+                          if (!itemKey) return
+                          if (!attachmentsMap.has(itemKey)) {
+                            attachmentsMap.set(itemKey, [])
+                          }
+                          attachmentsMap.get(itemKey)!.push(attachment)
+                        })
+                        if (!instance.items?.length) {
+                          return (
+                            <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40 p-4 text-sm text-zinc-500">
+                              Пункты чек-листа отсутствуют
+                            </div>
+                          )
+                        }
+                        return instance.items.map((item: any, index: number) => {
+                          const key = item.key ?? item.id ?? `${stage}-${index}`
+                          const cell = {
+                            item,
+                            answer: answers.get(item.key ?? item.id),
+                            attachments: attachmentsMap.get(item.key ?? item.id) ?? [],
+                          }
+                          return (
+                            <div key={key}>
+                              {renderChecklistCell(cell, 'Пункт ещё не заполнен')}
+                            </div>
+                          )
+                        })
+                      })()}
+                      {isActive && canEditChecklists && (
+                        <Button
+                          color={config.color}
+                          onClick={() => handleOpenDialog(stage)}
+                        >
+                          Открыть для редактирования
+                        </Button>
+                      )}
+                      {!isActive && !isCompleted && (
+                        <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                          Завершите предыдущий этап, чтобы редактировать этот чек-лист.
+                        </Text>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+              <Button 
+                    className="w-full"
+                    color={config.color}
+                  onClick={() => handleCreateChecklist(stage)}
+                  disabled={
+                    !unitId ||
+                    isStagePreparing ||
+                    isCreatingInstance ||
+                    isAssigningCleaning ||
+                    !canEditChecklists ||
+                    !isActive
+                  }
+                >
+                  {isStagePreparing || isCreatingInstance || isAssigningCleaning
+                    ? 'Готовим чек-лист…'
+                    : canEditChecklists
+                      ? 'Создать чек-лист'
+                      : 'Недоступно'}
+              </Button>
+              )}
+              </div>
+                  </div>
+            )
+          })}
+                        </div>
+        <div className="space-y-4 pt-6">
+          <Subheading>Проверка менеджера</Subheading>
+          <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+            После проверки итогов уборки подтвердите её выполнение. После подтверждения статус сменится на «Проверена».
+          </Text>
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 space-y-4">
+            {orderedReviews.length > 0 && (
+              <div className="space-y-2">
+                <Text className="text-sm font-medium text-zinc-700 dark:text-zinc-200">История проверок</Text>
+                <ul className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  {orderedReviews.map((review: any) => (
+                    <li
+                      key={review.id}
+                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 bg-zinc-50 dark:bg-zinc-900/40"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-medium text-zinc-700 dark:text-zinc-200">
+                          Менеджер: {formatManagerId(review.managerId)}
+                        </span>
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {new Date(review.createdAt).toLocaleString('ru-RU')}
+                        </span>
+                      </div>
+                      {review.comment && (
+                        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap">
+                          {review.comment}
+                        </p>
+                      )}
+                    </li>
+                  ))}
                 </ul>
               </div>
-            </DialogBody>
-            <DialogActions>
-              <Button 
-                outline 
-                onClick={handleCancelAssign} 
-                disabled={assignCleaningMutation.isPending}
-                className="flex-1"
-              >
-                Отмена
-              </Button>
-              <Button 
-                onClick={handleConfirmAssign} 
-                disabled={assignCleaningMutation.isPending}
-                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                {assignCleaningMutation.isPending ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    Назначаем...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    <UserPlusIcon className="w-5 h-5" />
-                    Взять уборку
-                  </span>
+            )}
+            {data.status === 'APPROVED' && latestReview && (
+              <div className="p-4 rounded-xl border border-green-200 bg-green-50 text-sm text-green-800 dark:border-green-900/40 dark:bg-green-900/20 dark:text-green-100">
+                Уборка подтверждена менеджером {formatManagerId(latestReview.managerId)}{' '}
+                {new Date(latestReview.createdAt).toLocaleString('ru-RU')}.
+                {latestReview.comment && (
+                  <>
+                    <br />
+                    Комментарий: {latestReview.comment}
+                  </>
                 )}
+              </div>
+            )}
+            {data.status !== 'APPROVED' && (
+              <div className="space-y-3">
+                <Textarea
+                  value={approvalComment}
+                  onChange={(event) => setApprovalComment(event.target.value)}
+                  placeholder="Комментарий менеджера (необязательно)"
+                  className="w-full"
+                  resizable
+                  rows={3}
+                />
+                {approvalError && (
+                  <div className="text-sm text-red-600 dark:text-red-400">{approvalError}</div>
+                )}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    color="green"
+                    onClick={handleApproveCleaning}
+                    disabled={isApprovingCleaning || !stageActive.FINAL_REPORT}
+                  >
+                    {isApprovingCleaning ? 'Подтверждаем…' : 'Одобрить уборку'}
+                  </Button>
+                </div>
+                {!stageActive.FINAL_REPORT && (
+                  <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Завершите стадию «Уборка», чтобы отправить на проверку менеджеру.
+                  </Text>
+                )}
+              </div>
+            )}
+          </div>
+                        </div>
+                      </div>
+
+      {isPhotoPreviewOpen && photoPreview[photoPreviewIndex] && (
+        <Dialog open onClose={closePhotoPreview} size="4xl">
+          <DialogTitle>Просмотр фото</DialogTitle>
+          <DialogBody className="space-y-4">
+            <div className="flex flex-col items-center gap-3">
+              <img
+                src={photoPreview[photoPreviewIndex].url}
+                alt={photoPreview[photoPreviewIndex].caption || 'Фото чек-листа'}
+                className="max-h-[70vh] w-auto rounded-xl border border-zinc-200 dark:border-zinc-700 object-contain"
+              />
+              {photoPreview[photoPreviewIndex].caption && (
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {photoPreview[photoPreviewIndex].caption}
+                </Text>
+              )}
+            </div>
+            {photoPreview.length > 1 && (
+              <div className="flex items-center justify-between gap-3">
+                <Button onClick={showPrevPhoto} disabled={photoPreviewIndex === 0} plain>
+                  ← Предыдущее
+                </Button>
+                <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                  {photoPreviewIndex + 1} из {photoPreview.length}
+                </Text>
+                <Button
+                  onClick={showNextPhoto}
+                  disabled={photoPreviewIndex === photoPreview.length - 1}
+                  plain
+                >
+                  Следующее →
+                </Button>
+              </div>
+            )}
+            <div className="flex justify-end">
+              <Button onClick={closePhotoPreview} plain>
+                Закрыть
               </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
+            </div>
+          </DialogBody>
+        </Dialog>
+      )}
+
+      {dialogStage && instances[dialogStage] && (
+        <ChecklistInstanceDialog
+          isOpen={dialogOpen}
+          onClose={handleCloseDialog}
+          unitId={unitId!}
+          cleaningId={cleaningId}
+          stage={dialogStage}
+          instanceId={instances[dialogStage]?.id}
+          canEdit={stageActive[dialogStage]}
+          onStartCleaning={dialogStage === 'PRE_CLEANING' ? handleStartCleaning : undefined}
+        />
+      )}
+
+      {assignDialogOpen && assignDialogStage && (
+        <Dialog open onClose={handleCancelAssign}>
+          <DialogTitle>Взять уборку в работу</DialogTitle>
+          <DialogDescription>
+            Подтвердите, что вы начинаете этап «{STAGE_CONFIG[assignDialogStage].label}» для этой уборки.
+          </DialogDescription>
+          <DialogBody className="space-y-3">
+            <Text>
+              Уборка будет назначена на вас, и этап «{STAGE_CONFIG[assignDialogStage].label}» станет доступен для редактирования.
+            </Text>
+            <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+              Убедитесь, что вы готовы приступить к работе. Уведомление об этом получат менеджеры.
+            </Text>
+          </DialogBody>
+          <DialogActions>
+            <Button outline onClick={handleCancelAssign}>
+              Отменить
+            </Button>
+            <Button onClick={handleConfirmAssign} color="blue" disabled={isAssigningCleaning || assignmentRequestedRef.current}>
+              {isAssigningCleaning || assignmentRequestedRef.current ? 'Назначаем…' : 'Взять в работу'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+ 
     </div>
   )
 }

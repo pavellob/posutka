@@ -1,10 +1,24 @@
-// ❌ НЕ ЗАГРУЖАЕМ dotenv в runtime!
+// Загружаем dotenv для локальной разработки
 // В Docker переменные передаются через docker-compose.yml environment
 // В Northflank через Environment Variables
-// Локально экспортируйте переменные: export DATABASE_URL=postgresql://...
-
+// Локально используем dotenv для загрузки из .env файла
 import { readFileSync } from 'fs';
 import path from 'path';
+import { config } from 'dotenv';
+
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    // Пробуем загрузить из корневого .env файла
+    const rootEnvPath = path.resolve(process.cwd(), '../../.env');
+    config({ path: rootEnvPath });
+    // Также пробуем загрузить из локального .env если есть
+    const localEnvPath = path.resolve(process.cwd(), '.env');
+    config({ path: localEnvPath, override: false }); // Не перезаписываем уже загруженные переменные
+  } catch (error) {
+    // dotenv не критичен, переменные могут быть установлены через environment
+    console.warn('⚠️  Could not load .env file, using environment variables only');
+  }
+}
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import { createYoga } from 'graphql-yoga';
 import { createServer } from 'http';
@@ -21,6 +35,7 @@ import { PrismaClient } from '@prisma/client';
 
 import { createGraphQLLogger } from '@repo/shared-logger';
 import { GrpcTransport } from './grpc/grpc.transport.js';
+import { ChecklistInstanceService } from './services/checklist-instance.service.js';
 
 const logger = createGraphQLLogger('cleaning-subgraph');
 
@@ -34,6 +49,12 @@ logger.info('🔍 Environment variables check:', {
   DATABASE_URL: rawDbUrl ? '✅ SET' : '❌ NOT SET',
   DATABASE_URL_RAW: rawDbUrl.substring(0, 70),
   DATABASE_URL_HOST: rawDbUrl.split('@')[1]?.split('/')[0] || 'NO HOST',
+  // MinIO variables
+  MINIO_URL: process.env.MINIO_URL || '❌ NOT SET',
+  MINIO_ENDPOINT: process.env.MINIO_ENDPOINT || '❌ NOT SET',
+  MINIO_BUCKET: process.env.MINIO_BUCKET || 'posutka (default)',
+  MINIO_ACCESS_KEY: process.env.MINIO_ACCESS_KEY || process.env.MINIO_ACCESS_KEY_ID || process.env.MINIO_ROOT_USER || '❌ NOT SET',
+  MINIO_SECRET_KEY: process.env.MINIO_SECRET_KEY || process.env.MINIO_SECRET_ACCESS_KEY || process.env.MINIO_ROOT_PASSWORD ? '✅ SET' : '❌ NOT SET',
 });
 
 // Явное логирование критических переменных
@@ -95,6 +116,10 @@ async function startServer() {
     const identityDL = new IdentityDLPrisma(prisma);
     const inventoryDL = new InventoryDL(prisma);
     const bookingsDL = new BookingsDLPrisma(prisma);
+    
+    // Initialize ChecklistInstanceService
+    const checklistInstanceService = new ChecklistInstanceService(prisma);
+    logger.info('✅ ChecklistInstanceService initialized successfully');
 
     // Create GraphQL schema
     const typeDefs = readFileSync(path.join(process.cwd(), 'src/schema/index.gql'), 'utf8');
@@ -103,7 +128,7 @@ async function startServer() {
       resolvers,
     });
 
-    const context = { dl, identityDL, inventoryDL, bookingsDL, prisma };
+    const context = { dl, identityDL, inventoryDL, bookingsDL, prisma, checklistInstanceService };
     
     logger.info('🔍 Context created:', {
       hasDl: !!context.dl,

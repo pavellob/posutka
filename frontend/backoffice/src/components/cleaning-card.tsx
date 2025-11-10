@@ -10,9 +10,10 @@ import { useRouter } from 'next/navigation'
 interface CleaningCardProps {
   cleaning: any
   onUpdateStatus?: (cleaningId: string, status: string) => void
+  onStartCleaning?: (cleaning: any) => void
 }
 
-export function CleaningCard({ cleaning, onUpdateStatus }: CleaningCardProps) {
+export function CleaningCard({ cleaning, onUpdateStatus, onStartCleaning }: CleaningCardProps) {
   const router = useRouter()
 
   const getStatusBadge = (status: string) => {
@@ -20,6 +21,7 @@ export function CleaningCard({ cleaning, onUpdateStatus }: CleaningCardProps) {
       'SCHEDULED': { color: 'blue' as const, text: 'Запланирована' },
       'IN_PROGRESS': { color: 'yellow' as const, text: 'В процессе' },
       'COMPLETED': { color: 'green' as const, text: 'Завершена' },
+      'APPROVED': { color: 'green' as const, text: 'Проверена' },
       'CANCELLED': { color: 'red' as const, text: 'Отменена' }
     }
     const statusInfo = statusMap[status as keyof typeof statusMap] || { color: 'zinc' as const, text: status }
@@ -46,8 +48,15 @@ export function CleaningCard({ cleaning, onUpdateStatus }: CleaningCardProps) {
             <EllipsisVerticalIcon className="w-5 h-5" />
           </DropdownButton>
           <DropdownMenu className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg">
-            {cleaning.status === 'SCHEDULED' && onUpdateStatus && (
-              <DropdownItem onClick={(e) => { e.stopPropagation(); router.push(`/cleanings/start/${cleaning.id}`) }}>
+            {cleaning.status === 'SCHEDULED' && (onUpdateStatus || onStartCleaning) && (
+              <DropdownItem onClick={(e) => { 
+                e.stopPropagation()
+                if (onStartCleaning) {
+                  onStartCleaning(cleaning)
+                } else if (onUpdateStatus) {
+                  onUpdateStatus(cleaning.id, 'IN_PROGRESS')
+                }
+              }}>
                 ▶️ Начать
               </DropdownItem>
             )}
@@ -100,21 +109,25 @@ export function CleaningCard({ cleaning, onUpdateStatus }: CleaningCardProps) {
       </div>
 
       {/* Уборщик */}
-      {cleaning.cleaner && (
-        <div className="flex items-center gap-3">
-          <UserIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-          <div>
-            <Text className="text-sm text-gray-900 dark:text-white">
-              {cleaning.cleaner.firstName} {cleaning.cleaner.lastName}
-            </Text>
-            {cleaning.cleaner.rating && (
-              <Text className="text-xs text-gray-500 dark:text-gray-400">
-                ⭐ {cleaning.cleaner.rating.toFixed(1)}
+      <div className="flex items-center gap-3">
+        <UserIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+        <div>
+          {cleaning.cleaner ? (
+            <>
+              <Text className="text-sm text-gray-900 dark:text-white">
+                {cleaning.cleaner.firstName} {cleaning.cleaner.lastName}
               </Text>
-            )}
-          </div>
+              {cleaning.cleaner.rating && (
+                <Text className="text-xs text-gray-500 dark:text-gray-400">
+                  ⭐ {cleaning.cleaner.rating.toFixed(1)}
+                </Text>
+              )}
+            </>
+          ) : (
+            <Text className="text-sm text-gray-500 dark:text-gray-400">Уборщик не назначен</Text>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Чеклист прогресс */}
       {totalItems > 0 && (

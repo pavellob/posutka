@@ -73,9 +73,11 @@ scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGR
 Может содержать любую валидную JSON структуру.
 Пример: {"key": "value", "nested": {"array": [1, 2, 3]}}
 """
-scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH)
+scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH)
 
 scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+
+scalar Upload @join__type(graph: CLEANING_SUBGRAPH)
 
 scalar _DirectiveExtensions @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH)
 
@@ -212,6 +214,16 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
     """Курсор для пагинации"""
     after: String
   ): CleaningConnection! @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить список чеклистов для квартиры"""
+  checklistsByUnit(unitId: UUID!): [ChecklistTemplate!]! @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить инстанс чек-листа по ID"""
+  checklistInstance(id: UUID!): ChecklistInstance @merge(subgraph: "cleaning-subgraph", keyField: "id", keyArg: "id") @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить инстанс чек-листа по юниту и стадии"""
+  checklistByUnitAndStage(unitId: UUID!, stage: ChecklistStage!): ChecklistInstance @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить инстанс чек-листа по уборке и стадии"""
+  checklistByCleaning(cleaningId: UUID!, stage: ChecklistStage!): ChecklistInstance @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить шаблон чек-листа для юнита"""
+  checklistTemplate(unitId: UUID!, version: Int): ChecklistTemplate @join__field(graph: CLEANING_SUBGRAPH)
   """Получить статистику пользователей"""
   userStats: UserStats! @join__field(graph: IAM_SUBGRAPH)
   """Получить список пользователей с расширенными фильтрами"""
@@ -383,6 +395,8 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   startCleaning(id: UUID!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
   """Завершить уборку"""
   completeCleaning(id: UUID!, input: CompleteCleaningInput!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
+  """Одобрить уборку менеджером"""
+  approveCleaning(id: UUID!, managerId: UUID!, comment: String): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
   """Отменить уборку"""
   cancelCleaning(id: UUID!, reason: String): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
   """Взять уборку в работу (самоназначение)"""
@@ -401,6 +415,50 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   addPhotoToDocument(documentId: UUID!, input: AddPhotoInput!): CleaningDocumentPhoto! @join__field(graph: CLEANING_SUBGRAPH)
   """Удалить фото из документа"""
   deletePhotoFromDocument(photoId: UUID!): Boolean! @join__field(graph: CLEANING_SUBGRAPH)
+  """Создать чек-лист"""
+  createChecklist(input: CreateChecklistInput!): Checklist! @join__field(graph: CLEANING_SUBGRAPH)
+  """Активировать чек-лист (деактивирует остальные для этого юнита)"""
+  activateChecklist(id: UUID!): Checklist! @join__field(graph: CLEANING_SUBGRAPH)
+  """Удалить чек-лист"""
+  deleteChecklist(id: UUID!): Boolean! @join__field(graph: CLEANING_SUBGRAPH)
+  """Обновить порядок пунктов чек-листа"""
+  updateChecklistItemOrder(checklistId: UUID!, itemIds: [UUID!]!): Checklist! @join__field(graph: CLEANING_SUBGRAPH)
+  """Создать инстанс чек-листа"""
+  createChecklistInstance(unitId: UUID!, stage: ChecklistStage!, cleaningId: UUID): ChecklistInstance! @join__field(graph: CLEANING_SUBGRAPH)
+  """Добавить пункт в инстанс"""
+  addItem(input: AddItemInput!): ChecklistInstance! @join__field(graph: CLEANING_SUBGRAPH)
+  """Обновить пункт в инстансе"""
+  updateItem(input: UpdateItemInput!): ChecklistInstance! @join__field(graph: CLEANING_SUBGRAPH)
+  """Удалить пункт из инстанса"""
+  removeItem(instanceId: UUID!, itemKey: String!): ChecklistInstance! @join__field(graph: CLEANING_SUBGRAPH)
+  """Промоут инстанса в следующую стадию"""
+  promoteChecklist(fromInstanceId: UUID!, toStage: ChecklistStage!): ChecklistInstance! @join__field(graph: CLEANING_SUBGRAPH)
+  """Отправить чек-лист"""
+  submitChecklist(id: UUID!): ChecklistInstance! @join__field(graph: CLEANING_SUBGRAPH)
+  """Заблокировать чек-лист"""
+  lockChecklist(id: UUID!): ChecklistInstance! @join__field(graph: CLEANING_SUBGRAPH)
+  """Добавить ответ на пункт"""
+  answer(input: AnswerInput!): ChecklistInstance! @join__field(graph: CLEANING_SUBGRAPH)
+  """Добавить аттачмент (фото) к пункту"""
+  attach(input: AttachmentInput!): ChecklistInstance! @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить presigned URLs для загрузки фото к ответам"""
+  getChecklistAttachmentUploadUrls(input: GetChecklistAttachmentUploadUrlsInput!): [PresignedUploadUrl!]! @join__field(graph: CLEANING_SUBGRAPH)
+  """Удалить аттачмент (фото) из пункта"""
+  removeChecklistAttachment(attachmentId: UUID!): Boolean! @join__field(graph: CLEANING_SUBGRAPH)
+  """Добавить пункт в шаблон"""
+  addTemplateItem(input: AddTemplateItemInput!): ChecklistTemplate! @join__field(graph: CLEANING_SUBGRAPH)
+  """Обновить пункт в шаблоне"""
+  updateTemplateItem(input: UpdateTemplateItemInput!): ChecklistTemplate! @join__field(graph: CLEANING_SUBGRAPH)
+  """Удалить пункт из шаблона"""
+  removeTemplateItem(templateId: UUID!, itemKey: String!): ChecklistTemplate! @join__field(graph: CLEANING_SUBGRAPH)
+  """Обновить порядок пунктов в шаблоне"""
+  updateTemplateItemOrder(templateId: UUID!, itemKeys: [String!]!): ChecklistTemplate! @join__field(graph: CLEANING_SUBGRAPH)
+  """Добавить пример фото к пункту шаблона"""
+  addTemplateItemExampleMedia(input: AddTemplateItemExampleMediaInput!): [ChecklistItemTemplateMedia!]! @join__field(graph: CLEANING_SUBGRAPH)
+  """Удалить пример фото из пункта шаблона"""
+  removeTemplateItemExampleMedia(mediaId: UUID!): Boolean! @join__field(graph: CLEANING_SUBGRAPH)
+  """Получить presigned URLs для загрузки примеров фото"""
+  getTemplateItemExampleMediaUploadUrls(input: GetTemplateItemExampleMediaUploadUrlsInput!): [PresignedUploadUrl!]! @join__field(graph: CLEANING_SUBGRAPH)
   """Создать пользователя IAM (только для админов)"""
   createIAMUser(input: CreateIAMUserInput!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
   """Обновить пользователя IAM"""
@@ -1057,6 +1115,8 @@ type Cleaning @join__type(graph: CLEANING_SUBGRAPH, key: "id") {
   requiresLinenChange: Boolean!
   """Чеклист уборки"""
   checklistItems: [CleaningChecklist!]!
+  """Ревью менеджеров"""
+  reviews: [CleaningReview!]!
   """Документы уборки (приемка и сдача)"""
   documents: [CleaningDocument!]!
   """Дата создания"""
@@ -1149,6 +1209,228 @@ type CleaningEdge @join__type(graph: CLEANING_SUBGRAPH) {
   node: Cleaning!
   """Курсор для пагинации"""
   cursor: String!
+}
+
+"""Ревью уборки менеджером"""
+type CleaningReview @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор ревью"""
+  id: UUID!
+  """ID уборки"""
+  cleaningId: UUID!
+  """Менеджер, утвердивший уборку"""
+  managerId: UUID!
+  """Статус ревью"""
+  status: CleaningReviewStatus!
+  """Комментарий менеджера"""
+  comment: String
+  """Дата создания"""
+  createdAt: DateTime!
+}
+
+"""Чек-лист для уборки."""
+type Checklist @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор чек-листа"""
+  id: UUID!
+  """Название чек-листа"""
+  name: String!
+  """Требования (JSON)"""
+  requirements: JSON!
+  """Требуется ли фото по каждому пункту"""
+  requirePhotoPerItem: Boolean!
+  """Активен ли чек-лист (только один активный на юнит)"""
+  isActive: Boolean!
+  """Пункты чек-листа"""
+  items: [ChecklistItem!]!
+  """Квартира (опционально)"""
+  unit: Unit
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Пункт чек-листа."""
+type ChecklistItem @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор пункта"""
+  id: UUID!
+  """Порядок отображения"""
+  order: Int!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Требуется ли фото для этого пункта"""
+  requiresPhoto: Boolean!
+  """Эталонные фото (шаблон)"""
+  templateMedia: [ChecklistItemTemplateMedia!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Пример фото для пункта шаблона."""
+type ChecklistItemTemplateMedia @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Ключ объекта в хранилище"""
+  objectKey: String!
+  """URL фото"""
+  url: String!
+  """MIME тип"""
+  mimeType: String
+  """Дата создания"""
+  createdAt: DateTime!
+  """Подпись к фото"""
+  caption: String
+  """Порядок отображения"""
+  order: Int!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Шаблон чек-листа (версионируемый)."""
+type ChecklistTemplate @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор шаблона"""
+  id: UUID!
+  """ID юнита"""
+  unitId: UUID!
+  """Юнит"""
+  unit: Unit!
+  """Версия шаблона"""
+  version: Int!
+  """Пункты шаблона"""
+  items: [ChecklistItemTemplate!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Пункт шаблона чек-листа."""
+type ChecklistItemTemplate @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Стабильный ключ"""
+  key: String!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType!
+  """Обязателен ли пункт"""
+  required: Boolean!
+  """Требуется ли фото"""
+  requiresPhoto: Boolean!
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int!
+  """Примеры фото для пункта"""
+  exampleMedia: [ChecklistItemTemplateMedia!]!
+}
+
+"""Инстанс чек-листа (для конкретной стадии)."""
+type ChecklistInstance @join__type(graph: CLEANING_SUBGRAPH, key: "id") {
+  """Уникальный идентификатор инстанса"""
+  id: UUID!
+  """ID юнита"""
+  unitId: UUID!
+  """Юнит"""
+  unit: Unit!
+  """ID уборки"""
+  cleaningId: UUID
+  """Уборка"""
+  cleaning: Cleaning
+  """Стадия чек-листа"""
+  stage: ChecklistStage!
+  """Статус чек-листа"""
+  status: ChecklistStatus!
+  """ID шаблона"""
+  templateId: UUID!
+  """Шаблон"""
+  template: ChecklistTemplate!
+  """Версия шаблона"""
+  templateVersion: Int!
+  """ID родительского инстанса (для промоута)"""
+  parentInstanceId: UUID
+  """Родительский инстанс"""
+  parentInstance: ChecklistInstance
+  """Пункты чек-листа (полная копия)"""
+  items: [ChecklistInstanceItem!]!
+  """Ответы на пункты"""
+  answers: [ChecklistAnswer!]!
+  """Аттачменты (фото)"""
+  attachments: [ChecklistAttachment!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Пункт инстанса чек-листа."""
+type ChecklistInstanceItem @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Ключ пункта"""
+  key: String!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType!
+  """Обязателен ли пункт"""
+  required: Boolean!
+  """Требуется ли фото"""
+  requiresPhoto: Boolean!
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int!
+}
+
+"""Ответ на пункт чек-листа."""
+type ChecklistAnswer @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Значение ответа (JSON)"""
+  value: JSON
+  """Заметка"""
+  note: String
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""Аттачмент (фото) к пункту чек-листа."""
+type ChecklistAttachment @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уникальный идентификатор"""
+  id: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """URL фото (MinIO)"""
+  url: String!
+  """Подпись к фото"""
+  caption: String
+  """Дата создания"""
+  createdAt: DateTime!
+}
+
+"""Presigned URL для прямой загрузки файла."""
+type PresignedUploadUrl @join__type(graph: CLEANING_SUBGRAPH) {
+  """Presigned PUT URL для загрузки"""
+  url: String!
+  """Ключ объекта в хранилище"""
+  objectKey: String!
+  """Время жизни URL в секундах"""
+  expiresIn: Int!
+  """MIME тип файла"""
+  mimeType: String
 }
 
 """Пользователь IAM с расширенными возможностями"""
@@ -1803,8 +2085,16 @@ enum CleaningStatus @join__type(graph: CLEANING_SUBGRAPH) {
   IN_PROGRESS @join__enumValue(graph: CLEANING_SUBGRAPH)
   """Завершена"""
   COMPLETED @join__enumValue(graph: CLEANING_SUBGRAPH)
+  """Проверена менеджером"""
+  APPROVED @join__enumValue(graph: CLEANING_SUBGRAPH)
   """Отменена"""
   CANCELLED @join__enumValue(graph: CLEANING_SUBGRAPH)
+}
+
+enum ChecklistStage @join__type(graph: CLEANING_SUBGRAPH) {
+  PRE_CLEANING @join__enumValue(graph: CLEANING_SUBGRAPH)
+  CLEANING @join__enumValue(graph: CLEANING_SUBGRAPH)
+  FINAL_REPORT @join__enumValue(graph: CLEANING_SUBGRAPH)
 }
 
 """Тип уборщика."""
@@ -1821,6 +2111,27 @@ enum CleaningDocumentType @join__type(graph: CLEANING_SUBGRAPH) {
   PRE_CLEANING_ACCEPTANCE @join__enumValue(graph: CLEANING_SUBGRAPH)
   """Сдача убранной квартиры"""
   POST_CLEANING_HANDOVER @join__enumValue(graph: CLEANING_SUBGRAPH)
+}
+
+"""Статус ревью уборки"""
+enum CleaningReviewStatus @join__type(graph: CLEANING_SUBGRAPH) {
+  """Уборка подтверждена менеджером"""
+  APPROVED @join__enumValue(graph: CLEANING_SUBGRAPH)
+}
+
+enum ChecklistStatus @join__type(graph: CLEANING_SUBGRAPH) {
+  DRAFT @join__enumValue(graph: CLEANING_SUBGRAPH)
+  SUBMITTED @join__enumValue(graph: CLEANING_SUBGRAPH)
+  LOCKED @join__enumValue(graph: CLEANING_SUBGRAPH)
+}
+
+enum ItemType @join__type(graph: CLEANING_SUBGRAPH) {
+  BOOL @join__enumValue(graph: CLEANING_SUBGRAPH)
+  NUMBER @join__enumValue(graph: CLEANING_SUBGRAPH)
+  TEXT @join__enumValue(graph: CLEANING_SUBGRAPH)
+  SELECT @join__enumValue(graph: CLEANING_SUBGRAPH)
+  MULTISELECT @join__enumValue(graph: CLEANING_SUBGRAPH)
+  PHOTO_ONLY @join__enumValue(graph: CLEANING_SUBGRAPH)
 }
 
 """Статус пользователя"""
@@ -1934,8 +2245,12 @@ enum EventType @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
   CLEANING_STARTED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Уборка завершена"""
   CLEANING_COMPLETED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Уборка ожидает проверки менеджера"""
+  CLEANING_READY_FOR_REVIEW @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Уборка отменена"""
   CLEANING_CANCELLED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Приёмка перед уборкой завершена"""
+  CLEANING_PRECHECK_COMPLETED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Задача создана"""
   TASK_CREATED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Задача назначена"""
@@ -2330,6 +2645,196 @@ input AddPhotoInput @join__type(graph: CLEANING_SUBGRAPH) {
   caption: String
   """Порядок отображения"""
   order: Int
+}
+
+"""Входные данные для создания чек-листа."""
+input CreateChecklistInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """Название чек-листа"""
+  name: String!
+  """Требуется ли фото по каждому пункту (по умолчанию: true)"""
+  requirePhotoPerItem: Boolean = true
+  """Пункты чек-листа"""
+  items: [CreateChecklistItemInput!]!
+  """ID квартиры (опционально)"""
+  unitId: UUID
+  """Требования (JSON)"""
+  requirements: JSON
+}
+
+"""Входные данные для создания пункта чек-листа."""
+input CreateChecklistItemInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID пункта (для обновления существующего пункта)"""
+  id: UUID
+  """Порядок отображения"""
+  order: Int!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Требуется ли фото для этого пункта (по умолчанию: true)"""
+  requiresPhoto: Boolean = true
+}
+
+"""
+Входные данные для получения presigned URLs для загрузки фото выполнения пункта.
+"""
+input GetSubmissionMediaUploadUrlsInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID заполнения пункта"""
+  checklistSubmissionId: UUID!
+  """Количество файлов"""
+  count: Int!
+  """MIME типы файлов (по индексу)"""
+  mimeTypes: [String!]
+}
+
+input AddItemInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта (уникальный в рамках инстанса)"""
+  key: String!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType!
+  """Обязателен ли пункт"""
+  required: Boolean = false
+  """Требуется ли фото"""
+  requiresPhoto: Boolean = false
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int
+}
+
+input UpdateItemInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Название пункта"""
+  title: String
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType
+  """Обязателен ли пункт"""
+  required: Boolean
+  """Требуется ли фото"""
+  requiresPhoto: Boolean
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int
+}
+
+input AnswerInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Значение ответа (JSON)"""
+  value: JSON
+  """Заметка"""
+  note: String
+}
+
+input AttachmentInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Ключ объекта в хранилище"""
+  objectKey: String!
+  """URL фото (опционально, если не указан - будет создан из objectKey)"""
+  url: String
+  """Подпись к фото"""
+  caption: String
+}
+
+input GetChecklistAttachmentUploadUrlsInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID инстанса"""
+  instanceId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Количество файлов"""
+  count: Int!
+  """MIME типы файлов (по индексу)"""
+  mimeTypes: [String!]
+}
+
+input AddTemplateItemInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID шаблона"""
+  templateId: UUID!
+  """Ключ пункта (уникальный в рамках шаблона)"""
+  key: String!
+  """Название пункта"""
+  title: String!
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType = BOOL
+  """Обязателен ли пункт"""
+  required: Boolean = false
+  """Требуется ли фото"""
+  requiresPhoto: Boolean = false
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int
+}
+
+input UpdateTemplateItemInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID шаблона"""
+  templateId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Название пункта"""
+  title: String
+  """Описание пункта"""
+  description: String
+  """Тип пункта"""
+  type: ItemType
+  """Обязателен ли пункт"""
+  required: Boolean
+  """Требуется ли фото"""
+  requiresPhoto: Boolean
+  """Минимальное количество фото"""
+  photoMin: Int
+  """Порядок отображения"""
+  order: Int
+}
+
+input TemplateItemExampleFileInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """Ключ объекта в хранилище"""
+  objectKey: String!
+  """MIME тип"""
+  mimeType: String
+  """URL фото (опционально, если не указан - будет создан из objectKey)"""
+  url: String
+  """Подпись к фото"""
+  caption: String
+}
+
+input AddTemplateItemExampleMediaInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID шаблона"""
+  templateId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Загруженные файлы"""
+  files: [TemplateItemExampleFileInput!]!
+}
+
+input GetTemplateItemExampleMediaUploadUrlsInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID шаблона"""
+  templateId: UUID!
+  """Ключ пункта"""
+  itemKey: String!
+  """Количество файлов"""
+  count: Int!
+  """MIME типы файлов (по индексу)"""
+  mimeTypes: [String!]
 }
 
 """Фильтры для поиска пользователей"""

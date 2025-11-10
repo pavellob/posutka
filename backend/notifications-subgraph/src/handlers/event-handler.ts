@@ -164,6 +164,20 @@ export class NotificationEventHandler {
           message: `Уборка в ${payload.unitName || 'квартире'} успешно завершена`,
           actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
+
+      case 'CLEANING_PRECHECK_COMPLETED':
+        return {
+          title: '🧾 Приёмка завершена',
+          message: `Приёмка уборки в ${payload.unitName || 'квартире'} завершена. Уборка может начаться.`,
+          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
+        };
+
+      case 'CLEANING_READY_FOR_REVIEW':
+        return {
+          title: '🔎 Требуется проверка уборки',
+          message: `Уборка в ${payload.unitName || 'квартире'} завершена и ожидает проверки менеджера`,
+          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
+        };
       
       case 'BOOKING_CREATED':
         return {

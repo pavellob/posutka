@@ -1,7 +1,8 @@
 import type { UUID, DateTime } from '@repo/shared/types-only';
 export type { UUID, DateTime };
-export type CleaningStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type CleaningStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'APPROVED' | 'CANCELLED';
 export type CleaningDocumentType = 'PRE_CLEANING_ACCEPTANCE' | 'POST_CLEANING_HANDOVER';
+export type CleaningReviewStatus = 'APPROVED';
 export interface Cleaner {
     id: UUID;
     userId: UUID;
@@ -82,9 +83,10 @@ export interface CleaningChecklist {
 export interface Cleaning {
     id: UUID;
     orgId: UUID;
-    cleanerId: UUID;
+    cleanerId?: UUID | null;
     unitId: UUID;
     bookingId?: UUID;
+    taskId?: UUID;
     status: CleaningStatus;
     scheduledAt: DateTime;
     startedAt?: DateTime;
@@ -92,14 +94,24 @@ export interface Cleaning {
     notes?: string;
     requiresLinenChange: boolean;
     checklistItems: CleaningChecklist[];
+    reviews: CleaningReview[];
     createdAt: DateTime;
     updatedAt: DateTime;
 }
+export interface CleaningReview {
+    id: UUID;
+    cleaningId: UUID;
+    managerId: UUID;
+    status: CleaningReviewStatus;
+    comment?: string;
+    createdAt: DateTime;
+}
 export interface ScheduleCleaningInput {
     orgId: UUID;
-    cleanerId: UUID;
+    cleanerId?: UUID;
     unitId: UUID;
     bookingId?: UUID;
+    taskId?: UUID;
     scheduledAt: DateTime;
     notes?: string;
     requiresLinenChange?: boolean;

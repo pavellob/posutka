@@ -1321,6 +1321,9 @@ export const GET_CLEANING = gql`
       }
       cleaner {
         id
+        user {
+          id
+        }
         firstName
         lastName
         phone
@@ -1348,6 +1351,13 @@ export const GET_CLEANING = gql`
         order
         createdAt
         updatedAt
+      }
+      reviews {
+        id
+        managerId
+        status
+        comment
+        createdAt
       }
       documents {
         id
@@ -1416,6 +1426,41 @@ export const DEACTIVATE_CLEANER = gql`
       isActive
       deletedAt
       updatedAt
+    }
+  }
+`
+
+export const ASSIGN_CLEANING_TO_ME = gql`
+  mutation AssignCleaningToMe($id: UUID!) {
+    assignCleaningToMe(cleaningId: $id) {
+      id
+      status
+      startedAt
+      cleaner {
+        id
+        firstName
+        lastName
+        user {
+          id
+        }
+      }
+    }
+  }
+`
+
+export const APPROVE_CLEANING = gql`
+  mutation ApproveCleaning($id: UUID!, $managerId: UUID!, $comment: String) {
+    approveCleaning(id: $id, managerId: $managerId, comment: $comment) {
+      id
+      status
+      completedAt
+      reviews {
+        id
+        managerId
+        status
+        comment
+        createdAt
+      }
     }
   }
 `
@@ -1730,6 +1775,117 @@ export const DELETE_PHOTO_FROM_DOCUMENT = gql`
   }
 `
 
+// ===== CHECKLIST QUERIES =====
+
+export const GET_CHECKLISTS_BY_UNIT = gql`
+  query GetChecklistsByUnit($unitId: UUID!) {
+    checklistsByUnit(unitId: $unitId) {
+      id
+      unitId
+      version
+      items {
+        id
+        key
+        order
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        exampleMedia {
+          id
+          url
+          objectKey
+          mimeType
+          caption
+          order
+        }
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const ACTIVATE_CHECKLIST = gql`
+  mutation ActivateChecklist($id: UUID!) {
+    activateChecklist(id: $id) {
+      id
+      name
+      isActive
+      items {
+        id
+        order
+        title
+        description
+        requiresPhoto
+        templateMedia {
+          id
+          objectKey
+          url
+          mimeType
+        }
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const DELETE_CHECKLIST = gql`
+  mutation DeleteChecklist($id: UUID!) {
+    deleteChecklist(id: $id)
+  }
+`
+
+export const UPDATE_CHECKLIST_ITEM_ORDER = gql`
+  mutation UpdateChecklistItemOrder($checklistId: UUID!, $itemIds: [UUID!]!) {
+    updateChecklistItemOrder(checklistId: $checklistId, itemIds: $itemIds) {
+      id
+      name
+      isActive
+      items {
+        id
+        order
+        title
+        description
+        requiresPhoto
+        templateMedia {
+          id
+          objectKey
+          url
+          mimeType
+        }
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+// ===== CHECKLIST MUTATIONS =====
+
+export const CREATE_CHECKLIST = gql`
+  mutation CreateChecklist($input: CreateChecklistInput!) {
+    createChecklist(input: $input) {
+      id
+      name
+      requirePhotoPerItem
+      items {
+        id
+        order
+        title
+        description
+        requiresPhoto
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+
 // ===== ЗАПРОСЫ ДЛЯ УПРАВЛЕНИЯ ПРИВЯЗКОЙ УБОРЩИКОВ К КВАРТИРАМ =====
 
 export const GET_UNIT_PREFERRED_CLEANERS = gql`
@@ -1792,5 +1948,403 @@ export const UPDATE_CLEANING_TEMPLATE_CHECKLIST = gql`
         order
       }
     }
+  }
+`
+
+// ===== НОВАЯ МОДЕЛЬ ЧЕК-ЛИСТОВ (Template → Instance → Promote) =====
+
+// Queries
+export const GET_CHECKLIST_TEMPLATE = gql`
+  query GetChecklistTemplate($unitId: UUID!, $version: Int) {
+    checklistTemplate(unitId: $unitId, version: $version) {
+      id
+      unitId
+      version
+      createdAt
+      updatedAt
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const GET_CHECKLIST_INSTANCE = gql`
+  query GetChecklistInstance($id: UUID!) {
+    checklistInstance(id: $id) {
+      id
+      unitId
+      cleaningId
+      stage
+      status
+      templateId
+      templateVersion
+      parentInstanceId
+      createdAt
+      updatedAt
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+      answers {
+        id
+        itemKey
+        value
+        note
+        createdAt
+        updatedAt
+      }
+      attachments {
+        id
+        itemKey
+        url
+        caption
+      }
+    }
+  }
+`
+
+export const GET_CHECKLIST_BY_CLEANING_AND_STAGE = gql`
+  query GetChecklistByCleaningAndStage($cleaningId: UUID!, $stage: ChecklistStage!) {
+    checklistByCleaning(cleaningId: $cleaningId, stage: $stage) {
+      id
+      unitId
+      cleaningId
+      stage
+      status
+      templateId
+      templateVersion
+      parentInstanceId
+      createdAt
+      updatedAt
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+      answers {
+        id
+        itemKey
+        value
+        note
+        createdAt
+        updatedAt
+      }
+      attachments {
+        id
+        itemKey
+        url
+        caption
+      }
+    }
+  }
+`
+
+// Mutations
+export const CREATE_CHECKLIST_INSTANCE = gql`
+  mutation CreateChecklistInstance($unitId: UUID!, $stage: ChecklistStage!, $cleaningId: UUID) {
+    createChecklistInstance(unitId: $unitId, stage: $stage, cleaningId: $cleaningId) {
+      id
+      unitId
+      cleaningId
+      stage
+      status
+      templateId
+      templateVersion
+      createdAt
+      updatedAt
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const ADD_CHECKLIST_ITEM = gql`
+  mutation AddChecklistItem($input: AddItemInput!) {
+    addItem(input: $input) {
+      id
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const UPDATE_CHECKLIST_ITEM = gql`
+  mutation UpdateChecklistItem($input: UpdateItemInput!) {
+    updateItem(input: $input) {
+      id
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const REMOVE_CHECKLIST_ITEM = gql`
+  mutation RemoveChecklistItem($instanceId: UUID!, $itemKey: String!) {
+    removeItem(instanceId: $instanceId, itemKey: $itemKey) {
+      id
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const PROMOTE_CHECKLIST = gql`
+  mutation PromoteChecklist($fromInstanceId: UUID!, $toStage: ChecklistStage!) {
+    promoteChecklist(fromInstanceId: $fromInstanceId, toStage: $toStage) {
+      id
+      unitId
+      stage
+      status
+      templateId
+      templateVersion
+      parentInstanceId
+      createdAt
+      updatedAt
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const SUBMIT_CHECKLIST = gql`
+  mutation SubmitChecklist($id: UUID!) {
+    submitChecklist(id: $id) {
+      id
+      status
+      updatedAt
+    }
+  }
+`
+
+export const LOCK_CHECKLIST = gql`
+  mutation LockChecklist($id: UUID!) {
+    lockChecklist(id: $id) {
+      id
+      status
+      updatedAt
+    }
+  }
+`
+
+export const ANSWER_CHECKLIST_ITEM = gql`
+  mutation AnswerChecklistItem($input: AnswerInput!) {
+    answer(input: $input) {
+      id
+      answers {
+        id
+        itemKey
+        value
+        note
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`
+
+export const ATTACH_TO_CHECKLIST_ITEM = gql`
+  mutation AttachToChecklistItem($input: AttachmentInput!) {
+    attach(input: $input) {
+      id
+      attachments {
+        id
+        itemKey
+        url
+        caption
+        createdAt
+      }
+    }
+  }
+`
+
+export const GET_CHECKLIST_ATTACHMENT_UPLOAD_URLS = gql`
+  mutation GetChecklistAttachmentUploadUrls($input: GetChecklistAttachmentUploadUrlsInput!) {
+    getChecklistAttachmentUploadUrls(input: $input) {
+      url
+      objectKey
+      expiresIn
+      mimeType
+    }
+  }
+`
+
+export const REMOVE_CHECKLIST_ATTACHMENT = gql`
+  mutation RemoveChecklistAttachment($attachmentId: UUID!) {
+    removeChecklistAttachment(attachmentId: $attachmentId)
+  }
+`
+
+// ===== Мутации для редактирования шаблона =====
+
+export const ADD_TEMPLATE_ITEM = gql`
+  mutation AddTemplateItem($input: AddTemplateItemInput!) {
+    addTemplateItem(input: $input) {
+      id
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const UPDATE_TEMPLATE_ITEM = gql`
+  mutation UpdateTemplateItem($input: UpdateTemplateItemInput!) {
+    updateTemplateItem(input: $input) {
+      id
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const REMOVE_TEMPLATE_ITEM = gql`
+  mutation RemoveTemplateItem($templateId: UUID!, $itemKey: String!) {
+    removeTemplateItem(templateId: $templateId, itemKey: $itemKey) {
+      id
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const UPDATE_TEMPLATE_ITEM_ORDER = gql`
+  mutation UpdateTemplateItemOrder($templateId: UUID!, $itemKeys: [String!]!) {
+    updateTemplateItemOrder(templateId: $templateId, itemKeys: $itemKeys) {
+      id
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+      }
+    }
+  }
+`
+
+export const GET_TEMPLATE_ITEM_EXAMPLE_MEDIA_UPLOAD_URLS = gql`
+  mutation GetTemplateItemExampleMediaUploadUrls($input: GetTemplateItemExampleMediaUploadUrlsInput!) {
+    getTemplateItemExampleMediaUploadUrls(input: $input) {
+      url
+      objectKey
+      expiresIn
+      mimeType
+    }
+  }
+`
+
+export const ADD_TEMPLATE_ITEM_EXAMPLE_MEDIA = gql`
+  mutation AddTemplateItemExampleMedia($input: AddTemplateItemExampleMediaInput!) {
+    addTemplateItemExampleMedia(input: $input) {
+      id
+      url
+      objectKey
+      mimeType
+      caption
+      order
+    }
+  }
+`
+
+export const REMOVE_TEMPLATE_ITEM_EXAMPLE_MEDIA = gql`
+  mutation RemoveTemplateItemExampleMedia($mediaId: UUID!) {
+    removeTemplateItemExampleMedia(mediaId: $mediaId)
   }
 `

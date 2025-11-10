@@ -43,6 +43,7 @@ export interface ICleaningDL {
   scheduleCleaning(input: ScheduleCleaningInput): Promise<Cleaning>;
   startCleaning(id: UUID): Promise<Cleaning>;
   completeCleaning(id: UUID, input: CompleteCleaningInput): Promise<Cleaning>;
+  approveCleaning(id: UUID, managerId: UUID, comment?: string): Promise<Cleaning>;
   cancelCleaning(id: UUID, reason?: string): Promise<Cleaning>;
   updateCleaningChecklist(id: UUID, items: ChecklistItemInput[]): Promise<Cleaning>;
 

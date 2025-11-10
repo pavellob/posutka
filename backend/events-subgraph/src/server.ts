@@ -77,7 +77,9 @@ async function ensureNotificationSubscription() {
       'CLEANING_ASSIGNED',
       'CLEANING_STARTED',
       'CLEANING_COMPLETED',
+      'CLEANING_READY_FOR_REVIEW',
       'CLEANING_CANCELLED',
+      'CLEANING_PRECHECK_COMPLETED',
       // Booking events
       'BOOKING_CREATED',
       'BOOKING_CONFIRMED',

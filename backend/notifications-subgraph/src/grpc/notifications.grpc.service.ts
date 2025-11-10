@@ -397,6 +397,8 @@ export class NotificationsGrpcService implements NotificationsService {
       12: 'CLEANING_STARTED',
       13: 'CLEANING_COMPLETED',
       14: 'CLEANING_CANCELLED',
+      15: 'CLEANING_READY_FOR_REVIEW',
+      16: 'CLEANING_PRECHECK_COMPLETED',
       20: 'TASK_CREATED',
       21: 'TASK_ASSIGNED',
       22: 'TASK_STATUS_CHANGED',
