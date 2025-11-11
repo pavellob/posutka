@@ -383,7 +383,6 @@ export function createMinioServiceFromEnv(): MinioService {
       '  - MINIO_SECRET_KEY or MINIO_SECRET_ACCESS_KEY or MINIO_ROOT_PASSWORD\n\n' +
       'Available environment variables:\n' +
       Object.keys(process.env)
-        .filter(key => key.toUpperCase().includes('MINIO'))
         .map(key => `  - ${key}`)
         .join('\n') || '  (none found)'
     );
