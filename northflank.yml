@@ -49,7 +49,6 @@ services:
       - name: DATABASE_URL
         fromSecret: database-url
       - name: FRONTEND_URL
-      - name: TEST
         # ⚠️ ВАЖНО: Установите в Northflank UI!
         # Должен быть HTTPS URL мобильного приложения для уборщиков (Telegram Mini App)
         # Пример: https://app.kakadu.com или https://cleaners.posutka.com

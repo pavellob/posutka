@@ -58,6 +58,10 @@ export TELEGRAM_USE_MINIAPP
 export TELEGRAM_POLLING
 export NOTIFICATIONS_GRPC_HOST
 export NOTIFICATIONS_GRPC_PORT
+export MINIO_URL
+export MINIO_ACCESS_KEY
+export MINIO_SECRET_KEY
+export MINIO_BUCKET
 
 # Запускаем подграфы через turbo (правильно передает env vars)
 echo "📦 Запуск подграфов..."
