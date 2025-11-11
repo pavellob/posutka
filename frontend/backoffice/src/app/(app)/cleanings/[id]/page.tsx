@@ -145,11 +145,14 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
   const isSubmitted = (status?: string | null) => status === 'SUBMITTED' || status === 'LOCKED'
   const preSubmitted = isSubmitted(preCleaningData?.status)
   const cleaningSubmitted = isSubmitted(cleaningData?.status)
-  const stageActive: Record<Stage, boolean> = {
-    PRE_CLEANING: canEditChecklists && !preSubmitted,
-    CLEANING: canEditChecklists && preSubmitted && !cleaningSubmitted,
-    FINAL_REPORT: cleaningSubmitted && data?.status !== 'APPROVED',
-  }
+  const stageActive = useMemo<Record<Stage, boolean>>(
+    () => ({
+      PRE_CLEANING: canEditChecklists && !preSubmitted,
+      CLEANING: canEditChecklists && preSubmitted && !cleaningSubmitted,
+      FINAL_REPORT: cleaningSubmitted && data?.status !== 'APPROVED',
+    }),
+    [canEditChecklists, preSubmitted, cleaningSubmitted, data?.status]
+  )
 
   const autoCreatedRef = useRef<Record<Stage, boolean>>({
     PRE_CLEANING: false,

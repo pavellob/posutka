@@ -254,6 +254,18 @@ export function ChecklistInstanceDialog({
     },
   });
 
+  const startTriggeredRef = useRef(false);
+
+  const triggerStartCleaning = useCallback(() => {
+    if (!onStartCleaning) return;
+    if (startTriggeredRef.current) return;
+    if (!canEdit) return;
+    if (stage !== 'PRE_CLEANING') return;
+    if (instance?.status !== 'DRAFT') return;
+    startTriggeredRef.current = true;
+    onStartCleaning();
+  }, [canEdit, instance?.status, onStartCleaning, stage]);
+
   const handleAnswer = (itemKey: string, value: any) => {
     if (!instance?.id) return;
     triggerStartCleaning();
@@ -265,44 +277,52 @@ export function ChecklistInstanceDialog({
   };
 
   // Получить presigned URLs для загрузки фото
-  const getPhotoUploadUrls = useCallback((itemKey: string) => async (files: File[]): Promise<PresignedUploadUrl[]> => {
-    if (!instance?.id || !files.length) return [];
-    triggerStartCleaning();
+  const getPhotoUploadUrls = useCallback(
+    (itemKey: string) =>
+      async (files: File[]): Promise<PresignedUploadUrl[]> => {
+        if (!instance?.id || !files.length) return [];
+        triggerStartCleaning();
 
-    const mimeTypes = files.map((f) => f.type);
-    const response = await graphqlClient.request(GET_CHECKLIST_ATTACHMENT_UPLOAD_URLS, {
-      input: {
-        instanceId: instance.id,
-        itemKey,
-        count: files.length,
-        mimeTypes,
+        const mimeTypes = files.map((f) => f.type);
+        const response = (await graphqlClient.request(GET_CHECKLIST_ATTACHMENT_UPLOAD_URLS, {
+          input: {
+            instanceId: instance.id,
+            itemKey,
+            count: files.length,
+            mimeTypes,
+          },
+        })) as any;
+
+        return response.getChecklistAttachmentUploadUrls;
       },
-    }) as any;
-
-    return response.getChecklistAttachmentUploadUrls;
-  }, [instance?.id]);
+    [instance?.id, triggerStartCleaning]
+  );
 
   // Подтвердить загрузку фото
-  const confirmPhotoUploads = useCallback((itemKey: string) => async (
-    objectKeys: string[],
-    files: File[],
-    captions: string[]
-  ): Promise<void> => {
-    if (!instance?.id || !objectKeys.length) return;
-    triggerStartCleaning();
+  const confirmPhotoUploads = useCallback(
+    (itemKey: string) =>
+      async (
+        objectKeys: string[],
+        files: File[],
+        captions: string[]
+      ): Promise<void> => {
+        if (!instance?.id || !objectKeys.length) return;
+        triggerStartCleaning();
 
-    // URL будет создан на бэкенде из objectKey
-    await Promise.all(
-      objectKeys.map((objectKey, index) => {
-        return attachMutation.mutateAsync({
-          instanceId: instance.id,
-          itemKey,
-          objectKey,
-          caption: captions[index] || undefined,
-        });
-      })
-    );
-  }, [instance?.id, attachMutation]);
+        // URL будет создан на бэкенде из objectKey
+        await Promise.all(
+          objectKeys.map((objectKey, index) => {
+            return attachMutation.mutateAsync({
+              instanceId: instance.id,
+              itemKey,
+              objectKey,
+              caption: captions[index] || undefined,
+            });
+          })
+        );
+      },
+    [instance?.id, attachMutation, triggerStartCleaning]
+  );
 
   const getAnswer = (itemKey: string) => {
     return answers.find((a: any) => a.itemKey === itemKey);
@@ -382,18 +402,6 @@ export function ChecklistInstanceDialog({
 
     addItemMutation.mutate(input);
   };
-
-  const startTriggeredRef = useRef(false);
-
-  const triggerStartCleaning = useCallback(() => {
-    if (!onStartCleaning) return;
-    if (startTriggeredRef.current) return;
-    if (!canEdit) return;
-    if (stage !== 'PRE_CLEANING') return;
-    if (instance?.status !== 'DRAFT') return;
-    startTriggeredRef.current = true;
-    onStartCleaning();
-  }, [canEdit, instance?.status, onStartCleaning, stage]);
 
   if (isLoading) {
     return (

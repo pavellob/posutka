@@ -1,25 +1,22 @@
 'use client';
 
-import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from './button';
 import { Heading } from './heading';
 import { Text } from './text';
 import { Badge } from './badge';
 import { graphqlClient } from '@/lib/graphql-client';
-import { 
-  GET_CHECKLISTS_BY_UNIT, 
-  GET_CHECKLIST_BY_UNIT_AND_STAGE,
+import {
+  GET_CHECKLISTS_BY_UNIT,
   CREATE_CHECKLIST_INSTANCE,
-  GET_CHECKLIST_TEMPLATE
+  GET_CHECKLIST_TEMPLATE,
 } from '@/lib/graphql-queries';
-import { 
+import {
   PlusIcon,
   CheckCircleIcon,
   DocumentCheckIcon,
   ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
-import { ChecklistInstanceDialog } from './checklist-instance-dialog';
 
 interface UnitChecklistsProps {
   unitId: string;
@@ -51,53 +48,19 @@ const STAGE_CONFIG: Record<ChecklistStage, { label: string; color: string; icon:
 
 export function UnitChecklists({ unitId, unitName }: UnitChecklistsProps) {
   const queryClient = useQueryClient();
-  const [selectedStage, setSelectedStage] = useState<ChecklistStage | null>(null);
 
   // Получить шаблон чек-листа для этой единицы
   const { data: checklistsData, isLoading: checklistsLoading } = useQuery<any>({
     queryKey: ['checklists', unitId],
-    queryFn: () => graphqlClient.request(GET_CHECKLISTS_BY_UNIT, {
-      unitId,
-    }),
-    enabled: !!unitId,
-  });
-
-  // Получить инстансы для каждой стадии
-  const { data: preCleaningData } = useQuery<any>({
-    queryKey: ['checklist-instance', unitId, 'PRE_CLEANING'],
-    queryFn: () => graphqlClient.request(GET_CHECKLIST_BY_UNIT_AND_STAGE, {
-      unitId,
-      stage: 'PRE_CLEANING',
-    }),
-    enabled: !!unitId,
-  });
-
-  const { data: cleaningData } = useQuery<any>({
-    queryKey: ['checklist-instance', unitId, 'CLEANING'],
-    queryFn: () => graphqlClient.request(GET_CHECKLIST_BY_UNIT_AND_STAGE, {
-      unitId,
-      stage: 'CLEANING',
-    }),
-    enabled: !!unitId,
-  });
-
-  const { data: finalReportData } = useQuery<any>({
-    queryKey: ['checklist-instance', unitId, 'FINAL_REPORT'],
-    queryFn: () => graphqlClient.request(GET_CHECKLIST_BY_UNIT_AND_STAGE, {
-      unitId,
-      stage: 'FINAL_REPORT',
-    }),
+    queryFn: () =>
+      graphqlClient.request(GET_CHECKLISTS_BY_UNIT, {
+        unitId,
+      }),
     enabled: !!unitId,
   });
 
   const checklists = checklistsData?.checklistsByUnit || [];
   const template = checklists[0];
-
-  const instances = {
-    PRE_CLEANING: preCleaningData?.checklistByUnitAndStage,
-    CLEANING: cleaningData?.checklistByUnitAndStage,
-    FINAL_REPORT: finalReportData?.checklistByUnitAndStage,
-  };
 
   // Мутация для создания инстанса
   const createInstanceMutation = useMutation({
@@ -108,9 +71,7 @@ export function UnitChecklists({ unitId, unitName }: UnitChecklistsProps) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['checklist-instance', unitId] });
       queryClient.invalidateQueries({ queryKey: ['checklists', unitId] });
-      setSelectedStage(null);
     },
   });
 
@@ -152,126 +113,59 @@ export function UnitChecklists({ unitId, unitName }: UnitChecklistsProps) {
                 {template.items?.length || 0} пунктов в шаблоне
               </Text>
             </div>
-            {template.isActive && (
-              <Badge color="green">Активный</Badge>
-            )}
+            {template.isActive && <Badge color="green">Активный</Badge>}
           </div>
         </div>
       )}
 
-      {/* Checklist Instances Cards */}
+      {/* Checklist Stage Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {(Object.keys(STAGE_CONFIG) as ChecklistStage[]).map((stage) => {
           const config = STAGE_CONFIG[stage];
-          const instance = instances[stage];
           const Icon = config.icon;
-          const hasInstance = !!instance;
-          const isCompleted = instance?.status === 'SUBMITTED';
-          const isLocked = instance?.status === 'LOCKED';
 
           return (
             <div
               key={stage}
-              className={`
-                p-6 rounded-lg border-2 transition-all duration-200
-                ${hasInstance
-                  ? isCompleted
-                    ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
-                    : isLocked
-                    ? 'bg-gray-50 dark:bg-gray-900/20 border-gray-300 dark:border-gray-700'
-                    : 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
-                  : 'bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-600'
-                }
-              `}
+              className="p-6 rounded-lg border-2 transition-all duration-200 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-600"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`
-                    p-3 rounded-lg
-                    ${hasInstance
-                      ? isCompleted
-                        ? 'bg-green-500 text-white'
-                        : isLocked
-                        ? 'bg-gray-500 text-white'
-                        : 'bg-blue-500 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                    }
-                  `}>
+                  <div className="p-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                     <Icon className="w-6 h-6" />
                   </div>
                   <div>
-                    <Heading level={5} className="mb-0">
+                    <Heading level={5} className="mb-1">
                       {config.label}
                     </Heading>
-                    <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">
                       {config.description}
                     </Text>
                   </div>
                 </div>
+                <Badge color="zinc">Черновик</Badge>
               </div>
 
-              {hasInstance ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Badge 
-                      color={
-                        isCompleted ? 'green' : 
-                        isLocked ? 'zinc' : 
-                        'blue'
-                      }
-                    >
-                      {isCompleted ? 'Завершён' : 
-                       isLocked ? 'Заблокирован' : 
-                       'В работе'}
-                    </Badge>
-                    <Text className="text-xs text-gray-500 dark:text-gray-400">
-                      {instance.items?.length || 0} пунктов
-                    </Text>
-                  </div>
-
-                  {instance.answers && instance.answers.length > 0 && (
-                    <div className="pt-2 border-t border-gray-200 dark:border-zinc-700">
-                      <Text className="text-xs text-gray-600 dark:text-gray-400">
-                        Заполнено: {instance.answers.length} / {instance.items?.length || 0}
-                      </Text>
-                    </div>
+              <div className="space-y-3">
+                <Text className="text-sm text-gray-600 dark:text-gray-400">
+                  Чек-лист ещё не создан для этой стадии
+                </Text>
+                <Button
+                  onClick={() => handleCreateInstance(stage)}
+                  color={config.color as any}
+                  className="w-full"
+                  disabled={createInstanceMutation.isPending || !template}
+                >
+                  {createInstanceMutation.isPending ? (
+                    'Создание...'
+                  ) : (
+                    <>
+                      <PlusIcon className="w-4 h-4 mr-2" />
+                      Создать чек-лист
+                    </>
                   )}
-
-                  <Button
-                    onClick={() => setSelectedStage(stage)}
-                    color={config.color as any}
-                    className="w-full"
-                  >
-                    Открыть
-                  </Button>
-                  {instance.id && (
-                    <Text className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                      Создан: {new Date(instance.createdAt).toLocaleDateString('ru-RU')}
-                    </Text>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <Text className="text-sm text-gray-600 dark:text-gray-400">
-                    Чек-лист не создан
-                  </Text>
-                  <Button
-                    onClick={() => handleCreateInstance(stage)}
-                    color={config.color as any}
-                    className="w-full"
-                    disabled={createInstanceMutation.isPending || !template}
-                  >
-                    {createInstanceMutation.isPending ? (
-                      'Создание...'
-                    ) : (
-                      <>
-                        <PlusIcon className="w-4 h-4 mr-2" />
-                        Создать чек-лист
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
+                </Button>
+              </div>
             </div>
           );
         })}
@@ -320,17 +214,6 @@ export function UnitChecklists({ unitId, unitName }: UnitChecklistsProps) {
             Шаблон чек-листа будет создан автоматически при первом использовании
           </Text>
         </div>
-      )}
-
-      {/* Checklist Instance Dialog */}
-      {selectedStage && (
-        <ChecklistInstanceDialog
-          isOpen={!!selectedStage}
-          onClose={() => setSelectedStage(null)}
-          unitId={unitId}
-          stage={selectedStage}
-          instanceId={instances[selectedStage]?.id}
-        />
       )}
     </div>
   );

@@ -18,9 +18,12 @@
     "OPS_GRPC_HOST",
     "OPS_GRPC_PORT",
     "MINIO_URL",
+    "MINIO_ENDPOINT",
     "MINIO_ACCESS_KEY",
     "MINIO_SECRET_KEY",
-    "MINIO_BUCKET"
+    "MINIO_BUCKET",
+    "MINIO_PUBLIC_URL",
+    "MINIO_USE_SSL"
   ],
   "tasks": {
     "lint": { "outputs": [] },
