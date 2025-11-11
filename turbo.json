@@ -16,7 +16,11 @@
     "GRPC_HOST",
     "WS_PORT",
     "OPS_GRPC_HOST",
-    "OPS_GRPC_PORT"
+    "OPS_GRPC_PORT",
+    "MINIO_URL",
+    "MINIO_ACCESS_KEY",
+    "MINIO_SECRET_KEY",
+    "MINIO_BUCKET"
   ],
   "tasks": {
     "lint": { "outputs": [] },
