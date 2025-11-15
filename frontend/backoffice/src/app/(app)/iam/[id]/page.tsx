@@ -574,7 +574,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
                 Роли в текущей организации
               </Subheading>
               <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                Выберите роли для пользователя в организации "{currentOrganization?.name || currentOrgId}".
+                Выберите роли для пользователя в организации &quot;{currentOrganization?.name || currentOrgId}&quot;.
               </Text>
               <div className="space-y-2">
                 {(['OWNER', 'MANAGER', 'STAFF', 'CLEANER', 'OPERATOR'] as const).map((role) => {
