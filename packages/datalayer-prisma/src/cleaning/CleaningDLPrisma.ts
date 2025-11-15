@@ -118,9 +118,10 @@ export class CleaningDLPrisma implements ICleaningDL {
     // Обеспечиваем, что у пользователя есть членство с ролью CLEANER в этой организации
     await this.prisma.membership.upsert({
       where: {
-        userId_orgId: {
+        userId_orgId_role: {
           userId: input.userId,
           orgId: input.orgId,
+          role: 'CLEANER',
         },
       },
       update: {
