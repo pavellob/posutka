@@ -37,25 +37,24 @@ const GET_USER_STATS = gql`
 `
 
 const GET_USERS = gql`
-  query GetUsers($orgId: UUID!, $first: Int, $after: String) {
-    usersAdvanced(orgId: $orgId, first: $first, after: $after) {
-      edges {
-        node {
-          id
-          email
-          name
-          createdAt
-          status
-          systemRoles
-          lastLoginAt
-          isLocked
-        }
+  query GetUsersByOrg($orgId: UUID!) {
+    membershipsByOrg(orgId: $orgId) {
+      id
+      role
+      createdAt
+      updatedAt
+      user {
+        id
+        email
+        name
+        createdAt
+        status
+        lastLoginAt
+        isLocked
       }
-      pageInfo {
-        hasNextPage
-        hasPreviousPage
-        startCursor
-        endCursor
+      organization {
+        id
+        name
       }
     }
   }
@@ -93,11 +92,33 @@ export default function IAMPage() {
       setStats(statsResult.userStats)
 
       // Получаем пользователей организации
-      const usersResult = await graphqlRequest(GET_USERS, { 
-        orgId: currentOrgId, 
-        first: 20 
+      const usersResult = await graphqlRequest(GET_USERS, {
+        orgId: currentOrgId,
       })
-      setUsers(usersResult.usersAdvanced.edges.map((edge: any) => edge.node))
+      const memberships = usersResult.membershipsByOrg || []
+      const userMap = new Map<string, any>()
+
+      memberships.forEach((membership: any) => {
+        if (!membership.user) return
+
+        const existing = userMap.get(membership.user.id)
+        const entry = existing || {
+          ...membership.user,
+          memberships: [],
+        }
+
+        entry.memberships.push({
+          id: membership.id,
+          role: membership.role,
+          organization: membership.organization,
+          createdAt: membership.createdAt,
+          updatedAt: membership.updatedAt,
+        })
+
+        userMap.set(membership.user.id, entry)
+      })
+
+      setUsers(Array.from(userMap.values()))
 
     } catch (err: any) {
       console.error('Failed to fetch IAM data:', err)
@@ -261,16 +282,36 @@ export default function IAMPage() {
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
-                      {user.systemRoles && user.systemRoles.length > 0 ? (
-                        user.systemRoles.map((role: string) => (
-                          <Badge key={role} color={role === 'ADMIN' ? 'orange' : role === 'MANAGER' ? 'blue' : 'zinc'} className="text-xs">
-                            {role === 'ADMIN' ? 'Админ' : 
-                             role === 'MANAGER' ? 'Менеджер' : 
-                             role === 'USER' ? 'Пользователь' : role}
+                      {user.memberships && user.memberships.length > 0 ? (
+                        user.memberships.map((membership: any) => (
+                          <Badge
+                            key={membership.id}
+                            color={
+                              membership.role === 'OWNER'
+                                ? 'purple'
+                                : membership.role === 'MANAGER'
+                                  ? 'blue'
+                                  : membership.role === 'CLEANER'
+                                    ? 'green'
+                                    : membership.role === 'OPERATOR'
+                                      ? 'amber'
+                                      : 'zinc'
+                            }
+                            className="text-xs"
+                          >
+                            {membership.role === 'OWNER'
+                              ? 'Владелец'
+                              : membership.role === 'MANAGER'
+                                ? 'Менеджер'
+                                : membership.role === 'CLEANER'
+                                  ? 'Уборщик'
+                                  : membership.role === 'OPERATOR'
+                                    ? 'Оператор'
+                                    : 'Сотрудник'}
                           </Badge>
                         ))
                       ) : (
-                        <Badge color="zinc" className="text-xs">Пользователь</Badge>
+                        <Badge color="zinc" className="text-xs">Без членства</Badge>
                       )}
                     </div>
                   </TableCell>

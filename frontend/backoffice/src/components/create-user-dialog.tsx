@@ -5,21 +5,33 @@ import { Dialog, DialogTitle, DialogBody, DialogActions } from '@/components/dia
 import { Button } from '@/components/button'
 import { Input } from '@/components/input'
 import { Text } from '@/components/text'
-import { Badge } from '@/components/badge'
 import { useMutation } from '@tanstack/react-query'
 import { graphqlClient } from '@/lib/graphql-client'
 import { gql } from 'graphql-request'
 
-// GraphQL мутация для создания пользователя
+// GraphQL мутации
 const CREATE_USER = gql`
   mutation CreateUser($input: CreateIAMUserInput!) {
     createIAMUser(input: $input) {
       id
       email
       name
-      systemRoles
       status
       createdAt
+    }
+  }
+`
+
+const ADD_MEMBER = gql`
+  mutation AddMember($input: AddMemberInput!) {
+    addMember(input: $input) {
+      id
+      role
+      createdAt
+      organization {
+        id
+        name
+      }
     }
   }
 `
@@ -31,34 +43,44 @@ interface CreateUserDialogProps {
   orgId?: string
 }
 
-const AVAILABLE_ROLES = [
-  { value: 'USER', label: 'Пользователь', description: 'Базовый доступ к системе' },
-  { value: 'MANAGER', label: 'Менеджер', description: 'Доступ к управлению' },
-  { value: 'ADMIN', label: 'Администратор', description: 'Полный доступ к системе' },
-  { value: 'SUPER_ADMIN', label: 'Супер-админ', description: 'Неограниченный доступ' }
-]
-
 export function CreateUserDialog({ isOpen, onClose, onSuccess, orgId }: CreateUserDialogProps) {
   const [formData, setFormData] = useState({
     email: '',
     name: '',
     password: '',
     confirmPassword: '',
-    selectedRoles: ['USER'] as string[]
+    assignToOrg: false,
+    role: 'STAFF' as 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR'
   })
   const [error, setError] = useState<string | null>(null)
 
   const createUserMutation = useMutation({
-    mutationFn: async (input: any) => {
-      return await graphqlClient.request(CREATE_USER, {
+    mutationFn: async (input: typeof formData) => {
+      const response = await graphqlClient.request(CREATE_USER, {
         input: {
           email: input.email,
           name: input.name,
           password: input.password,
-          systemRoles: input.selectedRoles,
-          orgId: orgId // Передаем ID организации
+        },
+      }) as any
+
+      const user = response.createIAMUser
+
+      if (input.assignToOrg) {
+        if (!orgId) {
+          throw new Error('Текущая организация не выбрана, невозможно назначить роль')
         }
-      })
+
+        await graphqlClient.request(ADD_MEMBER, {
+          input: {
+            userId: user.id,
+            orgId,
+            role: input.role,
+          },
+        })
+      }
+
+      return user
     },
     onSuccess: () => {
       // Сброс формы
@@ -67,7 +89,8 @@ export function CreateUserDialog({ isOpen, onClose, onSuccess, orgId }: CreateUs
         name: '',
         password: '',
         confirmPassword: '',
-        selectedRoles: ['USER']
+        assignToOrg: false,
+        role: 'STAFF'
       })
       setError(null)
       onSuccess()
@@ -115,11 +138,6 @@ export function CreateUserDialog({ isOpen, onClose, onSuccess, orgId }: CreateUs
       return
     }
 
-    if (formData.selectedRoles.length === 0) {
-      setError('Выберите хотя бы одну роль')
-      return
-    }
-
     createUserMutation.mutate(formData)
   }
 
@@ -131,29 +149,14 @@ export function CreateUserDialog({ isOpen, onClose, onSuccess, orgId }: CreateUs
     setError(null)
   }
 
-  const toggleRole = (role: string) => {
-    setFormData(prev => {
-      const hasRole = prev.selectedRoles.includes(role)
-      const newRoles = hasRole
-        ? prev.selectedRoles.filter(r => r !== role)
-        : [...prev.selectedRoles, role]
-      
-      // Всегда оставляем хотя бы одну роль
-      return {
-        ...prev,
-        selectedRoles: newRoles.length > 0 ? newRoles : ['USER']
-      }
-    })
-    setError(null)
-  }
-
   const handleClose = () => {
     setFormData({
       email: '',
       name: '',
       password: '',
       confirmPassword: '',
-      selectedRoles: ['USER']
+      assignToOrg: false,
+      role: 'STAFF'
     })
     setError(null)
     onClose()
@@ -231,51 +234,52 @@ export function CreateUserDialog({ isOpen, onClose, onSuccess, orgId }: CreateUs
             />
           </div>
 
-          {/* Роли */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Роли пользователя *
+          {/* Добавление в организацию */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Назначение в текущую организацию
             </label>
-            <div className="space-y-2">
-              {AVAILABLE_ROLES.map((role) => {
-                const isSelected = formData.selectedRoles.includes(role.value)
-                return (
-                  <div 
-                    key={role.value} 
-                    className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all ${
-                      isSelected 
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-sm' 
-                        : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800'
-                    }`}
-                    onClick={() => toggleRole(role.value)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleRole(role.value)}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-white">{role.label}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{role.description}</div>
-                      </div>
-                    </div>
-                    {isSelected && (
-                      <Badge 
-                        color={role.value === 'ADMIN' || role.value === 'SUPER_ADMIN' ? 'orange' : 'blue'}
-                      >
-                        Выбрано
-                      </Badge>
-                    )}
-                  </div>
-                )
-              })}
+            <div className="flex items-center gap-3">
+              <input
+                id="assignToOrg"
+                type="checkbox"
+                checked={formData.assignToOrg}
+                onChange={(e) => handleChange('assignToOrg', e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                disabled={!orgId}
+              />
+              <label htmlFor="assignToOrg" className="text-sm text-gray-700 dark:text-gray-300">
+                Добавить пользователя в текущую организацию
+              </label>
             </div>
-            <Text className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Можно выбрать несколько ролей
-            </Text>
+            {!orgId && (
+              <Text className="text-xs text-yellow-600 dark:text-yellow-400">
+                Выберите организацию, чтобы назначать пользователей на неё.
+              </Text>
+            )}
+            {formData.assignToOrg && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Роль в организации
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) =>
+                    handleChange('role', e.target.value as typeof formData.role)
+                  }
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring"
+                >
+                  <option value="OWNER">Владелец</option>
+                  <option value="MANAGER">Менеджер</option>
+                  <option value="STAFF">Сотрудник</option>
+                  <option value="CLEANER">Уборщик</option>
+                  <option value="OPERATOR">Оператор</option>
+                </select>
+                <Text className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Роль определяет доступ пользователя внутри организации.
+                </Text>
+              </div>
+            )}
           </div>
 
           {/* Ошибка */}

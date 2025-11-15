@@ -398,6 +398,14 @@ export const GET_USERS = gql`
           name
           createdAt
           updatedAt
+          memberships {
+            id
+            role
+            organization {
+              id
+              name
+            }
+          }
         }
         cursor
       }
@@ -2242,6 +2250,36 @@ export const REMOVE_CHECKLIST_ATTACHMENT = gql`
 `
 
 // ===== Мутации для редактирования шаблона =====
+
+export const CREATE_CHECKLIST_TEMPLATE = gql`
+  mutation CreateChecklistTemplate($unitId: UUID!) {
+    createChecklistTemplate(unitId: $unitId) {
+      id
+      unitId
+      version
+      createdAt
+      updatedAt
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+        exampleMedia {
+          id
+          url
+          objectKey
+          caption
+          order
+        }
+      }
+    }
+  }
+`
 
 export const ADD_TEMPLATE_ITEM = gql`
   mutation AddTemplateItem($input: AddTemplateItemInput!) {

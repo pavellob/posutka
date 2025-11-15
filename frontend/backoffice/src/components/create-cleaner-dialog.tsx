@@ -135,7 +135,14 @@ export function CreateCleanerDialog({
               <div className="flex items-start gap-2">
                 <span className="text-gray-500 dark:text-gray-400 min-w-[80px]">Роли:</span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {selectedUser.systemRoles?.join(', ') || 'USER'}
+                  {selectedUser.memberships && selectedUser.memberships.length > 0
+                    ? selectedUser.memberships
+                        .map((membership: any) => {
+                          const orgName = membership.organization?.name || 'Организация';
+                          return `${membership.role} · ${orgName}`;
+                        })
+                        .join(', ')
+                    : '—'}
                 </span>
               </div>
             </div>

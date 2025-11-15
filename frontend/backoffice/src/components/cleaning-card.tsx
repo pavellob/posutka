@@ -11,9 +11,10 @@ interface CleaningCardProps {
   cleaning: any
   onUpdateStatus?: (cleaningId: string, status: string) => void
   onStartCleaning?: (cleaning: any) => void
+  onAssign?: (cleaning: any) => void
 }
 
-export function CleaningCard({ cleaning, onUpdateStatus, onStartCleaning }: CleaningCardProps) {
+export function CleaningCard({ cleaning, onUpdateStatus, onStartCleaning, onAssign }: CleaningCardProps) {
   const router = useRouter()
 
   const getStatusBadge = (status: string) => {
@@ -111,8 +112,8 @@ export function CleaningCard({ cleaning, onUpdateStatus, onStartCleaning }: Clea
       {/* Уборщик */}
       <div className="flex items-center gap-3">
         <UserIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-        <div>
-          {cleaning.cleaner ? (
+        <div className="flex-1">
+          {cleaning.cleaner && (cleaning.cleaner.id || cleaning.cleaner.firstName) ? (
             <>
               <Text className="text-sm text-gray-900 dark:text-white">
                 {cleaning.cleaner.firstName} {cleaning.cleaner.lastName}
@@ -124,7 +125,22 @@ export function CleaningCard({ cleaning, onUpdateStatus, onStartCleaning }: Clea
               )}
             </>
           ) : (
-            <Text className="text-sm text-gray-500 dark:text-gray-400">Уборщик не назначен</Text>
+            <>
+              <Text className="text-sm text-gray-500 dark:text-gray-400 mb-2">Уборщик не назначен</Text>
+              {onAssign && (cleaning.status === 'SCHEDULED' || !cleaning.status) && (
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAssign(cleaning)
+                  }}
+                  color="green"
+                  size="sm"
+                  className="w-full mt-2"
+                >
+                  Взять в работу
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -164,6 +180,22 @@ export function CleaningCard({ cleaning, onUpdateStatus, onStartCleaning }: Clea
           <Badge color="green">С бронированием</Badge>
         )}
       </div>
+
+      {/* Кнопка "Взять в работу" если нет исполнителя */}
+      {onAssign && !cleaning.cleaner && (cleaning.status === 'SCHEDULED' || !cleaning.status) && (
+        <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700">
+          <Button
+            onClick={(e) => {
+              e.stopPropagation()
+              onAssign(cleaning)
+            }}
+            color="green"
+            className="w-full"
+          >
+            Взять в работу
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

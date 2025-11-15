@@ -6,7 +6,6 @@ import { Button } from '@/components/button'
 import { Input } from '@/components/input'
 import { Select } from '@/components/select'
 import { Fieldset } from '@/components/fieldset'
-import { Badge } from '@/components/badge'
 import { useMutation } from '@tanstack/react-query'
 import { graphqlClient } from '@/lib/graphql-client'
 import { gql } from 'graphql-request'
@@ -21,7 +20,6 @@ const UPDATE_USER = gql`
       email
       name
       status
-      systemRoles
       isLocked
       updatedAt
     }
@@ -35,18 +33,10 @@ interface EditUserDialogProps {
   onSuccess: () => void
 }
 
-const AVAILABLE_ROLES = [
-  { value: 'USER', label: 'Пользователь' },
-  { value: 'MANAGER', label: 'Менеджер' },
-  { value: 'ADMIN', label: 'Администратор' },
-  { value: 'SUPER_ADMIN', label: 'Супер-админ' }
-]
-
 export function EditUserDialog({ isOpen, onClose, user, onSuccess }: EditUserDialogProps) {
   const [formData, setFormData] = useState({
     name: '',
-    status: 'ACTIVE',
-    selectedRoles: [] as string[]
+    status: 'ACTIVE'
   })
 
   // Заполняем форму данными пользователя при открытии
@@ -54,8 +44,7 @@ export function EditUserDialog({ isOpen, onClose, user, onSuccess }: EditUserDia
     if (user) {
       setFormData({
         name: user.name || '',
-        status: user.status || 'ACTIVE',
-        selectedRoles: user.systemRoles || ['USER']
+        status: user.status || 'ACTIVE'
       })
     }
   }, [user])
@@ -66,8 +55,7 @@ export function EditUserDialog({ isOpen, onClose, user, onSuccess }: EditUserDia
         id: user.id,
         input: {
           name: input.name,
-          status: input.status,
-          systemRoles: input.selectedRoles
+          status: input.status
         }
       })
     },
@@ -88,11 +76,6 @@ export function EditUserDialog({ isOpen, onClose, user, onSuccess }: EditUserDia
       return
     }
 
-    if (formData.selectedRoles.length === 0) {
-      alert('Выберите хотя бы одну роль')
-      return
-    }
-
     updateUserMutation.mutate(formData)
   }
 
@@ -101,21 +84,6 @@ export function EditUserDialog({ isOpen, onClose, user, onSuccess }: EditUserDia
       ...prev,
       [field]: value
     }))
-  }
-
-  const toggleRole = (role: string) => {
-    setFormData(prev => {
-      const hasRole = prev.selectedRoles.includes(role)
-      const newRoles = hasRole
-        ? prev.selectedRoles.filter(r => r !== role)
-        : [...prev.selectedRoles, role]
-      
-      // Всегда оставляем хотя бы одну роль
-      return {
-        ...prev,
-        selectedRoles: newRoles.length > 0 ? newRoles : ['USER']
-      }
-    })
   }
 
   if (!user) return null
@@ -170,48 +138,8 @@ export function EditUserDialog({ isOpen, onClose, user, onSuccess }: EditUserDia
                   <option value="INACTIVE">Неактивен</option>
                   <option value="SUSPENDED">Приостановлен</option>
                 </Select>
-              </div>
-
-              {/* Роли */}
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                  Роли пользователя
-                </label>
-                <div className="space-y-2">
-                  {AVAILABLE_ROLES.map((role) => {
-                    const isSelected = formData.selectedRoles.includes(role.value)
-                    return (
-                      <div 
-                        key={role.value} 
-                        className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                          isSelected 
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                            : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800'
-                        }`}
-                        onClick={() => toggleRole(role.value)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleRole(role.value)}
-                            className="w-4 h-4 text-blue-600 rounded"
-                          />
-                          <span className="font-medium text-gray-900 dark:text-white">{role.label}</span>
-                        </div>
-                        {isSelected && (
-                          <Badge 
-                            color={role.value === 'ADMIN' || role.value === 'SUPER_ADMIN' ? 'orange' : 'blue'}
-                          >
-                            Выбрано
-                          </Badge>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Выберите одну или несколько ролей для пользователя
+                  Роли теперь назначаются через членства в организациях. Здесь можно изменить только статус аккаунта.
                 </p>
               </div>
 

@@ -417,17 +417,11 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
       setAssignDialogStage(null)
       return
     }
-    if (!unitId || !data) return
-    if (isCreatingInstance) return
-    if (isAssignStageDataUndefined) return
-    if (!hasTemplate) return
-
-    if (!stageActive[assignStage]) {
-      setCreationError('Уборка уже занята другим исполнителем или недоступна для редактирования.')
-      router.replace(`/cleanings/${params.id}`, { scroll: false })
-      return
-    }
-
+    
+    // Если данных еще нет, ждем их загрузки
+    if (!data) return
+    
+    // Просто открываем диалог назначения, проверки выполним в диалоге
     if (!assignDialogOpen || assignDialogStage !== assignStage) {
       setAssignDialogStage(assignStage)
       setAssignDialogOpen(true)
@@ -438,13 +432,7 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
     assignDialogOpen,
     assignDialogStage,
     data,
-    hasTemplate,
-    isAssignStageDataUndefined,
-    isCreatingInstance,
     params.id,
-    router,
-    stageActive,
-    unitId,
   ])
 
   const handleConfirmAssign = useCallback(async () => {
@@ -693,8 +681,10 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
               {data.unit && (
                 <span className="inline-flex items-center gap-1"><HomeIcon className="w-4 h-4" /> {data.unit.property?.title} · {data.unit.name}</span>
               )}
-              {data.cleaner && (
+              {data.cleaner ? (
                 <span className="inline-flex items-center gap-1"><UserIcon className="w-4 h-4" /> {data.cleaner.firstName} {data.cleaner.lastName}</span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"><UserIcon className="w-4 h-4" /> Уборщик не назначен</span>
               )}
               {data.scheduledAt && (
                 <span className="inline-flex items-center gap-1"><CalendarIcon className="w-4 h-4" />{new Date(data.scheduledAt).toLocaleString('ru-RU')}</span>
@@ -705,22 +695,34 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
               {data.completedAt && (
                 <span className="inline-flex items-center gap-1"><CheckCircleIcon className="w-4 h-4" />Завершено: {new Date(data.completedAt).toLocaleString('ru-RU')}</span>
               )}
-                  </div>
-                  </div>
-          <Badge color={statusColor as any} className="self-start">
-            {data.status === 'SCHEDULED' && 'Запланирована'}
-            {data.status === 'IN_PROGRESS' && 'В работе'}
-            {data.status === 'COMPLETED' && 'Завершена'}
-            {data.status === 'APPROVED' && 'Проверена'}
-          </Badge>
-                </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <Badge color={statusColor as any} className="self-start">
+              {data.status === 'SCHEDULED' && 'Запланирована'}
+              {data.status === 'IN_PROGRESS' && 'В работе'}
+              {data.status === 'COMPLETED' && 'Завершена'}
+              {data.status === 'APPROVED' && 'Проверена'}
+            </Badge>
+            {!data.cleaner && data.status === 'SCHEDULED' && (
+              <Button
+                onClick={() => {
+                  router.push(`/cleanings/${params.id}?action=assign`)
+                }}
+                color="green"
+              >
+                Взять в работу
+              </Button>
+            )}
+          </div>
+        </div>
                 
         {data.notes && (
           <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-sm text-blue-800 dark:text-blue-200">
             {data.notes}
-                      </div>
-                    )}
-                </div>
+          </div>
+        )}
+      </div>
                 
                   <div className="space-y-4">
         <Subheading>Чек-листы уборки</Subheading>

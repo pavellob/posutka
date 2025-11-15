@@ -11,7 +11,6 @@ import { Divider } from '@/components/divider'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/dialog'
 import { Input } from '@/components/input'
 import { Textarea } from '@/components/textarea'
-import { Select } from '@/components/select'
 import { Fieldset, Field, Label } from '@/components/fieldset'
 import { UserActivityFeed } from '@/components/user-activity-feed'
 import { NotificationSettings } from '@/components/notification-settings'
@@ -26,11 +25,8 @@ import {
   EnvelopeIcon,
   CalendarIcon,
   ClockIcon,
-  ShieldCheckIcon,
   LockClosedIcon,
   BuildingOfficeIcon,
-  PencilIcon,
-  TrashIcon,
   KeyIcon
 } from '@heroicons/react/24/outline'
 
@@ -43,14 +39,17 @@ const GET_USER_BY_ID = gql`
       name
       emailVerified
       status
-      systemRoles
       isLocked
       lastLoginAt
       createdAt
       updatedAt
-      organizations {
+      memberships {
         id
-        name
+        role
+        organization {
+          id
+          name
+        }
       }
     }
   }
@@ -75,21 +74,8 @@ const UPDATE_USER = gql`
       email
       name
       status
-      systemRoles
       isLocked
       updatedAt
-    }
-  }
-`
-
-const GET_MEMBERSHIPS_BY_ORG = gql`
-  query GetMembershipsByOrg($orgId: UUID!) {
-    membershipsByOrg(orgId: $orgId) {
-      id
-      role
-      user {
-        id
-      }
     }
   }
 `
@@ -118,6 +104,12 @@ const UPDATE_MEMBER_ROLE = gql`
   }
 `
 
+const REMOVE_MEMBER = gql`
+  mutation RemoveMember($membershipId: UUID!) {
+    removeMember(membershipId: $membershipId)
+  }
+`
+
 
 type UserDetailsPageProps = {
   params: Promise<{
@@ -129,16 +121,16 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
   const params = use(props.params)
   const router = useRouter()
   const queryClient = useQueryClient()
-  const { currentOrgId } = useCurrentOrganization()
+  const { currentOrgId, currentOrganization } = useCurrentOrganization()
   const [activeTab, setActiveTab] = useState<'profile' | 'activity' | 'notifications'>('profile')
   const [isLockDialogOpen, setIsLockDialogOpen] = useState(false)
   const [lockReason, setLockReason] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     status: 'ACTIVE',
-    systemRoles: [] as string[]
   })
   const [hasChanges, setHasChanges] = useState(false)
+  const [selectedRoles, setSelectedRoles] = useState<Array<'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR'>>([])
 
   const { data: userData, isLoading, error } = useQuery({
     queryKey: ['user', params.id],
@@ -151,40 +143,29 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
     enabled: !!params.id
   })
 
-  const { data: membershipsData, isLoading: isMembershipsLoading, refetch: refetchMemberships } = useQuery({
-    queryKey: ['memberships-by-org', currentOrgId],
-    queryFn: async () => {
-      const response = await graphqlClient.request(GET_MEMBERSHIPS_BY_ORG, {
-        orgId: currentOrgId,
-      }) as any
-      return response.membershipsByOrg
-    },
-    enabled: !!currentOrgId,
-  })
 
-  const [membershipId, setMembershipId] = useState<string | null>(null)
-  const [initialOrgManager, setInitialOrgManager] = useState(false)
-  const [orgManager, setOrgManager] = useState(false)
- 
   // Инициализация формы при загрузке данных
   useEffect(() => {
     if (userData) {
       setFormData({
         name: userData.name || '',
         status: userData.status || 'ACTIVE',
-        systemRoles: userData.systemRoles || ['USER']
       })
     }
   }, [userData])
 
+  // Инициализация ролей из текущей организации
   useEffect(() => {
-    if (!membershipsData) return
-    const membership = membershipsData.find((item: any) => item.user.id === params.id)
-    setMembershipId(membership?.id ?? null)
-    const isManager = membership?.role === 'MANAGER'
-    setOrgManager(isManager)
-    setInitialOrgManager(isManager)
-  }, [membershipsData, params.id])
+    if (userData?.memberships && currentOrgId) {
+      const currentOrgMemberships = userData.memberships.filter(
+        (m: any) => m.organization?.id === currentOrgId
+      )
+      const roles = currentOrgMemberships.map((m: any) => m.role as 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR')
+      setSelectedRoles(roles)
+    } else {
+      setSelectedRoles([])
+    }
+  }, [userData, currentOrgId])
 
   const updateUserMutation = useMutation({
     mutationFn: async (input: any) => {
@@ -199,24 +180,26 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
   })
 
   const addMemberMutation = useMutation({
-    mutationFn: async (role: 'MANAGER' | 'STAFF' | 'OWNER') => {
-      if (!currentOrgId) return null
+    mutationFn: async ({ userId, orgId, role }: { userId: string; orgId: string; role: 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR' }) => {
       const response = await graphqlClient.request(ADD_MEMBER, {
         input: {
-          userId: params.id,
-          orgId: currentOrgId,
+          userId,
+          orgId,
           role,
         },
       }) as any
       return response.addMember
     },
     onSuccess: () => {
-      refetchMemberships()
+      queryClient.invalidateQueries({ queryKey: ['user', params.id] })
+      if (currentOrgId) {
+        queryClient.invalidateQueries({ queryKey: ['memberships-by-org', currentOrgId] })
+      }
     },
   })
 
   const updateMemberRoleMutation = useMutation({
-    mutationFn: async ({ membershipId, role }: { membershipId: string; role: 'MANAGER' | 'STAFF' | 'OWNER' }) => {
+    mutationFn: async ({ membershipId, role }: { membershipId: string; role: 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR' }) => {
       const response = await graphqlClient.request(UPDATE_MEMBER_ROLE, {
         input: {
           membershipId,
@@ -226,45 +209,89 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
       return response.updateMemberRole
     },
     onSuccess: () => {
-      refetchMemberships()
+      queryClient.invalidateQueries({ queryKey: ['user', params.id] })
+      if (currentOrgId) {
+        queryClient.invalidateQueries({ queryKey: ['memberships-by-org', currentOrgId] })
+      }
     },
   })
 
+  const removeMemberMutation = useMutation({
+    mutationFn: async (membershipId: string) => {
+      const response = await graphqlClient.request(REMOVE_MEMBER, {
+        membershipId,
+      }) as any
+      return response.removeMember
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user', params.id] })
+      queryClient.invalidateQueries({ queryKey: ['organizations'] })
+      if (currentOrgId) {
+        queryClient.invalidateQueries({ queryKey: ['memberships-by-org', currentOrgId] })
+      }
+    },
+  })
+
+
   const handleSaveChanges = async () => {
+    if (!currentOrgId) return
+
     try {
+      // Сохраняем данные пользователя
       await updateUserMutation.mutateAsync({
         name: formData.name,
         status: formData.status,
-        systemRoles: formData.systemRoles,
       })
 
-      if (currentOrgId) {
-        if (orgManager) {
-          if (membershipId) {
-            if (!initialOrgManager) {
-              await updateMemberRoleMutation.mutateAsync({ membershipId, role: 'MANAGER' })
-            }
-          } else {
-            const added = await addMemberMutation.mutateAsync('MANAGER')
-            if (added?.id) {
-              setMembershipId(added.id)
-            }
-          }
-        } else if (initialOrgManager && membershipId) {
-          await updateMemberRoleMutation.mutateAsync({ membershipId, role: 'STAFF' })
-        }
-      }
+      // Сохраняем роли в текущей организации
+      const currentOrgMemberships = userData?.memberships?.filter(
+        (m: any) => m.organization?.id === currentOrgId
+      ) || []
+      const currentRoles = currentOrgMemberships.map((m: any) => m.role)
+      
+      // Роли для добавления
+      const rolesToAdd = selectedRoles.filter(role => !currentRoles.includes(role))
+      // Роли для удаления
+      const rolesToRemove = currentRoles.filter((role: string) => !selectedRoles.includes(role as any))
+      
+      // Добавляем новые роли
+      await Promise.all(
+        rolesToAdd.map(role =>
+          addMemberMutation.mutateAsync({
+            userId: params.id,
+            orgId: currentOrgId,
+            role
+          })
+        )
+      )
+
+      // Удаляем ненужные роли
+      await Promise.all(
+        currentOrgMemberships
+          .filter((m: any) => rolesToRemove.includes(m.role))
+          .map((m: any) => removeMemberMutation.mutateAsync(m.id))
+      )
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['user', params.id] }),
-        currentOrgId ? queryClient.invalidateQueries({ queryKey: ['memberships-by-org', currentOrgId] }) : Promise.resolve(),
+        queryClient.invalidateQueries({ queryKey: ['memberships-by-org', currentOrgId] }),
       ])
 
-      setInitialOrgManager(orgManager)
       setHasChanges(false)
     } catch (error) {
       console.error('Failed to save user changes', error)
     }
+  }
+
+  const handleRoleToggle = (role: 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR') => {
+    setSelectedRoles(prev => {
+      if (prev.includes(role)) {
+        return prev.filter(r => r !== role)
+      } else {
+        return [...prev, role]
+      }
+    })
+    setHasChanges(true)
   }
 
   const handleInputChange = (field: string, value: any) => {
@@ -273,21 +300,6 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
       [field]: value
     }))
     setHasChanges(true)
-  }
-
-  const toggleRole = (role: string) => {
-    setFormData(prev => {
-      const hasRole = prev.systemRoles.includes(role)
-      const newRoles = hasRole
-        ? prev.systemRoles.filter(r => r !== role)
-        : [...prev.systemRoles, role]
-      
-      setHasChanges(true)
-      return {
-        ...prev,
-        systemRoles: newRoles.length > 0 ? newRoles : ['USER']
-      }
-    })
   }
 
   const lockMutation = useMutation({
@@ -554,28 +566,77 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
               </Fieldset>
             </div>
 
-          {/* Organizations */}
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-            <Subheading className="mb-4 flex items-center gap-2">
-              <BuildingOfficeIcon className="w-5 h-5" />
-              Организации
-            </Subheading>
-            <div className="space-y-3">
-              {userData.organizations && userData.organizations.length > 0 ? (
-                userData.organizations.map((org: any) => (
-                  <div
-                    key={org.id}
-                    className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700"
-                  >
-                    <Text className="font-medium">{org.name}</Text>
-                    <Text className="text-sm text-zinc-500 dark:text-zinc-400">{org.id}</Text>
-                  </div>
-                ))
-              ) : (
-                <Text className="text-zinc-500 dark:text-zinc-400">Не состоит в организациях</Text>
-              )}
+          {/* Роли в текущей организации */}
+          {currentOrgId && (
+            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
+              <Subheading className="mb-4 flex items-center gap-2">
+                <BuildingOfficeIcon className="w-5 h-5" />
+                Роли в текущей организации
+              </Subheading>
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                Выберите роли для пользователя в организации "{currentOrganization?.name || currentOrgId}".
+              </Text>
+              <div className="space-y-2">
+                {(['OWNER', 'MANAGER', 'STAFF', 'CLEANER', 'OPERATOR'] as const).map((role) => {
+                  const roleLabels: Record<string, string> = {
+                    OWNER: 'Владелец',
+                    MANAGER: 'Менеджер',
+                    STAFF: 'Сотрудник',
+                    CLEANER: 'Уборщик',
+                    OPERATOR: 'Оператор',
+                  }
+                  const roleDescriptions: Record<string, string> = {
+                    OWNER: 'Полный доступ ко всем функциям организации',
+                    MANAGER: 'Управление операциями и утверждение уборок',
+                    STAFF: 'Базовый доступ к функциям',
+                    CLEANER: 'Доступ к задачам уборки',
+                    OPERATOR: 'Мониторинг и поддержка',
+                  }
+                  const roleColors: Record<string, 'orange' | 'blue' | 'zinc' | 'lime' | 'amber'> = {
+                    OWNER: 'orange',
+                    MANAGER: 'blue',
+                    STAFF: 'zinc',
+                    CLEANER: 'lime',
+                    OPERATOR: 'amber',
+                  }
+                  const isSelected = selectedRoles.includes(role)
+
+                  return (
+                    <div
+                      key={role}
+                      className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                      }`}
+                      onClick={() => handleRoleToggle(role)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleRoleToggle(role)}
+                        className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Text className="font-medium">{roleLabels[role]}</Text>
+                          {isSelected && (
+                            <Badge color={roleColors[role]} className="text-xs">
+                              {role}
+                            </Badge>
+                          )}
+                        </div>
+                        <Text className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                          {roleDescriptions[role]}
+                        </Text>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* System Info */}
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
@@ -604,81 +665,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
             </div>
           </div>
 
-          {/* Roles - Editable */}
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-            <Subheading className="mb-4 flex items-center gap-2">
-              <ShieldCheckIcon className="w-5 h-5" />
-              Системные роли
-            </Subheading>
-            <div className="space-y-2">
-              {['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OPERATOR', 'CLEANER', 'USER', 'GUEST'].map((role) => {
-                const isSelected = formData.systemRoles.includes(role)
-                const roleLabels: Record<string, string> = {
-                  'SUPER_ADMIN': 'Супер-администратор',
-                  'ADMIN': 'Администратор',
-                  'MANAGER': 'Менеджер',
-                  'OPERATOR': 'Оператор',
-                  'CLEANER': 'Уборщик',
-                  'USER': 'Пользователь',
-                  'GUEST': 'Гость'
-                }
-                return (
-                  <div 
-                    key={role} 
-                    className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                      isSelected 
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                        : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                    }`}
-                    onClick={() => toggleRole(role)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleRole(role)}
-                        className="w-4 h-4 text-blue-600 rounded"
-                      />
-                      <Text className="font-medium">{roleLabels[role]}</Text>
-                    </div>
-                    {isSelected && (
-                      <Badge color="blue" className="text-xs">✓</Badge>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
           </form>
-
-          {currentOrgId && (
-            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
-              <Subheading className="flex items-center gap-2">
-                <BuildingOfficeIcon className="w-5 h-5" />
-                Роль в организации
-              </Subheading>
-              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                Управление доступом пользователя в текущей организации.
-              </Text>
-              <SwitchField>
-                <Switch
-                  name="orgManager"
-                  checked={orgManager}
-                  onChange={(checked) => {
-                    setOrgManager(checked)
-                    setHasChanges(true)
-                  }}
-                  disabled={isMembershipsLoading || addMemberMutation.isPending || updateMemberRoleMutation.isPending}
-                />
-                <div className="ml-3">
-                  <Text className="font-medium">Менеджер организации</Text>
-                  <Text className="text-sm text-zinc-500 dark:text-zinc-400">
-                    Даёт доступ к утверждению уборок и другим менеджерским функциям.
-                  </Text>
-                </div>
-              </SwitchField>
-            </div>
-          )}
 
           {/* Save Button */}
           {hasChanges && (
@@ -689,9 +676,17 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
                   setFormData({
                     name: userData?.name || '',
                     status: userData?.status || 'ACTIVE',
-                    systemRoles: userData?.systemRoles || ['USER']
                   })
-                  setOrgManager(initialOrgManager)
+                  // Сбрасываем роли к текущим значениям из организации
+                  if (userData?.memberships && currentOrgId) {
+                    const currentOrgMemberships = userData.memberships.filter(
+                      (m: any) => m.organization?.id === currentOrgId
+                    )
+                    const roles = currentOrgMemberships.map((m: any) => m.role as 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR')
+                    setSelectedRoles(roles)
+                  } else {
+                    setSelectedRoles([])
+                  }
                   setHasChanges(false)
                 }}
               >
@@ -699,10 +694,10 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
               </Button>
               <Button 
                 onClick={handleSaveChanges}
-                disabled={updateUserMutation.isPending || addMemberMutation.isPending || updateMemberRoleMutation.isPending || !formData.name.trim()}
+                disabled={updateUserMutation.isPending || addMemberMutation.isPending || removeMemberMutation.isPending || !formData.name.trim()}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {updateUserMutation.isPending || addMemberMutation.isPending || updateMemberRoleMutation.isPending ? 'Сохранение...' : 'Сохранить изменения'}
+                {updateUserMutation.isPending || addMemberMutation.isPending || removeMemberMutation.isPending ? 'Сохранение...' : 'Сохранить изменения'}
               </Button>
             </div>
           )}

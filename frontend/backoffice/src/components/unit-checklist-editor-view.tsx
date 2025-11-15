@@ -14,6 +14,7 @@ import { FileUpload } from './file-upload';
 import { graphqlClient } from '@/lib/graphql-client';
 import { 
   GET_CHECKLISTS_BY_UNIT,
+  CREATE_CHECKLIST_TEMPLATE,
   ADD_TEMPLATE_ITEM,
   UPDATE_TEMPLATE_ITEM,
   REMOVE_TEMPLATE_ITEM,
@@ -937,6 +938,15 @@ export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEdito
     setEditingItem(null);
   };
 
+  const createTemplateMutation = useMutation({
+    mutationFn: async () => {
+      return graphqlClient.request(CREATE_CHECKLIST_TEMPLATE, { unitId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklists', unitId] });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="p-6 text-center">
@@ -960,8 +970,20 @@ export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEdito
         <div className="p-12 text-center border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-zinc-900 dark:to-zinc-800">
           <Heading level={5} className="mb-2">Чеклист не создан</Heading>
           <Text className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-            Шаблон чек-листа будет создан автоматически при первом использовании
+            Создайте шаблон чек-листа для этой квартиры
           </Text>
+          <Button
+            onClick={() => createTemplateMutation.mutate()}
+            color="blue"
+            disabled={createTemplateMutation.isPending}
+          >
+            {createTemplateMutation.isPending ? 'Создание...' : (
+              <>
+                <PlusIcon className="w-4 h-4 mr-2" />
+                Создать чеклист
+              </>
+            )}
+          </Button>
         </div>
       </div>
     );

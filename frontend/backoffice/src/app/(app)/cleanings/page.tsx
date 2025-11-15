@@ -28,6 +28,7 @@ import {
   GET_UNITS_BY_PROPERTY,
   COMPLETE_CLEANING,
   CANCEL_CLEANING,
+  ASSIGN_CLEANING_TO_ME,
   DEACTIVATE_CLEANER,
   ACTIVATE_CLEANER
 } from '@/lib/graphql-queries'
@@ -159,6 +160,25 @@ function CleaningsPageContent() {
       alert(`Ошибка: ${error.message || 'Не удалось активировать уборщика'}`)
     }
   })
+
+  // Мутация назначения уборки на себя
+  const assignCleaningToMeMutation = useMutation({
+    mutationFn: (cleaningId: string) => graphqlClient.request(ASSIGN_CLEANING_TO_ME, { id: cleaningId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cleanings'] })
+      // Перенаправляем на страницу деталей уборки с action=assign
+      router.push(`/cleanings/${selectedCleaningId}?action=assign`)
+    },
+    onError: (error: any) => {
+      alert(`Ошибка: ${error.message || 'Не удалось взять уборку в работу'}`)
+    }
+  })
+
+  const handleAssignCleaning = (cleaning: any) => {
+    setSelectedCleaningId(cleaning.id)
+    // Открываем диалог или перенаправляем на страницу деталей с action=assign
+    router.push(`/cleanings/${cleaning.id}?action=assign`)
+  }
 
   const handleDeactivateCleaner = (cleanerId: string, cleanerName: string) => {
     if (confirm(`Вы уверены, что хотите деактивировать уборщика ${cleanerName}?\n\nУборщик будет перемещен в деактивированные, но его можно будет активировать снова.`)) {
@@ -446,6 +466,7 @@ function CleaningsPageContent() {
                     completeCleaningMutation.mutate({ id: cleaningId, input: {} })
                   }
                 }}
+                onAssign={handleAssignCleaning}
               />
             ))}
           </div>

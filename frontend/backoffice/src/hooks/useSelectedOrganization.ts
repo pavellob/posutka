@@ -17,52 +17,43 @@ export function useSelectedOrganization() {
   const { user } = useCurrentUser()
 
   useEffect(() => {
-    console.log('🔄 useSelectedOrganization useEffect triggered:', { 
-      userOrgs: user?.organizations?.length,
-      forceUpdate 
-    })
-    
     if (!user?.organizations) {
       setIsLoading(false)
       return
     }
 
-    // Загружаем выбранную организацию из localStorage
     const savedOrgId = localStorage.getItem('selectedOrganizationId')
-    console.log('🔍 Loading organization from localStorage:', { savedOrgId })
-    
+    let targetOrg: any | null = null
+
     if (savedOrgId) {
-      const org = user.organizations.find((o: any) => o.id === savedOrgId)
-      if (org) {
-        console.log('✅ Found saved organization:', { name: org.name, id: org.id })
-        setSelectedOrg({
-          id: org.id,
-          name: org.name,
-          initials: org.name.substring(0, 2).toUpperCase(),
-          color: org.color || 'bg-blue-500'
-        })
-      } else {
-        console.log('❌ Saved organization not found in user organizations')
-      }
-    } else if (user.organizations.length > 0) {
-      // Если нет сохраненной организации, используем первую
-      const firstOrg = user.organizations[0]
-      console.log('🔄 Using first organization:', { name: firstOrg.name, id: firstOrg.id })
-      setSelectedOrg({
-        id: firstOrg.id,
-        name: firstOrg.name,
-        initials: firstOrg.name.substring(0, 2).toUpperCase(),
-        color: firstOrg.color || 'bg-blue-500'
-      })
+      targetOrg = user.organizations.find((o: any) => o.id === savedOrgId) ?? null
     }
+
+    if (!targetOrg && user.organizations.length > 0) {
+      targetOrg = user.organizations[0]
+    }
+
+    if (targetOrg) {
+      if (selectedOrg?.id !== targetOrg.id) {
+        setSelectedOrg({
+          id: targetOrg.id,
+          name: targetOrg.name,
+          initials: targetOrg.name.substring(0, 2).toUpperCase(),
+          color: targetOrg.color || 'bg-blue-500'
+        })
+      }
+      if (savedOrgId !== targetOrg.id) {
+        localStorage.setItem('selectedOrganizationId', targetOrg.id)
+      }
+    }
+
     setIsLoading(false)
-  }, [user, forceUpdate])
+  }, [user, forceUpdate, selectedOrg?.id])
 
   // Слушаем изменения localStorage из других вкладок/компонентов
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'selectedOrganizationId' && e.newValue) {
-        console.log('🔄 Storage change detected:', { newValue: e.newValue })
         setForceUpdate(prev => prev + 1)
       }
     }
@@ -70,7 +61,6 @@ export function useSelectedOrganization() {
     // Также слушаем изменения localStorage в той же вкладке
     const handleLocalStorageChange = () => {
       const currentSavedId = localStorage.getItem('selectedOrganizationId')
-      console.log('🔄 Local storage change detected:', { currentSavedId })
       setForceUpdate(prev => prev + 1)
     }
 
@@ -83,12 +73,6 @@ export function useSelectedOrganization() {
   }, [])
 
   const changeOrganization = (org: Organization) => {
-    console.log('🔄 changeOrganization called:', { 
-      newOrg: org.name, 
-      newOrgId: org.id,
-      currentOrg: selectedOrg?.name,
-      currentOrgId: selectedOrg?.id 
-    })
     setSelectedOrg(org)
     localStorage.setItem('selectedOrganizationId', org.id)
     // Принудительно обновляем хук
@@ -101,13 +85,6 @@ export function useSelectedOrganization() {
     // Проверяем localStorage на случай, если состояние не синхронизировано
     const savedOrgId = localStorage.getItem('selectedOrganizationId')
     const currentOrgId = selectedOrg?.id || null
-    
-    console.log('🔍 getSelectedOrgId called:', { 
-      currentOrgId, 
-      savedOrgId,
-      selectedOrg: selectedOrg?.name,
-      areEqual: currentOrgId === savedOrgId
-    })
     
     // Возвращаем значение из localStorage, если оно есть, иначе из состояния
     return savedOrgId || currentOrgId
