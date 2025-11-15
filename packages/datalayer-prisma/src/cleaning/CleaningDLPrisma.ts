@@ -115,18 +115,23 @@ export class CleaningDLPrisma implements ICleaningDL {
       },
     });
     
-    // Добавляем роль CLEANER пользователю (если еще нет)
-    const hasCleanerRole = user.systemRoles.includes('CLEANER');
-    if (!hasCleanerRole) {
-      await this.prisma.user.update({
-        where: { id: input.userId },
-        data: {
-          systemRoles: {
-            push: 'CLEANER',
-          },
+    // Обеспечиваем, что у пользователя есть членство с ролью CLEANER в этой организации
+    await this.prisma.membership.upsert({
+      where: {
+        userId_orgId: {
+          userId: input.userId,
+          orgId: input.orgId,
         },
-      });
-    }
+      },
+      update: {
+        role: 'CLEANER',
+      },
+      create: {
+        userId: input.userId,
+        orgId: input.orgId,
+        role: 'CLEANER',
+      },
+    });
 
     return this.mapCleanerFromPrisma(cleaner);
   }

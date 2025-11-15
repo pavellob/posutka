@@ -36,7 +36,10 @@ export interface IIdentityDL {
   getUserByEmail(email: string): Promise<User | null>;
   listUsers(params: { first?: number; after?: string }): Promise<UserConnection>;
   createUser(input: CreateUserInput): Promise<User>;
-  updateUser(id: UUID, input: Partial<CreateUserInput>): Promise<User>;
+  updateUser(
+    id: UUID,
+    input: Partial<CreateUserInput & { status?: string; isLocked?: boolean; phoneNumber?: string }>
+  ): Promise<User>;
 
   // Organizations
   getOrganizationById(id: UUID): Promise<Organization | null>;

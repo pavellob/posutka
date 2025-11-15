@@ -373,7 +373,6 @@ model User {
   phoneNumber          String?
   emailVerified        Boolean                   @default(false)
   password             String?                   @default("")
-  systemRoles          String[]                  @default(["USER"])
   status               String                    @default("ACTIVE")
   isLocked             Boolean                   @default(false)
   lastLoginAt          DateTime?
@@ -392,9 +391,10 @@ model Membership {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, orgId])
+  @@unique([userId, orgId, role])
+  @@index([userId, orgId])
 }
 
 model RefreshToken {
@@ -410,6 +410,8 @@ enum Role {
   OWNER
   MANAGER
   STAFF
+  CLEANER
+  OPERATOR
 }
 
 model Listing {

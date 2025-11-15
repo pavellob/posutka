@@ -32,14 +32,38 @@ type IAMUser {
   lockReason: String
   """Двухфакторная аутентификация включена"""
   twoFactorEnabled: Boolean!
-  """Роли пользователя в системе"""
-  systemRoles: [SystemRole!]!
+  """Членства пользователя в организациях"""
+  memberships: [IAMMembership!]!
   """Разрешения пользователя"""
   permissions: [Permission!]!
   """Активные сессии"""
   activeSessions: [UserSession!]!
-  """История активности"""
-  activityLog: [ActivityLog!]!
+"""История активности"""
+activityLog: [ActivityLog!]!
+}
+
+"""Членство пользователя в организации"""
+type IAMMembership {
+  """Уникальный идентификатор членства"""
+  id: UUID!
+  """Идентификатор организации"""
+  orgId: UUID!
+  """Роль пользователя"""
+  role: Role!
+  """Дата создания членства"""
+  createdAt: DateTime!
+  """Дата обновления членства"""
+  updatedAt: DateTime!
+  """Краткая информация об организации"""
+  organization: IAMOrganizationSummary
+}
+
+"""Краткая информация об организации"""
+type IAMOrganizationSummary {
+  """Идентификатор организации"""
+  id: UUID!
+  """Название организации"""
+  name: String!
 }
 
 """Статус пользователя"""
@@ -54,22 +78,18 @@ enum UserStatus {
   DELETED
 }
 
-"""Системные роли"""
-enum SystemRole {
-  """Супер администратор"""
-  SUPER_ADMIN
-  """Администратор"""
-  ADMIN
+"""Роли в организации"""
+enum Role {
+  """Владелец организации"""
+  OWNER
   """Менеджер"""
   MANAGER
-  """Оператор"""
-  OPERATOR
+  """Сотрудник"""
+  STAFF
   """Уборщик"""
   CLEANER
-  """Пользователь"""
-  USER
-  """Гость"""
-  GUEST
+  """Оператор"""
+  OPERATOR
 }
 
 """Разрешения в системе"""
@@ -145,7 +165,7 @@ type UserStats {
 """Статистика по ролям"""
 type RoleStats {
   """Роль"""
-  role: SystemRole!
+  role: Role!
   """Количество пользователей"""
   count: Int!
 }
@@ -187,7 +207,7 @@ input UserFilters {
   """Статус пользователя"""
   status: UserStatus
   """Роль пользователя"""
-  role: SystemRole
+  role: Role
   """Дата создания от"""
   createdAtFrom: DateTime
   """Дата создания до"""
@@ -236,8 +256,6 @@ input CreateIAMUserInput {
   name: String
   """Пароль"""
   password: String!
-  """Роли в системе"""
-  systemRoles: [SystemRole!]
   """ID организации (опционально)"""
   orgId: UUID
 }
@@ -248,8 +266,6 @@ input UpdateIAMUserInput {
   name: String
   """Статус пользователя"""
   status: UserStatus
-  """Роли в системе"""
-  systemRoles: [SystemRole!]
   """Заблокировать аккаунт"""
   lockUser: Boolean
   """Причина блокировки"""
@@ -318,10 +334,6 @@ type Mutation {
   terminateSession(sessionId: UUID!): Boolean!
   """Завершить все сессии пользователя"""
   terminateAllUserSessions(userId: UUID!): Boolean!
-  """Назначить роли пользователю"""
-  assignRoles(userId: UUID!, roles: [SystemRole!]!): IAMUser!
-  """Отозвать роли у пользователя"""
-  revokeRoles(userId: UUID!, roles: [SystemRole!]!): IAMUser!
   """Назначить разрешения пользователю"""
   assignPermissions(userId: UUID!, permissionIds: [UUID!]!): IAMUser!
   """Отозвать разрешения у пользователя"""

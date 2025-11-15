@@ -12,7 +12,6 @@ export declare class IdentityDLPrisma implements IIdentityDL {
     }): Promise<UserConnection>;
     createUser(input: CreateUserInput): Promise<User>;
     updateUser(id: string, input: Partial<CreateUserInput & {
-        systemRoles?: string[];
         status?: string;
         isLocked?: boolean;
     }>): Promise<User>;

@@ -9,47 +9,35 @@ async function resolveManagerUserIds(prisma: PrismaClient, orgId?: string | null
   const managerIds = new Set<string>();
 
   if (orgId) {
-    const orgManagers = await prisma.user.findMany({
+    const orgManagers = await prisma.membership.findMany({
       where: {
-        systemRoles: {
-          has: 'MANAGER',
-        },
-        memberships: {
-          some: {
-            orgId,
-          },
-        },
+        orgId,
+        role: 'MANAGER',
       },
-      select: {
-        id: true,
-      },
+      select: { userId: true },
     });
 
-    orgManagers.forEach((user) => managerIds.add(user.id));
+    orgManagers.forEach((membership) => managerIds.add(membership.userId));
 
     if (managerIds.size === 0) {
-      logger.info('No manager users linked to organization via membership', {
+      logger.info('No managers found via membership for organization', {
         orgId,
       });
     }
   }
 
   if (managerIds.size === 0) {
-    const globalManagers = await prisma.user.findMany({
+    const globalManagers = await prisma.membership.findMany({
       where: {
-        systemRoles: {
-          has: 'MANAGER',
-        },
+        role: 'MANAGER',
       },
-      select: {
-        id: true,
-      },
+      select: { userId: true },
     });
 
-    globalManagers.forEach((user) => managerIds.add(user.id));
+    globalManagers.forEach((membership) => managerIds.add(membership.userId));
 
     if (orgId && globalManagers.length > 0) {
-      logger.info('Falling back to global MANAGER system role users for organization notifications', {
+      logger.info('Falling back to MANAGER memberships without organization match', {
         orgId,
         count: globalManagers.length,
       });
@@ -199,14 +187,23 @@ export const resolvers: any = {
         
         if (cleaning.cleanerId) {
           // Если уборщик назначен - публикуем CLEANING_ASSIGNED
+          const cleaner = await prisma.cleaner.findUnique({
+            where: { id: cleaning.cleanerId }
+          });
+          const cleanerName = cleaner ? `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim() : undefined;
+          const unitAddress = unit.property?.address;
+          
           await eventsClient.publishCleaningAssigned({
             cleaningId: cleaning.id,
             cleanerId: cleaning.cleanerId,
             targetUserId: targetUserIds[0], // Используем вычисленный targetUserId
             unitId: cleaning.unitId,
             unitName,
+            unitAddress,
+            cleanerName,
             scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
             requiresLinenChange: cleaning.requiresLinenChange,
+            notes: cleaning.notes || undefined,
             orgId: cleaning.orgId || undefined,
             actorUserId: undefined, // TODO: получить из context
           });
@@ -218,12 +215,16 @@ export const resolvers: any = {
           });
         } else if (targetUserIds.length > 0) {
           // Если уборщик НЕ назначен, но есть предпочитаемые - публикуем AVAILABLE
+          const unitAddress = unit.property?.address;
+          
           await eventsClient.publishCleaningAvailable({
             cleaningId: cleaning.id,
             unitId: cleaning.unitId,
             unitName,
+            unitAddress,
             scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
             requiresLinenChange: cleaning.requiresLinenChange,
+            notes: cleaning.notes || undefined,
             targetUserIds,
             orgId: cleaning.orgId || undefined,
           });
@@ -414,11 +415,19 @@ export const resolvers: any = {
           if (cleaner && unit) {
             const eventsClient = getEventsClient();
             const targetUserId = cleaner.userId || cleaner.id;
+            const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim();
+            const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
+            const unitAddress = unit.property?.address;
+            
             await eventsClient.publishCleaningStarted({
               cleaningId: cleaning.id,
               cleanerId: cleaning.cleanerId,
               targetUserId,
-              unitName: `${unit.property?.title || ''} - ${unit.name}`,
+              unitName,
+              unitAddress,
+              cleanerName,
+              scheduledAt: cleaning.scheduledAt,
+              notes: cleaning.notes || undefined,
               orgId: cleaning.orgId || undefined,
             });
             logger.info('✅ CLEANING_STARTED event published', { cleaningId: id });
@@ -468,6 +477,10 @@ export const resolvers: any = {
             }
 
             if (cleanerTargetIds.length > 0) {
+              const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim();
+              const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
+              const unitAddress = unit.property?.address;
+              
               logger.info('Publishing CLEANING_COMPLETED for cleaner', {
                 cleaningId: cleaning.id,
                 cleanerId: cleaning.cleanerId,
@@ -478,19 +491,33 @@ export const resolvers: any = {
                 cleaningId: cleaning.id,
                 cleanerId: cleaning.cleanerId,
                 targetUserIds: cleanerTargetIds,
-                unitName: `${unit.property?.title || ''} - ${unit.name}`,
+                unitName,
+                unitAddress,
+                cleanerName,
+                scheduledAt: cleaning.scheduledAt,
+                startedAt: cleaning.startedAt,
                 completedAt: cleaning.completedAt || new Date().toISOString(),
+                notes: cleaning.notes || undefined,
                 orgId: cleaning.orgId || undefined,
               });
               logger.info('✅ CLEANING_COMPLETED event published', { cleaningId: id });
             }
 
             if (managerTargetIds.length > 0) {
+              const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim();
+              const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
+              const unitAddress = unit.property?.address;
+              
               await eventsClient.publishCleaningReadyForReview({
                 cleaningId: cleaning.id,
                 managerIds: managerTargetIds,
-                unitName: `${unit.property?.title || ''} - ${unit.name}`,
+                unitName,
+                unitAddress,
+                cleanerName,
+                scheduledAt: cleaning.scheduledAt,
+                startedAt: cleaning.startedAt,
                 completedAt: cleaning.completedAt || new Date().toISOString(),
+                notes: cleaning.notes || undefined,
                 orgId: cleaning.orgId || undefined,
               });
             }
@@ -553,13 +580,20 @@ export const resolvers: any = {
         
         if (unit) {
           const eventsClient = getEventsClient();
+          const cleanerName = `${currentCleaner.firstName || ''} ${currentCleaner.lastName || ''}`.trim();
+          const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
+          const unitAddress = unit.property?.address;
+          
           await eventsClient.publishCleaningAssigned({
             cleaningId: cleaning.id,
             cleanerId: currentCleaner.id,
             unitId: cleaning.unitId,
-            unitName: `${unit.property?.title || ''} - ${unit.name}`,
+            unitName,
+            unitAddress,
+            cleanerName,
             scheduledAt: cleaning.scheduledAt,
             requiresLinenChange: cleaning.requiresLinenChange,
+            notes: cleaning.notes || undefined,
             orgId: cleaning.orgId || undefined,
             actorUserId: undefined, // TODO: получить из context
             targetUserId: currentCleaner.userId || currentCleaner.id,
@@ -598,12 +632,20 @@ export const resolvers: any = {
           if (cleaner && unit) {
             const eventsClient = getEventsClient();
             const targetUserId = cleaner.userId || cleaner.id;
+            const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim();
+            const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
+            const unitAddress = unit.property?.address;
+            
             await eventsClient.publishCleaningCancelled({
               cleaningId: cleaning.id,
               cleanerId: cleaning.cleanerId,
               targetUserId,
-              unitName: `${unit.property?.title || ''} - ${unit.name}`,
+              unitName,
+              unitAddress,
+              cleanerName,
+              scheduledAt: cleaning.scheduledAt,
               reason,
+              notes: cleaning.notes || undefined,
               orgId: cleaning.orgId || undefined,
             });
             logger.info('✅ CLEANING_CANCELLED event published', { cleaningId: id });
@@ -1002,12 +1044,21 @@ Object.assign(resolvers.Mutation, {
                 unit?.property?.title ?? '',
                 unit?.name ?? '',
               ].filter(Boolean);
+              const unitName = unitNameParts.length > 0 ? unitNameParts.join(' - ') : 'квартире';
+              const unitAddress = unit?.property?.address;
+              const cleanerName = cleaning.cleaner 
+                ? `${cleaning.cleaner.firstName || ''} ${cleaning.cleaner.lastName || ''}`.trim()
+                : undefined;
 
               await eventsClient.publishCleaningPrecheckCompleted({
                 cleaningId: cleaning.id,
                 managerIds,
-                unitName: unitNameParts.length > 0 ? unitNameParts.join(' - ') : 'квартире',
+                unitName,
+                unitAddress,
+                cleanerName,
+                scheduledAt: cleaning.scheduledAt instanceof Date ? cleaning.scheduledAt.toISOString() : cleaning.scheduledAt,
                 submittedAt: new Date().toISOString(),
+                notes: cleaning.notes || undefined,
                 orgId: cleaning.orgId || undefined,
                 cleanerId: cleaning.cleanerId ?? null,
               });
@@ -1078,6 +1129,15 @@ Object.assign(resolvers.Mutation, {
     },
     
     // ===== Редактирование шаблона =====
+    
+    createChecklistTemplate: async (
+      _: unknown,
+      { unitId }: { unitId: string },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Creating checklist template', { unitId });
+      return checklistInstanceService.createChecklistTemplate(unitId);
+    },
     
     addTemplateItem: async (
       _: unknown,

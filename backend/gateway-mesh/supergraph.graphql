@@ -445,6 +445,8 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   getChecklistAttachmentUploadUrls(input: GetChecklistAttachmentUploadUrlsInput!): [PresignedUploadUrl!]! @join__field(graph: CLEANING_SUBGRAPH)
   """Удалить аттачмент (фото) из пункта"""
   removeChecklistAttachment(attachmentId: UUID!): Boolean! @join__field(graph: CLEANING_SUBGRAPH)
+  """Создать шаблон для юнита"""
+  createChecklistTemplate(unitId: UUID!): ChecklistTemplate! @join__field(graph: CLEANING_SUBGRAPH)
   """Добавить пункт в шаблон"""
   addTemplateItem(input: AddTemplateItemInput!): ChecklistTemplate! @join__field(graph: CLEANING_SUBGRAPH)
   """Обновить пункт в шаблоне"""
@@ -477,10 +479,6 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   terminateSession(sessionId: UUID!): Boolean! @join__field(graph: IAM_SUBGRAPH)
   """Завершить все сессии пользователя"""
   terminateAllUserSessions(userId: UUID!): Boolean! @join__field(graph: IAM_SUBGRAPH)
-  """Назначить роли пользователю"""
-  assignRoles(userId: UUID!, roles: [SystemRole!]!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
-  """Отозвать роли у пользователя"""
-  revokeRoles(userId: UUID!, roles: [SystemRole!]!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
   """Назначить разрешения пользователю"""
   assignPermissions(userId: UUID!, permissionIds: [UUID!]!): IAMUser! @join__field(graph: IAM_SUBGRAPH)
   """Отозвать разрешения у пользователя"""
@@ -969,8 +967,6 @@ type User @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBG
   emailVerified: Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
   """Статус пользователя"""
   status: UserStatus! @join__field(graph: IDENTITY_SUBGRAPH)
-  """Системные роли пользователя"""
-  systemRoles: [SystemRole!]! @join__field(graph: IDENTITY_SUBGRAPH)
   """Заблокирован ли пользователь"""
   isLocked: Boolean! @join__field(graph: IDENTITY_SUBGRAPH)
   """Дата последнего входа"""
@@ -979,8 +975,8 @@ type User @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IDENTITY_SUBG
   createdAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
   """Дата и время последнего обновления"""
   updatedAt: DateTime! @join__field(graph: IDENTITY_SUBGRAPH)
-  """Список организаций, в которых состоит пользователь"""
-  organizations: [Organization!]! @join__field(graph: IDENTITY_SUBGRAPH)
+  """Список членств пользователя"""
+  memberships: [Membership!]! @join__field(graph: IDENTITY_SUBGRAPH)
 }
 
 """Связь квартиры с предпочтительным уборщиком."""
@@ -1459,14 +1455,38 @@ type IAMUser @join__type(graph: IAM_SUBGRAPH) {
   lockReason: String
   """Двухфакторная аутентификация включена"""
   twoFactorEnabled: Boolean!
-  """Роли пользователя в системе"""
-  systemRoles: [SystemRole!]!
+  """Членства пользователя в организациях"""
+  memberships: [IAMMembership!]!
   """Разрешения пользователя"""
   permissions: [Permission!]!
   """Активные сессии"""
   activeSessions: [UserSession!]!
   """История активности"""
   activityLog: [ActivityLog!]!
+}
+
+"""Членство пользователя в организации"""
+type IAMMembership @join__type(graph: IAM_SUBGRAPH) {
+  """Уникальный идентификатор членства"""
+  id: UUID!
+  """Идентификатор организации"""
+  orgId: UUID!
+  """Роль пользователя"""
+  role: Role!
+  """Дата создания членства"""
+  createdAt: DateTime!
+  """Дата обновления членства"""
+  updatedAt: DateTime!
+  """Краткая информация об организации"""
+  organization: IAMOrganizationSummary
+}
+
+"""Краткая информация об организации"""
+type IAMOrganizationSummary @join__type(graph: IAM_SUBGRAPH) {
+  """Идентификатор организации"""
+  id: UUID!
+  """Название организации"""
+  name: String!
 }
 
 """Разрешения в системе"""
@@ -1542,7 +1562,7 @@ type UserStats @join__type(graph: IAM_SUBGRAPH) {
 """Статистика по ролям"""
 type RoleStats @join__type(graph: IAM_SUBGRAPH) {
   """Роль"""
-  role: SystemRole!
+  role: Role!
   """Количество пользователей"""
   count: Int!
 }
@@ -1572,6 +1592,8 @@ type Membership @join__type(graph: IDENTITY_SUBGRAPH, key: "id") {
   id: UUID!
   """Пользователь, который является членом организации"""
   user: User!
+  """Организация"""
+  organization: Organization!
   """Роль пользователя в организации"""
   role: Role!
   """Дата и время добавления в организацию"""
@@ -2146,22 +2168,18 @@ enum UserStatus @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUB
   DELETED @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
 }
 
-"""Системные роли"""
-enum SystemRole @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
-  """Супер администратор"""
-  SUPER_ADMIN @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  """Администратор"""
-  ADMIN @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
+"""Роли в организации"""
+enum Role @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) {
+  """Владелец организации"""
+  OWNER @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Менеджер"""
   MANAGER @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  """Оператор"""
-  OPERATOR @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  """Сотрудник"""
+  STAFF @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
   """Уборщик"""
   CLEANER @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  """Пользователь"""
-  USER @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  """Гость"""
-  GUEST @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
+  """Оператор"""
+  OPERATOR @join__enumValue(graph: IAM_SUBGRAPH) @join__enumValue(graph: IDENTITY_SUBGRAPH)
 }
 
 """Поля для сортировки пользователей"""
@@ -2184,19 +2202,6 @@ enum SortDirection @join__type(graph: IAM_SUBGRAPH) {
   ASC @join__enumValue(graph: IAM_SUBGRAPH)
   """По убыванию"""
   DESC @join__enumValue(graph: IAM_SUBGRAPH)
-}
-
-"""
-Роли пользователей в организации.
-Определяет уровень доступа и права.
-"""
-enum Role @join__type(graph: IDENTITY_SUBGRAPH) {
-  """Владелец организации - полный доступ ко всем функциям"""
-  OWNER @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  """Менеджер - управление бронированиями и операциями"""
-  MANAGER @join__enumValue(graph: IDENTITY_SUBGRAPH)
-  """Сотрудник - ограниченный доступ к функциям"""
-  STAFF @join__enumValue(graph: IDENTITY_SUBGRAPH)
 }
 
 """
@@ -2844,7 +2849,7 @@ input UserFilters @join__type(graph: IAM_SUBGRAPH) {
   """Статус пользователя"""
   status: UserStatus
   """Роль пользователя"""
-  role: SystemRole
+  role: Role
   """Дата создания от"""
   createdAtFrom: DateTime
   """Дата создания до"""
@@ -2871,8 +2876,6 @@ input CreateIAMUserInput @join__type(graph: IAM_SUBGRAPH) {
   name: String
   """Пароль"""
   password: String!
-  """Роли в системе"""
-  systemRoles: [SystemRole!]
   """ID организации (опционально)"""
   orgId: UUID
 }
@@ -2883,8 +2886,6 @@ input UpdateIAMUserInput @join__type(graph: IAM_SUBGRAPH) {
   name: String
   """Статус пользователя"""
   status: UserStatus
-  """Роли в системе"""
-  systemRoles: [SystemRole!]
   """Заблокировать аккаунт"""
   lockUser: Boolean
   """Причина блокировки"""

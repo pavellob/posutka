@@ -1,17 +1,19 @@
 import type { UUID, DateTime } from '@repo/shared/types-only';
 export type { UUID, DateTime };
-export type Role = 'OWNER' | 'MANAGER' | 'STAFF';
+export type Role = 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR';
 export interface User {
     id: UUID;
     email: string;
     name?: string;
+    phoneNumber?: string | null;
+    emailVerified?: boolean;
     password?: string;
-    systemRoles?: string[];
     status?: string;
     isLocked?: boolean;
     lastLoginAt?: DateTime | null;
     createdAt: DateTime;
     updatedAt: DateTime;
+    memberships?: Membership[];
 }
 export interface Organization {
     id: UUID;

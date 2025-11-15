@@ -137,47 +137,152 @@ export class NotificationEventHandler {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     
     switch (event.type) {
-      case 'CLEANING_ASSIGNED':
+      case 'CLEANING_ASSIGNED': {
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const cleanerName = payload.cleanerName;
+        const scheduledDate = this.formatDate(payload.scheduledAt);
+        const requiresLinen = payload.requiresLinenChange ? '\n\n🛏️ Требуется смена белья' : '';
+        const notes = payload.notes ? `\n\n📝 Примечание: ${payload.notes}` : '';
+        
+        let message = `Вам назначена уборка в "${unitName}"`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n📅 Дата и время: ${scheduledDate}`;
+        if (cleanerName) {
+          message += `\n👤 Исполнитель: ${cleanerName}`;
+        }
+        message += requiresLinen + notes;
+        
         return {
           title: '🧹 Новая уборка назначена!',
-          message: `Вам назначена уборка в ${payload.unitName || 'квартире'} на ${this.formatDate(payload.scheduledAt)}`,
-          actionUrl: `${frontendUrl}/cleanings?cleaning=${payload.cleaningId}`
+          message,
+          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
+      }
       
-      case 'CLEANING_AVAILABLE':
+      case 'CLEANING_AVAILABLE': {
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const scheduledDate = this.formatDate(payload.scheduledAt);
+        const requiresLinen = payload.requiresLinenChange ? '\n\n🛏️ Требуется смена белья' : '';
+        const notes = payload.notes ? `\n\n📝 Примечание: ${payload.notes}` : '';
+        
+        let message = `Доступна уборка в "${unitName}"`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n📅 Дата и время: ${scheduledDate}`;
+        message += requiresLinen + notes;
+        message += '\n\n💡 Вы можете взять эту уборку себе';
+        
         return {
           title: '📋 Доступна уборка!',
-          message: `Запланирована уборка в квартире "${payload.unitName || 'квартире'}" на ${this.formatDate(payload.scheduledAt)}`,
-          actionUrl: `${frontendUrl}/cleanings?cleaning=${payload.cleaningId}`
+          message,
+          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
+      }
       
-      case 'CLEANING_STARTED':
+      case 'CLEANING_STARTED': {
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const cleanerName = payload.cleanerName;
+        const startedDate = payload.startedAt ? this.formatDate(payload.startedAt) : this.formatDate(new Date().toISOString());
+        const notes = payload.notes ? `\n\n📝 Примечание: ${payload.notes}` : '';
+        
+        let message = `Уборка в "${unitName}" начата`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n⏰ Время начала: ${startedDate}`;
+        if (cleanerName) {
+          message += `\n👤 Исполнитель: ${cleanerName}`;
+        }
+        message += notes;
+        message += '\n\n💡 Не забудьте завершить уборку после выполнения всех пунктов чеклиста';
+        
         return {
           title: '▶️ Уборка начата',
-          message: `Уборка в ${payload.unitName || 'квартире'} начата`,
-          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
+          message,
+          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}?tab=checklist`
         };
+      }
       
-      case 'CLEANING_COMPLETED':
+      case 'CLEANING_COMPLETED': {
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const cleanerName = payload.cleanerName;
+        const completedDate = payload.completedAt ? this.formatDate(payload.completedAt) : this.formatDate(new Date().toISOString());
+        const notes = payload.notes ? `\n\n📝 Примечание: ${payload.notes}` : '';
+        
+        let message = `Уборка в "${unitName}" успешно завершена`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n✅ Время завершения: ${completedDate}`;
+        if (cleanerName) {
+          message += `\n👤 Исполнитель: ${cleanerName}`;
+        }
+        message += notes;
+        message += '\n\n🎉 Спасибо за качественную работу!';
+        
         return {
           title: '✅ Уборка завершена',
-          message: `Уборка в ${payload.unitName || 'квартире'} успешно завершена`,
+          message,
           actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
+      }
 
-      case 'CLEANING_PRECHECK_COMPLETED':
+      case 'CLEANING_PRECHECK_COMPLETED': {
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const cleanerName = payload.cleanerName;
+        const submittedDate = payload.submittedAt ? this.formatDate(payload.submittedAt) : this.formatDate(new Date().toISOString());
+        const notes = payload.notes ? `\n\n📝 Примечание: ${payload.notes}` : '';
+        
+        let message = `Приёмка уборки в "${unitName}" завершена`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n⏰ Время приёмки: ${submittedDate}`;
+        if (cleanerName) {
+          message += `\n👤 Исполнитель: ${cleanerName}`;
+        }
+        message += notes;
+        message += '\n\n✅ Уборка может начаться';
+        
         return {
           title: '🧾 Приёмка завершена',
-          message: `Приёмка уборки в ${payload.unitName || 'квартире'} завершена. Уборка может начаться.`,
+          message,
           actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
+      }
 
-      case 'CLEANING_READY_FOR_REVIEW':
+      case 'CLEANING_READY_FOR_REVIEW': {
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const cleanerName = payload.cleanerName;
+        const completedDate = payload.completedAt ? this.formatDate(payload.completedAt) : this.formatDate(new Date().toISOString());
+        const notes = payload.notes ? `\n\n📝 Примечание: ${payload.notes}` : '';
+        
+        let message = `Уборка в "${unitName}" завершена и ожидает проверки`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n✅ Время завершения: ${completedDate}`;
+        if (cleanerName) {
+          message += `\n👤 Исполнитель: ${cleanerName}`;
+        }
+        message += notes;
+        message += '\n\n🔎 Требуется проверка менеджера';
+        
         return {
           title: '🔎 Требуется проверка уборки',
-          message: `Уборка в ${payload.unitName || 'квартире'} завершена и ожидает проверки менеджера`,
+          message,
           actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
+      }
       
       case 'BOOKING_CREATED':
         return {

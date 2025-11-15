@@ -117,28 +117,11 @@ export const resolvers: any = {
   
   // Резолверы для связей между типами
   User: {
-    organizations: async (parent: any, _: unknown, { dl }: Context) => {
-      try {
-        // Получаем членства пользователя
-        const memberships = await dl.getMembershipsByUser(parent.id);
-        
-        if (!memberships || memberships.length === 0) {
-          return [];
-        }
-        
-        // Получаем организации по ID из членств
-        const organizations = await Promise.all(
-          memberships.map((membership: any) => 
-            dl.getOrganizationById(membership.orgId)
-          )
-        );
-        
-        // Фильтруем null значения
-        return organizations.filter(Boolean);
-      } catch (error: any) {
-        logger.error('Error resolving User.organizations', { error: error.message, userId: parent.id });
-        return [];
+    memberships: async (parent: any, _: unknown, { dl }: Context) => {
+      if (parent.memberships) {
+        return parent.memberships;
       }
+      return dl.getMembershipsByUser(parent.id);
     },
   },
   
@@ -151,6 +134,9 @@ export const resolvers: any = {
   Membership: {
     user: (parent: any, _: unknown, { dl }: Context) => {
       return dl.getUserById(parent.userId);
+    },
+    organization: (parent: any, _: unknown, { dl }: Context) => {
+      return dl.getOrganizationById(parent.orgId);
     },
   },
   Mutation: {

@@ -27,7 +27,10 @@ export interface IIdentityDL {
         after?: string;
     }): Promise<UserConnection>;
     createUser(input: CreateUserInput): Promise<User>;
-    updateUser(id: UUID, input: Partial<CreateUserInput>): Promise<User>;
+    updateUser(id: UUID, input: Partial<CreateUserInput & {
+        status?: string;
+        isLocked?: boolean;
+    }>): Promise<User>;
     getOrganizationById(id: UUID): Promise<Organization | null>;
     listOrganizations(params: {
         first?: number;

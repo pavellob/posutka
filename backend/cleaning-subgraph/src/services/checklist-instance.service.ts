@@ -850,6 +850,47 @@ export class ChecklistInstanceService {
   }
 
   /**
+   * Создает шаблон для юнита
+   */
+  async createChecklistTemplate(unitId: string) {
+    // Проверяем, есть ли уже шаблон для этого юнита
+    const existing = await this.prisma.checklistTemplate.findFirst({
+      where: { unitId },
+      orderBy: { version: 'desc' }
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    // Создаем новый шаблон версии 1
+    const template = await this.prisma.checklistTemplate.create({
+      data: {
+        unitId,
+        version: 1
+      },
+      include: {
+        items: {
+          orderBy: { order: 'asc' },
+          include: {
+            exampleMedia: {
+              orderBy: { order: 'asc' }
+            }
+          }
+        }
+      }
+    });
+
+    logger.info('Checklist template created', {
+      templateId: template.id,
+      unitId,
+      version: template.version
+    });
+
+    return template;
+  }
+
+  /**
    * Добавляет пункт в шаблон
    */
   async addTemplateItem(input: {

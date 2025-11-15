@@ -68,8 +68,11 @@ export class EventsClient {
     cleanerId: string;
     unitId: string;
     unitName: string;
+    unitAddress?: string;
     scheduledAt: string;
     requiresLinenChange: boolean;
+    cleanerName?: string;
+    notes?: string;
     orgId?: string;
     actorUserId?: string;
     targetUserId?: string;
@@ -98,10 +101,13 @@ export class EventsClient {
         payload: {
           cleaningId: params.cleaningId,
           cleanerId: params.cleanerId,
+          cleanerName: params.cleanerName,
           unitId: params.unitId,
           unitName: params.unitName,
+          unitAddress: params.unitAddress,
           scheduledAt: params.scheduledAt,
-          requiresLinenChange: params.requiresLinenChange
+          requiresLinenChange: params.requiresLinenChange,
+          notes: params.notes
         }
       });
       
@@ -121,6 +127,10 @@ export class EventsClient {
     cleaningId: string;
     cleanerId: string;
     unitName: string;
+    unitAddress?: string;
+    cleanerName?: string;
+    scheduledAt?: string;
+    notes?: string;
     orgId?: string;
     targetUserId?: string;
   }): Promise<void> {
@@ -140,8 +150,12 @@ export class EventsClient {
         payload: {
           cleaningId: params.cleaningId,
           cleanerId: params.cleanerId,
+          cleanerName: params.cleanerName,
           unitName: params.unitName,
-          startedAt: new Date().toISOString()
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          startedAt: new Date().toISOString(),
+          notes: params.notes
         }
       });
       
@@ -161,7 +175,12 @@ export class EventsClient {
     cleaningId: string;
     cleanerId: string;
     unitName: string;
+    unitAddress?: string;
+    cleanerName?: string;
     completedAt: string;
+    scheduledAt?: string;
+    startedAt?: string;
+    notes?: string;
     orgId?: string;
     targetUserId?: string;
     targetUserIds?: string[];
@@ -186,8 +205,13 @@ export class EventsClient {
         payload: {
           cleaningId: params.cleaningId,
           cleanerId: params.cleanerId,
+          cleanerName: params.cleanerName,
           unitName: params.unitName,
-          completedAt: params.completedAt
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          startedAt: params.startedAt,
+          completedAt: params.completedAt,
+          notes: params.notes
         }
       });
       
@@ -207,7 +231,11 @@ export class EventsClient {
     cleaningId: string;
     managerIds: string[];
     unitName: string;
+    unitAddress?: string;
+    cleanerName?: string;
     submittedAt: string;
+    scheduledAt?: string;
+    notes?: string;
     orgId?: string;
     cleanerId?: string | null;
   }): Promise<void> {
@@ -231,9 +259,13 @@ export class EventsClient {
         targetUserIds: params.managerIds,
         payload: {
           cleaningId: params.cleaningId,
-          unitName: params.unitName,
-          submittedAt: params.submittedAt,
           cleanerId: params.cleanerId ?? undefined,
+          cleanerName: params.cleanerName,
+          unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          submittedAt: params.submittedAt,
+          notes: params.notes
         },
       });
 
@@ -256,7 +288,12 @@ export class EventsClient {
     cleaningId: string;
     managerIds: string[];
     unitName: string;
+    unitAddress?: string;
+    cleanerName?: string;
     completedAt: string;
+    scheduledAt?: string;
+    startedAt?: string;
+    notes?: string;
     orgId?: string;
   }): Promise<void> {
     try {
@@ -279,8 +316,13 @@ export class EventsClient {
         targetUserIds: params.managerIds,
         payload: {
           cleaningId: params.cleaningId,
+          cleanerName: params.cleanerName,
           unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          startedAt: params.startedAt,
           completedAt: params.completedAt,
+          notes: params.notes
         },
       });
 
@@ -302,8 +344,12 @@ export class EventsClient {
   async publishCleaningCancelled(params: {
     cleaningId: string;
     cleanerId?: string;
+    cleanerName?: string;
     unitName: string;
+    unitAddress?: string;
+    scheduledAt?: string;
     reason?: string;
+    notes?: string;
     orgId?: string;
     targetUserId?: string;
   }): Promise<void> {
@@ -323,8 +369,12 @@ export class EventsClient {
         payload: {
           cleaningId: params.cleaningId,
           cleanerId: params.cleanerId,
+          cleanerName: params.cleanerName,
           unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
           reason: params.reason,
+          notes: params.notes,
           cancelledAt: new Date().toISOString()
         }
       });
@@ -345,8 +395,10 @@ export class EventsClient {
     cleaningId: string;
     unitId: string;
     unitName: string;
+    unitAddress?: string;
     scheduledAt: string;
     requiresLinenChange: boolean;
+    notes?: string;
     targetUserIds: string[];
     orgId?: string;
   }): Promise<void> {
@@ -380,8 +432,10 @@ export class EventsClient {
           cleaningId: params.cleaningId,
           unitId: params.unitId,
           unitName: params.unitName,
+          unitAddress: params.unitAddress,
           scheduledAt: params.scheduledAt,
-          requiresLinenChange: params.requiresLinenChange
+          requiresLinenChange: params.requiresLinenChange,
+          notes: params.notes
         }
       });
       

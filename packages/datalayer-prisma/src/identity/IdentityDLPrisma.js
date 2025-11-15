@@ -5,7 +5,10 @@ export class IdentityDLPrisma {
     }
     async getUserById(id) {
         const user = await this.prisma.user.findUnique({
-            where: { id }
+            where: { id },
+            include: {
+                memberships: true,
+            },
         });
         if (!user)
             return null;
@@ -13,7 +16,10 @@ export class IdentityDLPrisma {
     }
     async getUserByEmail(email) {
         const user = await this.prisma.user.findUnique({
-            where: { email }
+            where: { email },
+            include: {
+                memberships: true,
+            },
         });
         if (!user)
             return null;
@@ -27,20 +33,28 @@ export class IdentityDLPrisma {
             take: first + 1,
             skip,
             cursor,
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            include: {
+                memberships: true,
+            },
         });
         const hasNextPage = users.length > first;
         const edges = hasNextPage ? users.slice(0, -1) : users;
+        const startCursor = edges.length > 0 ? edges[0].id : undefined;
         const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
+        const totalCount = await this.prisma.user.count();
         return {
             edges: edges.map((user) => ({
                 node: this.mapUserFromPrisma(user),
-                cursor: user.id
+                cursor: user.id,
             })),
             pageInfo: {
                 hasNextPage,
-                endCursor
-            }
+                hasPreviousPage: !!params.after,
+                startCursor,
+                endCursor,
+                totalCount,
+            },
         };
     }
     async createUser(input) {
@@ -48,8 +62,11 @@ export class IdentityDLPrisma {
             data: {
                 email: input.email,
                 name: input.name,
-                password: input.password || ''
-            }
+                password: input.password || '',
+            },
+            include: {
+                memberships: true,
+            },
         });
         return this.mapUserFromPrisma(user);
     }
@@ -60,16 +77,18 @@ export class IdentityDLPrisma {
                 ...(input.email && { email: input.email }),
                 ...(input.name !== undefined && { name: input.name }),
                 ...(input.password && { password: input.password }),
-                ...(input.systemRoles && { systemRoles: input.systemRoles }),
                 ...(input.status && { status: input.status }),
-                ...(input.isLocked !== undefined && { isLocked: input.isLocked })
-            }
+                ...(input.isLocked !== undefined && { isLocked: input.isLocked }),
+            },
+            include: {
+                memberships: true,
+            },
         });
         return this.mapUserFromPrisma(user);
     }
     async getOrganizationById(id) {
         const org = await this.prisma.organization.findUnique({
-            where: { id }
+            where: { id },
         });
         if (!org)
             return null;
@@ -83,38 +102,43 @@ export class IdentityDLPrisma {
             take: first + 1,
             skip,
             cursor,
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
         });
         const hasNextPage = orgs.length > first;
         const edges = hasNextPage ? orgs.slice(0, -1) : orgs;
+        const startCursor = edges.length > 0 ? edges[0].id : undefined;
         const endCursor = edges.length > 0 ? edges[edges.length - 1].id : undefined;
+        const totalCount = await this.prisma.organization.count();
         return {
             edges: edges.map((org) => ({
                 node: this.mapOrganizationFromPrisma(org),
-                cursor: org.id
+                cursor: org.id,
             })),
             pageInfo: {
                 hasNextPage,
-                endCursor
-            }
+                hasPreviousPage: !!params.after,
+                startCursor,
+                endCursor,
+                totalCount,
+            },
         };
     }
     async createOrganization(input) {
         const org = await this.prisma.organization.create({
-            data: input
+            data: input,
         });
         return this.mapOrganizationFromPrisma(org);
     }
     async updateOrganization(id, input) {
         const org = await this.prisma.organization.update({
             where: { id },
-            data: input
+            data: input,
         });
         return this.mapOrganizationFromPrisma(org);
     }
     async getMembershipById(id) {
         const membership = await this.prisma.membership.findUnique({
-            where: { id }
+            where: { id },
         });
         if (!membership)
             return null;
@@ -122,32 +146,32 @@ export class IdentityDLPrisma {
     }
     async getMembershipsByOrg(orgId) {
         const memberships = await this.prisma.membership.findMany({
-            where: { orgId }
+            where: { orgId },
         });
         return memberships.map((membership) => this.mapMembershipFromPrisma(membership));
     }
     async getMembershipsByUser(userId) {
         const memberships = await this.prisma.membership.findMany({
-            where: { userId }
+            where: { userId },
         });
         return memberships.map((membership) => this.mapMembershipFromPrisma(membership));
     }
     async addMember(input) {
         const membership = await this.prisma.membership.create({
-            data: input
+            data: input,
         });
         return this.mapMembershipFromPrisma(membership);
     }
     async updateMemberRole(input) {
         const membership = await this.prisma.membership.update({
             where: { id: input.membershipId },
-            data: { role: input.role }
+            data: { role: input.role },
         });
         return this.mapMembershipFromPrisma(membership);
     }
     async removeMember(membershipId) {
         await this.prisma.membership.delete({
-            where: { id: membershipId }
+            where: { id: membershipId },
         });
     }
     mapUserFromPrisma(user) {
@@ -155,13 +179,17 @@ export class IdentityDLPrisma {
             id: user.id,
             email: user.email,
             name: user.name,
+            phoneNumber: user.phoneNumber || null,
+            emailVerified: user.emailVerified || false,
             password: user.password,
-            systemRoles: user.systemRoles || ['USER'],
             status: user.status || 'ACTIVE',
             isLocked: user.isLocked || false,
             lastLoginAt: user.lastLoginAt || null,
             createdAt: user.createdAt,
-            updatedAt: user.updatedAt
+            updatedAt: user.updatedAt,
+            memberships: user.memberships
+                ? user.memberships.map((membership) => this.mapMembershipFromPrisma(membership))
+                : [],
         };
     }
     mapOrganizationFromPrisma(org) {
@@ -171,7 +199,7 @@ export class IdentityDLPrisma {
             timezone: org.timezone,
             currency: org.currency,
             createdAt: org.createdAt,
-            updatedAt: org.updatedAt
+            updatedAt: org.updatedAt,
         };
     }
     mapMembershipFromPrisma(membership) {
@@ -181,7 +209,7 @@ export class IdentityDLPrisma {
             orgId: membership.orgId,
             role: membership.role,
             createdAt: membership.createdAt,
-            updatedAt: membership.updatedAt
+            updatedAt: membership.updatedAt,
         };
     }
 }

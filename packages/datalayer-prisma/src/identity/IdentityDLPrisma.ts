@@ -18,21 +18,27 @@ export class IdentityDLPrisma implements IIdentityDL {
 
   async getUserById(id: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        memberships: true,
+      },
     });
-    
+
     if (!user) return null;
-    
+
     return this.mapUserFromPrisma(user);
   }
 
   async getUserByEmail(email: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
-      where: { email }
+      where: { email },
+      include: {
+        memberships: true,
+      },
     });
-    
+
     if (!user) return null;
-    
+
     return this.mapUserFromPrisma(user);
   }
 
@@ -45,7 +51,10 @@ export class IdentityDLPrisma implements IIdentityDL {
       take: first + 1,
       skip,
       cursor,
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        memberships: true,
+      },
     });
 
     const hasNextPage = users.length > first;
@@ -57,15 +66,15 @@ export class IdentityDLPrisma implements IIdentityDL {
     return {
       edges: edges.map((user: any) => ({
         node: this.mapUserFromPrisma(user),
-        cursor: user.id
+        cursor: user.id,
       })),
       pageInfo: {
         hasNextPage,
         hasPreviousPage: !!params.after,
         startCursor,
         endCursor,
-        totalCount
-      }
+        totalCount,
+      },
     };
   }
 
@@ -74,36 +83,41 @@ export class IdentityDLPrisma implements IIdentityDL {
       data: {
         email: input.email,
         name: input.name,
-        password: input.password || ''
-      }
+        password: input.password || '',
+      },
+      include: {
+        memberships: true,
+      },
     });
-    
+
     return this.mapUserFromPrisma(user);
   }
 
-  async updateUser(id: string, input: Partial<CreateUserInput & { systemRoles?: string[]; status?: string; isLocked?: boolean }>): Promise<User> {
+  async updateUser(id: string, input: Partial<CreateUserInput & { status?: string; isLocked?: boolean }>): Promise<User> {
     const user = await this.prisma.user.update({
       where: { id },
       data: {
         ...(input.email && { email: input.email }),
         ...(input.name !== undefined && { name: input.name }),
         ...(input.password && { password: input.password }),
-        ...(input.systemRoles && { systemRoles: input.systemRoles }),
         ...(input.status && { status: input.status }),
-        ...(input.isLocked !== undefined && { isLocked: input.isLocked })
-      }
+        ...(input.isLocked !== undefined && { isLocked: input.isLocked }),
+      },
+      include: {
+        memberships: true,
+      },
     });
-    
+
     return this.mapUserFromPrisma(user);
   }
 
   async getOrganizationById(id: string): Promise<Organization | null> {
     const org = await this.prisma.organization.findUnique({
-      where: { id }
+      where: { id },
     });
-    
+
     if (!org) return null;
-    
+
     return this.mapOrganizationFromPrisma(org);
   }
 
@@ -116,7 +130,7 @@ export class IdentityDLPrisma implements IIdentityDL {
       take: first + 1,
       skip,
       cursor,
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     const hasNextPage = orgs.length > first;
@@ -128,81 +142,81 @@ export class IdentityDLPrisma implements IIdentityDL {
     return {
       edges: edges.map((org: any) => ({
         node: this.mapOrganizationFromPrisma(org),
-        cursor: org.id
+        cursor: org.id,
       })),
       pageInfo: {
         hasNextPage,
         hasPreviousPage: !!params.after,
         startCursor,
         endCursor,
-        totalCount
-      }
+        totalCount,
+      },
     };
   }
 
   async createOrganization(input: CreateOrganizationInput): Promise<Organization> {
     const org = await this.prisma.organization.create({
-      data: input
+      data: input,
     });
-    
+
     return this.mapOrganizationFromPrisma(org);
   }
 
   async updateOrganization(id: string, input: Partial<CreateOrganizationInput>): Promise<Organization> {
     const org = await this.prisma.organization.update({
       where: { id },
-      data: input
+      data: input,
     });
-    
+
     return this.mapOrganizationFromPrisma(org);
   }
 
   async getMembershipById(id: string): Promise<Membership | null> {
     const membership = await this.prisma.membership.findUnique({
-      where: { id }
+      where: { id },
     });
-    
+
     if (!membership) return null;
-    
+
     return this.mapMembershipFromPrisma(membership);
   }
 
   async getMembershipsByOrg(orgId: string): Promise<Membership[]> {
     const memberships = await this.prisma.membership.findMany({
-      where: { orgId }
+      where: { orgId },
     });
-    
+
     return memberships.map((membership: any) => this.mapMembershipFromPrisma(membership));
   }
 
   async getMembershipsByUser(userId: string): Promise<Membership[]> {
     const memberships = await this.prisma.membership.findMany({
-      where: { userId }
+      where: { userId },
     });
-    
+
     return memberships.map((membership: any) => this.mapMembershipFromPrisma(membership));
   }
 
   async addMember(input: AddMemberInput): Promise<Membership> {
     const membership = await this.prisma.membership.create({
-      data: input
+      data: input,
     });
-    
+
     return this.mapMembershipFromPrisma(membership);
   }
 
   async updateMemberRole(input: UpdateMemberRoleInput): Promise<Membership> {
     const membership = await this.prisma.membership.update({
       where: { id: input.membershipId },
-      data: { role: input.role }
+      data: { role: input.role },
     });
-    
+
     return this.mapMembershipFromPrisma(membership);
   }
 
   async removeMember(membershipId: string): Promise<void> {
     await this.prisma.membership.delete({
-      where: { id: membershipId }
+      where: { id: membershipId },
     });
   }
 
@@ -214,12 +228,14 @@ export class IdentityDLPrisma implements IIdentityDL {
       phoneNumber: user.phoneNumber || null,
       emailVerified: user.emailVerified || false,
       password: user.password,
-      systemRoles: user.systemRoles || ['USER'],
       status: user.status || 'ACTIVE',
       isLocked: user.isLocked || false,
       lastLoginAt: user.lastLoginAt || null,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      updatedAt: user.updatedAt,
+      memberships: user.memberships
+        ? user.memberships.map((membership: any) => this.mapMembershipFromPrisma(membership))
+        : [],
     };
   }
 
@@ -230,7 +246,7 @@ export class IdentityDLPrisma implements IIdentityDL {
       timezone: org.timezone,
       currency: org.currency,
       createdAt: org.createdAt,
-      updatedAt: org.updatedAt
+      updatedAt: org.updatedAt,
     };
   }
 
@@ -241,7 +257,7 @@ export class IdentityDLPrisma implements IIdentityDL {
       orgId: membership.orgId,
       role: membership.role,
       createdAt: membership.createdAt,
-      updatedAt: membership.updatedAt
+      updatedAt: membership.updatedAt,
     };
   }
 }

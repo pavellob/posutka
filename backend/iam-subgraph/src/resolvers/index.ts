@@ -42,11 +42,12 @@ export const resolvers: any = {
         const totalUsers = 100; // Mock for now
         const activeUsers = 95; // Mock for now
         
-        // Статистика по ролям (если есть система ролей)
+        // Статистика по ролям из членств (используем enum Role из identity-subgraph)
         const usersByRole = [
-          { role: 'ADMIN', count: 5 },
           { role: 'MANAGER', count: 42 },
-          { role: 'USER', count: totalUsers - 47 }
+          { role: 'STAFF', count: 30 },
+          { role: 'CLEANER', count: 20 },
+          { role: 'OPERATOR', count: 3 }
         ];
         
         return {
@@ -104,18 +105,42 @@ export const resolvers: any = {
         const validUsers = usersArray.filter(user => user !== null);
         
         // Преобразуем в IAMUser формат
-        const iamUsers = validUsers.map((user: any) => ({
-          ...user,
-          status: user.status || 'ACTIVE',
-          lastLoginAt: user.lastLoginAt || null,
-          failedLoginAttempts: 0,
-          isLocked: user.isLocked || false,
-          twoFactorEnabled: false,
-          systemRoles: user.systemRoles || ['USER'],
-          permissions: [],
-          activeSessions: [],
-          activityLog: []
-        }));
+        const iamUsers = await Promise.all(
+          validUsers.map(async (user: any) => {
+            const membershipsForUser = memberships.filter((membership: any) => membership.userId === user.id);
+            const membershipDtos = await Promise.all(
+              membershipsForUser.map(async (membership: any) => {
+                const org = await dl.getOrganizationById(membership.orgId);
+                return {
+                  id: membership.id,
+                  orgId: membership.orgId,
+                  role: membership.role,
+                  createdAt: membership.createdAt,
+                  updatedAt: membership.updatedAt,
+                  organization: org
+                    ? {
+                        id: org.id,
+                        name: org.name,
+                      }
+                    : null,
+                };
+              }),
+            );
+
+            return {
+              ...user,
+              status: user.status || 'ACTIVE',
+              lastLoginAt: user.lastLoginAt || null,
+              failedLoginAttempts: 0,
+              isLocked: user.isLocked || false,
+              twoFactorEnabled: false,
+              memberships: membershipDtos,
+              permissions: [],
+              activeSessions: [],
+              activityLog: [],
+            };
+          }),
+        );
         
         return {
           edges: iamUsers.map((user: any) => ({ node: user, cursor: user.id })),
@@ -144,6 +169,26 @@ export const resolvers: any = {
         }
         
         // Преобразуем в IAMUser формат
+        const memberships = await dl.getMembershipsByUser(id);
+        const membershipDtos = await Promise.all(
+          memberships.map(async (membership: any) => {
+            const org = await dl.getOrganizationById(membership.orgId);
+            return {
+              id: membership.id,
+              orgId: membership.orgId,
+              role: membership.role,
+              createdAt: membership.createdAt,
+              updatedAt: membership.updatedAt,
+              organization: org
+                ? {
+                    id: org.id,
+                    name: org.name,
+                  }
+                : null,
+            };
+          }),
+        );
+
         return {
           ...user,
           status: user.status || 'ACTIVE',
@@ -151,10 +196,10 @@ export const resolvers: any = {
           failedLoginAttempts: 0,
           isLocked: user.isLocked || false,
           twoFactorEnabled: false,
-          systemRoles: user.systemRoles || ['USER'],
+          memberships: membershipDtos,
           permissions: [],
           activeSessions: [],
-          activityLog: []
+          activityLog: [],
         };
       } catch (error: any) {
         logger.error('Failed to fetch user profile', { error: error.message, userId: id });
@@ -279,13 +324,49 @@ export const resolvers: any = {
         });
         
         // Если указана организация, добавляем пользователя в неё
+        let memberships: any[] = [];
         if (input.orgId) {
-          await dl.addMember({
+          const membership = await dl.addMember({
             userId: user.id,
             orgId: input.orgId,
-            role: 'STAFF' // По умолчанию роль STAFF
+            role: 'STAFF', // По умолчанию роль STAFF
           });
+          const org = await dl.getOrganizationById(input.orgId);
+          memberships.push({
+            id: membership.id,
+            orgId: membership.orgId,
+            role: membership.role,
+            createdAt: membership.createdAt,
+            updatedAt: membership.updatedAt,
+            organization: org
+              ? {
+                  id: org.id,
+                  name: org.name,
+                }
+              : null,
+          });
+
           logger.info('User added to organization', { userId: user.id, orgId: input.orgId });
+        } else {
+          memberships = await dl.getMembershipsByUser(user.id);
+          memberships = await Promise.all(
+            memberships.map(async (membership: any) => {
+              const org = await dl.getOrganizationById(membership.orgId);
+              return {
+                id: membership.id,
+                orgId: membership.orgId,
+                role: membership.role,
+                createdAt: membership.createdAt,
+                updatedAt: membership.updatedAt,
+                organization: org
+                  ? {
+                      id: org.id,
+                      name: org.name,
+                    }
+                  : null,
+              };
+            }),
+          );
         }
         
         logger.info('User created successfully', { userId: user.id });
@@ -298,10 +379,10 @@ export const resolvers: any = {
           failedLoginAttempts: 0,
           isLocked: user.isLocked || false,
           twoFactorEnabled: false,
-          systemRoles: input.systemRoles || ['USER'],
+          memberships,
           permissions: [],
           activeSessions: [],
-          activityLog: []
+          activityLog: [],
         };
       } catch (error: any) {
         logger.error('Failed to create user', { error: error.message, email: input.email });
@@ -316,14 +397,33 @@ export const resolvers: any = {
         
         const user = await dl.updateUser(id, {
           name: input.name,
-          systemRoles: input.systemRoles,
           status: input.status,
-          isLocked: input.lockUser
+          isLocked: input.lockUser,
         });
         
         logger.info('User updated successfully', { userId: id });
         
         // Преобразуем в IAMUser формат
+        const memberships = await dl.getMembershipsByUser(id);
+        const membershipDtos = await Promise.all(
+          memberships.map(async (membership: any) => {
+            const org = await dl.getOrganizationById(membership.orgId);
+            return {
+              id: membership.id,
+              orgId: membership.orgId,
+              role: membership.role,
+              createdAt: membership.createdAt,
+              updatedAt: membership.updatedAt,
+              organization: org
+                ? {
+                    id: org.id,
+                    name: org.name,
+                  }
+                : null,
+            };
+          }),
+        );
+
         return {
           ...user,
           status: user.status || 'ACTIVE',
@@ -331,10 +431,10 @@ export const resolvers: any = {
           failedLoginAttempts: 0,
           isLocked: user.isLocked || false,
           twoFactorEnabled: false,
-          systemRoles: user.systemRoles || ['USER'],
+          memberships: membershipDtos,
           permissions: [],
           activeSessions: [],
-          activityLog: []
+          activityLog: [],
         };
       } catch (error: any) {
         logger.error('Failed to update user', { error: error.message, userId: id });
@@ -451,34 +551,6 @@ export const resolvers: any = {
         return true;
       } catch (error: any) {
         logger.error('Failed to terminate all user sessions', { error: error.message, userId });
-        throw error;
-      }
-    },
-
-    // Назначение ролей
-    async assignRoles(_: unknown, { userId, roles }: { userId: string; roles: string[] }, { dl }: Context) {
-      try {
-        logger.info('Assigning roles to user', { userId, roles });
-        
-        // В реальной системе здесь была бы логика назначения ролей
-        const user = await dl.getUserById(userId);
-        return user;
-      } catch (error: any) {
-        logger.error('Failed to assign roles', { error: error.message, userId, roles });
-        throw error;
-      }
-    },
-
-    // Отзыв ролей
-    async revokeRoles(_: unknown, { userId, roles }: { userId: string; roles: string[] }, { dl }: Context) {
-      try {
-        logger.info('Revoking roles from user', { userId, roles });
-        
-        // В реальной системе здесь была бы логика отзыва ролей
-        const user = await dl.getUserById(userId);
-        return user;
-      } catch (error: any) {
-        logger.error('Failed to revoke roles', { error: error.message, userId, roles });
         throw error;
       }
     },
