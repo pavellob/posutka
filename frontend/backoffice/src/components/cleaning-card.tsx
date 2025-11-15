@@ -134,8 +134,7 @@ export function CleaningCard({ cleaning, onUpdateStatus, onStartCleaning, onAssi
                     onAssign(cleaning)
                   }}
                   color="green"
-                  size="sm"
-                  className="w-full mt-2"
+                  className="w-full mt-2 text-sm"
                 >
                   Взять в работу
                 </Button>
