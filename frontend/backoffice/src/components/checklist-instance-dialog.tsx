@@ -142,6 +142,8 @@ export function ChecklistInstanceDialog({
   const [newItemRequiresPhoto, setNewItemRequiresPhoto] = useState(false);
   const [newItemPhotoMin, setNewItemPhotoMin] = useState('');
   const [newItemError, setNewItemError] = useState<string | null>(null);
+  const [selectedExampleImage, setSelectedExampleImage] = useState<{ url: string; caption?: string; index: number; total: number } | null>(null);
+  const [exampleImageList, setExampleImageList] = useState<Array<{ url: string; caption?: string }>>([]);
 
   // Получить инстанс чек-листа
   const resolvedInstanceKey = instanceId || `${cleaningId ?? unitId}-${stage}`;
@@ -450,17 +452,23 @@ export function ChecklistInstanceDialog({
   const canPromote = canEdit && instance.status === 'SUBMITTED' && stage === 'PRE_CLEANING';
 
   return (
+    <>
     <Dialog open={isOpen} onClose={onClose} size="3xl">
       <DialogTitle>
         {STAGE_LABELS[stage]} - Чек-лист
       </DialogTitle>
       <DialogDescription>
-        <span className="flex flex-wrap items-center gap-2">
-          {unitId && (
+        {unitId && (
+          <>
             <span className="text-sm text-zinc-500 dark:text-zinc-400">
               Квартира: {unitId}
             </span>
-          )}
+            <span className="sm:hidden"> </span>
+            <br className="sm:hidden" />
+            <span className="hidden sm:inline"> </span>
+          </>
+        )}
+        <span className="inline-flex flex-wrap items-center gap-2">
           {instance.status && (
             <Badge
               color={
@@ -640,27 +648,29 @@ export function ChecklistInstanceDialog({
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Heading level={6} className="mb-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                        <Heading level={6} className="mb-0 flex-1">
                           {item.order}. {item.title}
                         </Heading>
-                        {item.required && (
-                          <Badge color="red" className="text-xs">Обязательно</Badge>
-                        )}
-                        {item.requiresPhoto && (
-                          <Badge color="blue" className="text-xs">
-                            Фото: {itemAttachments.length} / {item.photoMin || 1}
-                          </Badge>
-                        )}
-                        {isMissingRequired && (
-                          <Badge color="red" className="text-xs">Требует заполнения</Badge>
-                        )}
-                        {!isMissingRequired && isCompleted && !isNegative && (
-                          <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                        )}
-                        {isNegative && (
-                          <Badge color="amber" className="text-xs">Проблема</Badge>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {item.required && (
+                            <Badge color="red" className="text-xs">Обязательно</Badge>
+                          )}
+                          {item.requiresPhoto && (
+                            <Badge color="blue" className="text-xs">
+                              Фото: {itemAttachments.length} / {item.photoMin || 1}
+                            </Badge>
+                          )}
+                          {isMissingRequired && (
+                            <Badge color="red" className="text-xs">Требует заполнения</Badge>
+                          )}
+                          {!isMissingRequired && isCompleted && !isNegative && (
+                            <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                          )}
+                          {isNegative && (
+                            <Badge color="amber" className="text-xs">Проблема</Badge>
+                          )}
+                        </div>
                       </div>
                       {item.description && (
                         <Text className="text-sm text-gray-600 dark:text-gray-400">
@@ -701,21 +711,56 @@ export function ChecklistInstanceDialog({
                           Примеры фото из шаблона
                         </Text>
                       </div>
-                      <div className="grid grid-cols-4 gap-2">
-                        {item.exampleMedia.map((media: any) => (
-                          <div key={media.id} className="relative group">
-                            <img
-                              src={media.url}
-                              alt={media.caption || 'Пример'}
-                              className="w-full h-20 object-cover rounded-lg border-2 border-amber-200 dark:border-amber-700"
-                            />
-                            {media.caption && (
-                              <Text className="text-xs text-gray-500 mt-1 truncate">
-                                {media.caption}
-                              </Text>
-                            )}
-                          </div>
-                        ))}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {item.exampleMedia.map((media: any, index: number) => {
+                          const allMedia = item.exampleMedia.map((m: any) => ({ url: m.url, caption: m.caption }));
+                          return (
+                            <div 
+                              key={media.id} 
+                              className="relative group cursor-pointer"
+                              onClick={() => {
+                                setExampleImageList(allMedia);
+                                setSelectedExampleImage({ 
+                                  url: media.url, 
+                                  caption: media.caption, 
+                                  index,
+                                  total: allMedia.length 
+                                });
+                              }}
+                            >
+                              <div className="relative overflow-hidden rounded-lg border-2 border-amber-200 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-500 transition-all duration-200">
+                                <img
+                                  src={media.url}
+                                  alt={media.caption || 'Пример'}
+                                  className="w-full h-20 sm:h-24 object-cover transition-transform duration-200 group-hover:scale-105"
+                                />
+                                {/* Overlay с иконкой зума */}
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center">
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <svg 
+                                      className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-lg" 
+                                      fill="none" 
+                                      stroke="currentColor" 
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round" 
+                                        strokeWidth={2} 
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" 
+                                      />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </div>
+                              {media.caption && (
+                                <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                                  {media.caption}
+                                </Text>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -828,6 +873,83 @@ export function ChecklistInstanceDialog({
         )}
       </DialogActions>
     </Dialog>
+
+    {/* Dialog для просмотра увеличенного примера фото */}
+    {selectedExampleImage && (
+      <Dialog open={!!selectedExampleImage} onClose={() => setSelectedExampleImage(null)}>
+        <DialogBody className="p-0 max-w-4xl">
+          <div className="relative">
+            <img
+              src={selectedExampleImage.url}
+              alt={selectedExampleImage.caption || 'Пример'}
+              className="w-full h-auto max-h-[80vh] object-contain"
+            />
+            {selectedExampleImage.caption && (
+              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white p-4">
+                <Text className="text-sm">{selectedExampleImage.caption}</Text>
+              </div>
+            )}
+            {exampleImageList.length > 1 && (
+              <>
+                {selectedExampleImage.index > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newIndex = selectedExampleImage.index - 1;
+                      setSelectedExampleImage({ 
+                        ...selectedExampleImage, 
+                        url: exampleImageList[newIndex].url,
+                        caption: exampleImageList[newIndex].caption,
+                        index: newIndex
+                      });
+                    }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                    aria-label="Предыдущее фото"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                )}
+                {selectedExampleImage.index < exampleImageList.length - 1 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newIndex = selectedExampleImage.index + 1;
+                      setSelectedExampleImage({ 
+                        ...selectedExampleImage, 
+                        url: exampleImageList[newIndex].url,
+                        caption: exampleImageList[newIndex].caption,
+                        index: newIndex
+                      });
+                    }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                    aria-label="Следующее фото"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                )}
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                  {selectedExampleImage.index + 1} / {selectedExampleImage.total}
+                </div>
+              </>
+            )}
+            <button
+              onClick={() => setSelectedExampleImage(null)}
+              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+              aria-label="Закрыть"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </DialogBody>
+      </Dialog>
+    )}
+  </>
   );
 }
 

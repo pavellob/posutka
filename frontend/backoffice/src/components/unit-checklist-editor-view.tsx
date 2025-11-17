@@ -73,14 +73,38 @@ function ExampleMediaGallery({ media }: { media: any[] }) {
   return (
     <>
       <div className="mt-4">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
           {media.map((m: any, index: number) => (
-            <div key={m.id} className="relative group cursor-pointer" onClick={() => handleImageClick(index)}>
-              <img
-                src={m.url}
-                alt={m.caption || 'Пример'}
-                className="w-full h-24 object-cover rounded-lg border border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
-              />
+            <div 
+              key={m.id} 
+              className="relative group cursor-pointer" 
+              onClick={() => handleImageClick(index)}
+            >
+              <div className="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200">
+                <img
+                  src={m.url}
+                  alt={m.caption || 'Пример'}
+                  className="w-full h-20 sm:h-24 object-cover transition-transform duration-200 group-hover:scale-105"
+                />
+                {/* Overlay с иконкой зума */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <svg 
+                      className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-lg" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" 
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
               {m.caption && (
                 <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 truncate">
                   {m.caption}
@@ -176,53 +200,58 @@ function SortableCardItem({ item, index, onEdit, onDelete }: {
     <div
       ref={setNodeRef}
       style={style}
-      className="group relative bg-white dark:bg-zinc-900 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden border border-zinc-200 dark:border-zinc-800"
+      className="group relative bg-white dark:bg-black rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-800"
     >
-      {/* Заголовок на весь верх */}
-      <div className="bg-zinc-50 dark:bg-zinc-800/50 px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+      {/* Заголовок - Material Design elevation */}
+      <div className="bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <button
               {...attributes}
               {...listeners}
-              className="cursor-grab active:cursor-grabbing p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="cursor-grab active:cursor-grabbing p-1.5 sm:p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label="Переместить"
             >
-              <Bars3Icon className="w-4 h-4" />
+              <Bars3Icon className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
-            <Heading level={6} className="mb-0 text-gray-900 dark:text-gray-100 flex-1 min-w-0">
+            <Heading level={6} className="mb-0 text-gray-900 dark:text-white flex-1 min-w-0 text-sm sm:text-base font-medium">
               {item.title}
             </Heading>
           </div>
-          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 sm:gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onEdit(item)}
-              className="p-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg transition-colors opacity-60 hover:opacity-100"
+              className="p-1.5 sm:p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all duration-200"
+              aria-label="Редактировать"
             >
-              <PencilIcon className="w-4 h-4" />
+              <PencilIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               onClick={() => onDelete(item.key)}
-              className="p-2 text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg transition-colors opacity-60 hover:opacity-100"
+              className="p-1.5 sm:p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all duration-200"
+              aria-label="Удалить"
             >
-              <TrashIcon className="w-4 h-4" />
+              <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
       </div>
       
-      {/* Контент */}
-      <div className="p-6">
+      {/* Контент - Material Design spacing */}
+      <div className="p-4 sm:p-6">
         {item.description && (
           <div className="mb-4">
-            <Text className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            <Text className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
               {item.description}
             </Text>
           </div>
         )}
 
-        {/* Примеры фото */}
+        {/* Примеры фото - адаптивная сетка */}
         {item.exampleMedia && item.exampleMedia.length > 0 && (
-          <ExampleMediaGallery media={item.exampleMedia} />
+          <div className="mt-4">
+            <ExampleMediaGallery media={item.exampleMedia} />
+          </div>
         )}
       </div>
     </div>
@@ -1085,7 +1114,7 @@ export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEdito
             strategy={verticalListSortingStrategy}
           >
             {viewMode === 'cards' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                 {items.map((item: any, index: number) => (
                   <SortableCardItem
                     key={item.key}
