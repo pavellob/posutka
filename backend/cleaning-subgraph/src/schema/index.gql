@@ -950,6 +950,8 @@ type ChecklistInstanceItem {
   photoMin: Int
   """Порядок отображения"""
   order: Int!
+  """Примеры фото из шаблона"""
+  exampleMedia: [ChecklistItemTemplateMedia!]!
 }
 
 """

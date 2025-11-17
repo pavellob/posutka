@@ -2008,6 +2008,13 @@ export const GET_CHECKLIST_INSTANCE = gql`
         requiresPhoto
         photoMin
         order
+        exampleMedia {
+          id
+          url
+          objectKey
+          caption
+          order
+        }
       }
       answers {
         id
@@ -2050,6 +2057,13 @@ export const GET_CHECKLIST_BY_CLEANING_AND_STAGE = gql`
         requiresPhoto
         photoMin
         order
+        exampleMedia {
+          id
+          url
+          objectKey
+          caption
+          order
+        }
       }
       answers {
         id

@@ -1385,6 +1385,8 @@ type ChecklistInstanceItem @join__type(graph: CLEANING_SUBGRAPH) {
   photoMin: Int
   """Порядок отображения"""
   order: Int!
+  """Примеры фото из шаблона"""
+  exampleMedia: [ChecklistItemTemplateMedia!]!
 }
 
 """Ответ на пункт чек-листа."""

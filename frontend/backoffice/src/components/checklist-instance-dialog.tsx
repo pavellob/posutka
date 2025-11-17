@@ -692,11 +692,41 @@ export function ChecklistInstanceDialog({
                     </div>
                   )}
 
+                  {/* Example Media (from template) - показываем только для PRE_CLEANING */}
+                  {stage === 'PRE_CLEANING' && item.exampleMedia && item.exampleMedia.length > 0 && (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <PhotoIcon className="w-4 h-4 text-amber-500" />
+                        <Text className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                          Примеры фото из шаблона
+                        </Text>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {item.exampleMedia.map((media: any) => (
+                          <div key={media.id} className="relative group">
+                            <img
+                              src={media.url}
+                              alt={media.caption || 'Пример'}
+                              className="w-full h-20 object-cover rounded-lg border-2 border-amber-200 dark:border-amber-700"
+                            />
+                            {media.caption && (
+                              <Text className="text-xs text-gray-500 mt-1 truncate">
+                                {media.caption}
+                              </Text>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Attachments */}
                   <div className="mt-3">
                     <div className="flex items-center gap-2 mb-2">
                       <PhotoIcon className="w-4 h-4 text-gray-500" />
-                      <Text className="text-sm font-medium">Фото</Text>
+                      <Text className="text-sm font-medium">
+                        {stage === 'PRE_CLEANING' ? 'Ваши фото' : 'Фото'}
+                      </Text>
                       {itemAttachments.length > 0 && (
                         <Badge color="blue" className="text-xs">
                           {itemAttachments.length}

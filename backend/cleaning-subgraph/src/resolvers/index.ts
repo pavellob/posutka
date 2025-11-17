@@ -864,19 +864,80 @@ export const resolvers: any = {
   },
   
   ChecklistItemTemplate: {
-    exampleMedia: (parent: any, _: unknown, { prisma }: Context) => {
+    exampleMedia: async (parent: any, _: unknown, { prisma }: Context) => {
       // Если exampleMedia уже загружен (из include), возвращаем его
-      if (parent.exampleMedia) {
+      if (parent.exampleMedia && Array.isArray(parent.exampleMedia)) {
         return parent.exampleMedia;
       }
+      
       // Иначе загружаем из БД
-      return prisma.checklistItemTemplateMedia.findMany({
-        where: {
-          templateId: parent.templateId || parent.template?.id || parent.templateId,
-          itemKey: parent.key
-        },
-        orderBy: { order: 'asc' }
-      });
+      const templateId = parent.templateId;
+      const itemKey = parent.key;
+      
+      if (!templateId || !itemKey) {
+        logger.warn('Missing templateId or itemKey for ChecklistItemTemplate.exampleMedia', {
+          templateId,
+          itemKey,
+          parentKeys: Object.keys(parent)
+        });
+        return [];
+      }
+      
+      try {
+        const exampleMedia = await prisma.checklistItemTemplateMedia.findMany({
+          where: {
+            templateId,
+            itemKey
+          },
+          orderBy: { order: 'asc' }
+        });
+        return exampleMedia;
+      } catch (error) {
+        logger.error('Failed to load exampleMedia for ChecklistItemTemplate', {
+          templateId,
+          itemKey,
+          error
+        });
+        return [];
+      }
+    },
+  },
+  
+  ChecklistInstanceItem: {
+    exampleMedia: async (parent: any, _: unknown, { prisma }: Context) => {
+      // Получаем templateId из parent (добавлен в резолвере ChecklistInstance.items)
+      const templateId = parent.templateId;
+      const itemKey = parent.key;
+      
+      if (!templateId || !itemKey) {
+        logger.warn('No templateId or itemKey for ChecklistInstanceItem.exampleMedia', { 
+          itemKey,
+          templateId,
+          instanceId: parent.instanceId,
+          parentKeys: Object.keys(parent)
+        });
+        return [];
+      }
+      
+      try {
+        // Загружаем примеры фото из шаблона
+        const exampleMedia = await prisma.checklistItemTemplateMedia.findMany({
+          where: {
+            templateId,
+            itemKey
+          },
+          orderBy: { order: 'asc' }
+        });
+        
+        return exampleMedia;
+      } catch (error) {
+        logger.error('Failed to load example media for checklist item', { 
+          templateId,
+          itemKey, 
+          error 
+        });
+        return [];
+      }
     },
   },
   
@@ -894,6 +955,24 @@ export const resolvers: any = {
     parentInstance: async (parent: any, _: unknown, { checklistInstanceService }: Context) => {
       if (!parent.parentInstanceId) return null;
       return checklistInstanceService.getChecklistInstance(parent.parentInstanceId);
+    },
+    items: (parent: any) => {
+      // Добавляем templateId в каждый item для доступа в резолвере exampleMedia
+      if (parent.items && Array.isArray(parent.items)) {
+        const itemsWithTemplateId = parent.items.map((item: any) => ({
+          ...item,
+          templateId: parent.templateId,
+          instanceId: parent.id
+        }));
+        logger.debug('ChecklistInstance.items resolver', {
+          instanceId: parent.id,
+          templateId: parent.templateId,
+          itemsCount: itemsWithTemplateId.length,
+          firstItemHasTemplateId: itemsWithTemplateId[0]?.templateId
+        });
+        return itemsWithTemplateId;
+      }
+      return parent.items || [];
     },
   },
 };
