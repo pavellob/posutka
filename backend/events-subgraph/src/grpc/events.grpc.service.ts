@@ -23,8 +23,8 @@ export class EventsGrpcService {
       });
       
       // Парсим JSON payload
-      let payload = {};
-      let metadata = undefined;
+      let payload: any = {};
+      let metadata: any = undefined;
       
       try {
         if (request.payloadJson) {

@@ -109,6 +109,8 @@ export interface Cleaning {
   scheduledAt: DateTime;
   startedAt?: DateTime;
   completedAt?: DateTime;
+  assessedDifficulty?: string | null; // D0-D5 format
+  assessedAt?: DateTime | null;
   notes?: string;
   requiresLinenChange: boolean;
   checklistItems: CleaningChecklist[];

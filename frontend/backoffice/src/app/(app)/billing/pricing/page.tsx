@@ -47,11 +47,11 @@ export default function PricingPage() {
   })
 
   // Загрузка правил ценообразования
-  const { data: rulesData, isLoading } = useQuery({
+  const { data: rulesData, isLoading } = useQuery<{ cleaningPricingRules: any[] }>({
     queryKey: ['pricingRules', currentOrgId],
     queryFn: () => graphqlClient.request(GET_CLEANING_PRICING_RULES, {
       orgId: currentOrgId!,
-    }),
+    }) as Promise<{ cleaningPricingRules: any[] }>,
     enabled: !!currentOrgId,
   })
 

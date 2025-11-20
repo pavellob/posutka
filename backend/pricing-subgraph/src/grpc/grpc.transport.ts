@@ -30,9 +30,7 @@ export class GrpcTransport {
       const grpcService = new PricingGrpcService(this.pricingService);
 
       this.server = createServer();
-      this.server.add(PricingServiceDefinition as any, {
-        calculateCleaningCost: grpcService.calculateCleaningCost.bind(grpcService),
-      });
+      this.server.add(PricingServiceDefinition as any, grpcService as any);
 
       await this.server.listen(`${this.host}:${this.port}`);
 

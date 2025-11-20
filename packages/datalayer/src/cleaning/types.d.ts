@@ -91,6 +91,8 @@ export interface Cleaning {
     scheduledAt: DateTime;
     startedAt?: DateTime;
     completedAt?: DateTime;
+    assessedDifficulty?: string | null;
+    assessedAt?: DateTime | null;
     notes?: string;
     requiresLinenChange: boolean;
     checklistItems: CleaningChecklist[];
