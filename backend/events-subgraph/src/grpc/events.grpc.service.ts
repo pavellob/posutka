@@ -23,13 +23,45 @@ export class EventsGrpcService {
       });
       
       // Парсим JSON payload
-      const payload = request.payloadJson 
-        ? JSON.parse(request.payloadJson) 
-        : {};
+      let payload = {};
+      let metadata = undefined;
       
-      const metadata = request.metadataJson 
-        ? JSON.parse(request.metadataJson) 
-        : undefined;
+      try {
+        if (request.payloadJson) {
+          payload = JSON.parse(request.payloadJson);
+          logger.info('Parsed payload from gRPC request', { 
+            payloadKeys: Object.keys(payload),
+            hasPriceAmount: 'priceAmount' in payload,
+            hasPriceCurrency: 'priceCurrency' in payload,
+            hasUnitGrade: 'unitGrade' in payload,
+            hasCleaningDifficulty: 'cleaningDifficulty' in payload,
+            unitGrade: payload.unitGrade,
+            cleaningDifficulty: payload.cleaningDifficulty,
+            priceAmount: payload.priceAmount,
+            priceCurrency: payload.priceCurrency,
+            unitAddress: payload.unitAddress,
+            fullPayload: JSON.stringify(payload, null, 2)
+          });
+        }
+      } catch (parseError: any) {
+        logger.error('Failed to parse payload JSON', { 
+          error: parseError.message,
+          payloadJson: request.payloadJson?.substring(0, 500)
+        });
+        throw new Error(`Invalid payload JSON: ${parseError.message}`);
+      }
+      
+      try {
+        if (request.metadataJson) {
+          metadata = JSON.parse(request.metadataJson);
+        }
+      } catch (parseError: any) {
+        logger.error('Failed to parse metadata JSON', { 
+          error: parseError.message,
+          metadataJson: request.metadataJson?.substring(0, 500)
+        });
+        // Metadata не критично, продолжаем без него
+      }
       
       // Публикуем событие через EventBusService
       const event = await this.eventBus.publishEvent({
@@ -144,6 +176,8 @@ export class EventsGrpcService {
       5: 'CLEANING_READY_FOR_REVIEW',
       6: 'CLEANING_CANCELLED',
       7: 'CLEANING_PRECHECK_COMPLETED',
+      8: 'CLEANING_DIFFICULTY_SET',
+      9: 'CLEANING_APPROVED',
       10: 'BOOKING_CREATED',
       11: 'BOOKING_CONFIRMED',
       12: 'BOOKING_CANCELLED',

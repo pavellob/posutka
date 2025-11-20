@@ -98,11 +98,34 @@ export const resolvers = {
     property: (parent: any, _: unknown, { dl }: Context) => {
       return dl.getPropertyById(parent.propertyId);
     },
+    grade: (parent: any) => {
+      const grade = parent.grade ?? 0;
+      return `GRADE_${grade}`;
+    },
+    cleaningDifficulty: (parent: any) => {
+      const difficulty = parent.cleaningDifficulty ?? 0;
+      return `D${difficulty}`;
+    },
   },
   Mutation: {
     createProperty: (_: unknown, args: any, { dl }: Context) => dl.createProperty(args),
     updateProperty: (_: unknown, args: any, { dl }: Context) => dl.updateProperty(args),
     createUnit: (_: unknown, args: any, { dl }: Context) => dl.createUnit(args),
+    updateUnit: async (_: unknown, { id, input }: { id: string; input: any }, { dl }: Context) => {
+      // Конвертируем enum в числа для Prisma
+      const updateData: any = { ...input };
+      if (input.grade !== undefined) {
+        updateData.grade = typeof input.grade === 'string' 
+          ? parseInt(input.grade.replace('GRADE_', ''), 10)
+          : input.grade;
+      }
+      if (input.cleaningDifficulty !== undefined) {
+        updateData.cleaningDifficulty = typeof input.cleaningDifficulty === 'string'
+          ? parseInt(input.cleaningDifficulty.replace('D', ''), 10)
+          : input.cleaningDifficulty;
+      }
+      return dl.updateUnit(id, updateData);
+    },
     blockDates: (_: unknown, args: any, { dl }: Context) => dl.blockDates(args.unitId, args.from, args.to, args.note),
   },
   // Все связи между типами будут решаться на уровне mesh через base-schema.gql

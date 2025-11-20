@@ -84,6 +84,8 @@ export const GET_UNITS_BY_PROPERTY = gql`
       beds
       bathrooms
       amenities
+      grade
+      cleaningDifficulty
       property {
         id
         title
@@ -102,6 +104,8 @@ export const GET_UNIT_BY_ID = gql`
       beds
       bathrooms
       amenities
+      grade
+      cleaningDifficulty
       property {
         id
         title
@@ -1341,6 +1345,8 @@ export const GET_CLEANING = gql`
       unit {
         id
         name
+        grade
+        cleaningDifficulty
       }
       booking {
         id
@@ -1350,6 +1356,8 @@ export const GET_CLEANING = gql`
       scheduledAt
       startedAt
       completedAt
+      assessedDifficulty
+      assessedAt
       notes
       requiresLinenChange
       checklistItems {
@@ -1389,6 +1397,17 @@ export const GET_CLEANING = gql`
 `
 
 // ===== МУТАЦИИ ДЛЯ УБОРОК =====
+
+export const SET_CLEANING_DIFFICULTY = gql`
+  mutation SetCleaningDifficulty($input: SetCleaningDifficultyInput!) {
+    setCleaningDifficulty(input: $input) {
+      id
+      status
+      assessedDifficulty
+      assessedAt
+    }
+  }
+`
 
 export const CREATE_CLEANER = gql`
   mutation CreateCleaner($input: CreateCleanerInput!) {
@@ -1926,6 +1945,113 @@ export const REMOVE_PREFERRED_CLEANER = gql`
     removePreferredCleaner(unitId: $unitId, cleanerId: $cleanerId) {
       id
     }
+  }
+`
+
+export const UPDATE_UNIT = gql`
+  mutation UpdateUnit($id: UUID!, $input: UpdateUnitInput!) {
+    updateUnit(id: $id, input: $input) {
+      id
+      name
+      capacity
+      beds
+      bathrooms
+      amenities
+      grade
+      cleaningDifficulty
+    }
+  }
+`
+
+// ===== ЗАПРОСЫ ДЛЯ ЦЕНООБРАЗОВАНИЯ =====
+
+export const GET_CLEANING_PRICING_RULES = gql`
+  query GetCleaningPricingRules($orgId: UUID!, $unitId: UUID) {
+    cleaningPricingRules(orgId: $orgId, unitId: $unitId) {
+      id
+      orgId
+      unitId
+      mode
+      baseCleaningPrice {
+        amount
+        currency
+      }
+      gradeStep
+      difficultyStep
+      increasedDifficultyDelta
+      extras
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const GET_CLEANING_PRICING_RULE = gql`
+  query GetCleaningPricingRule($orgId: UUID!, $unitId: UUID) {
+    cleaningPricingRule(orgId: $orgId, unitId: $unitId) {
+      id
+      orgId
+      unitId
+      mode
+      baseCleaningPrice {
+        amount
+        currency
+      }
+      gradeStep
+      difficultyStep
+      increasedDifficultyDelta
+      extras
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const CALCULATE_CLEANING_COST = gql`
+  query CalculateCleaningCost($unitId: UUID!, $grade: UnitGrade, $difficulty: CleaningDifficulty, $mode: CleaningCoeffMode) {
+    calculateCleaningCost(unitId: $unitId, grade: $grade, difficulty: $difficulty, mode: $mode) {
+      unitId
+      grade
+      difficulty
+      mode
+      base {
+        amount
+        currency
+      }
+      gradeCoefficient
+      difficultyCoefficient
+      total {
+        amount
+        currency
+      }
+    }
+  }
+`
+
+export const UPSERT_CLEANING_PRICING_RULE = gql`
+  mutation UpsertCleaningPricingRule($input: UpsertCleaningPricingRuleInput!) {
+    upsertCleaningPricingRule(input: $input) {
+      id
+      orgId
+      unitId
+      mode
+      baseCleaningPrice {
+        amount
+        currency
+      }
+      gradeStep
+      difficultyStep
+      increasedDifficultyDelta
+      extras
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const DELETE_CLEANING_PRICING_RULE = gql`
+  mutation DeleteCleaningPricingRule($id: UUID!) {
+    deleteCleaningPricingRule(id: $id)
   }
 `
 

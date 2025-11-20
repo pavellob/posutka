@@ -17,8 +17,10 @@ const logger = createGraphQLLogger('notification-event-handler');
  */
 export class NotificationEventHandler {
   private notificationsClient: NotificationsGrpcClient | null = null;
+  private eventBusService: any = null;
   
-  constructor(private readonly prisma: PrismaClient) {
+  constructor(private readonly prisma: PrismaClient, eventBusService?: any) {
+    this.eventBusService = eventBusService;
     // Инициализируем gRPC клиент для notifications-subgraph
     const grpcHost = process.env.NOTIFICATIONS_GRPC_HOST || 'localhost';
     const grpcPort = parseInt(process.env.NOTIFICATIONS_GRPC_PORT || '4111');
@@ -43,8 +45,86 @@ export class NotificationEventHandler {
         eventId: event.id,
         type: event.type,
         targetUserIds: event.targetUserIds,
-        targetUserIdsCount: event.targetUserIds?.length || 0
+        targetUserIdsCount: event.targetUserIds?.length || 0,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        orgId: event.orgId
       });
+      
+      // Специальное логирование для CLEANING_AVAILABLE
+      if (event.type === 'CLEANING_AVAILABLE') {
+        logger.info('🔔 CLEANING_AVAILABLE event received in notification handler', {
+          eventId: event.id,
+          cleaningId: event.payload?.cleaningId,
+          targetUserIds: event.targetUserIds,
+          targetUserIdsCount: event.targetUserIds?.length || 0,
+          payloadKeys: Object.keys(event.payload || {}),
+          hasUnitAddress: !!event.payload?.unitAddress,
+          hasUnitGrade: event.payload?.unitGrade !== undefined,
+          unitGrade: event.payload?.unitGrade,
+          hasCleaningDifficulty: !!event.payload?.cleaningDifficulty,
+          cleaningDifficulty: event.payload?.cleaningDifficulty,
+          hasPriceAmount: event.payload?.priceAmount !== undefined,
+          priceAmount: event.payload?.priceAmount,
+          hasPriceCurrency: !!event.payload?.priceCurrency,
+          priceCurrency: event.payload?.priceCurrency,
+          fullPayload: JSON.stringify(event.payload, null, 2)
+        });
+      }
+      
+      // Специальная обработка: CLEANING_DIFFICULTY_SET → публикуем CLEANING_READY_FOR_REVIEW
+      if (event.type === 'CLEANING_DIFFICULTY_SET' && this.eventBusService) {
+        try {
+          const payload = event.payload as any;
+          logger.info('🔄 Processing CLEANING_DIFFICULTY_SET event, will publish CLEANING_READY_FOR_REVIEW', {
+            eventId: event.id,
+            cleaningId: payload.cleaningId,
+            targetUserIds: event.targetUserIds,
+            targetUserIdsCount: event.targetUserIds?.length || 0,
+            hasEventBusService: !!this.eventBusService
+          });
+          
+          if (!event.targetUserIds || event.targetUserIds.length === 0) {
+            logger.warn('⚠️ No targetUserIds in CLEANING_DIFFICULTY_SET event, cannot publish CLEANING_READY_FOR_REVIEW', {
+              eventId: event.id,
+              cleaningId: payload.cleaningId
+            });
+          } else {
+            await this.eventBusService.publishEvent({
+              type: 'CLEANING_READY_FOR_REVIEW',
+              sourceSubgraph: 'events-subgraph',
+              entityType: 'Cleaning',
+              entityId: payload.cleaningId,
+              orgId: event.orgId,
+              targetUserIds: event.targetUserIds,
+              payload: {
+                cleaningId: payload.cleaningId,
+                cleanerName: payload.cleanerName,
+                unitName: payload.unitName,
+                unitAddress: payload.unitAddress,
+                scheduledAt: payload.scheduledAt,
+                startedAt: payload.startedAt,
+                notes: payload.notes,
+                difficulty: payload.difficulty,
+                priceAmount: payload.priceAmount,
+                priceCurrency: payload.priceCurrency
+              }
+            });
+            
+            logger.info('✅ CLEANING_READY_FOR_REVIEW event published from CLEANING_DIFFICULTY_SET', {
+              cleaningId: payload.cleaningId,
+              targetUserIds: event.targetUserIds
+            });
+          }
+        } catch (error: any) {
+          logger.error('❌ Failed to publish CLEANING_READY_FOR_REVIEW from CLEANING_DIFFICULTY_SET', {
+            error: error.message,
+            stack: error.stack,
+            eventId: event.id
+          });
+          // Не прерываем обработку, продолжаем создавать уведомления для CLEANING_DIFFICULTY_SET
+        }
+      }
       
       if (!event.targetUserIds || event.targetUserIds.length === 0) {
         logger.warn('⚠️ No target user IDs in event', { eventId: event.id });
@@ -119,6 +199,17 @@ export class NotificationEventHandler {
         return false;
       }
 
+      // Автоподписка на важные события уборок
+      if (event.type === 'CLEANING_AVAILABLE' && !settings.subscribedEvents.includes('CLEANING_AVAILABLE')) {
+        const updatedEvents = [...settings.subscribedEvents, 'CLEANING_AVAILABLE'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to CLEANING_AVAILABLE', { userId });
+      }
+
       if (event.type === 'CLEANING_READY_FOR_REVIEW' && !settings.subscribedEvents.includes('CLEANING_READY_FOR_REVIEW')) {
         const updatedEvents = [...settings.subscribedEvents, 'CLEANING_READY_FOR_REVIEW'];
         await this.prisma.userNotificationSettings.update({
@@ -138,8 +229,29 @@ export class NotificationEventHandler {
         settings.subscribedEvents = updatedEvents as any;
         logger.info('Auto-subscribed user to CLEANING_PRECHECK_COMPLETED', { userId });
       }
+
+      if (event.type === 'CLEANING_STARTED' && !settings.subscribedEvents.includes('CLEANING_STARTED')) {
+        const updatedEvents = [...settings.subscribedEvents, 'CLEANING_STARTED'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to CLEANING_STARTED', { userId });
+      }
+
+      if (event.type === 'CLEANING_COMPLETED' && !settings.subscribedEvents.includes('CLEANING_COMPLETED')) {
+        const updatedEvents = [...settings.subscribedEvents, 'CLEANING_COMPLETED'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to CLEANING_COMPLETED', { userId });
+      }
       
-      // Проверяем подписку на событие (без автоподписки - управление через UI)
+      // Проверяем подписку на событие
+      // Для CLEANING_AVAILABLE, CLEANING_READY_FOR_REVIEW, CLEANING_PRECHECK_COMPLETED, CLEANING_STARTED, CLEANING_COMPLETED уже сделана автоподписка выше
       if (!settings.subscribedEvents.includes(event.type)) {
         logger.warn('⚠️ User not subscribed to event type', { 
           userId, 
@@ -149,6 +261,48 @@ export class NotificationEventHandler {
         });
         return false;
       }
+      
+      logger.info('✅ User is subscribed to event type', {
+        userId,
+        eventType: event.type
+      });
+
+      // Защита от дублирования: проверяем, не создано ли уже уведомление для этого события и пользователя
+      // Делаем это ПОСЛЕ проверки подписки, чтобы не блокировать уведомления для пользователей, которые только что подписались
+      logger.info('🔍 Checking for duplicate notification', {
+        userId,
+        eventType: event.type,
+        eventId: event.id
+      });
+      
+      const existingNotification = await this.prisma.notification.findFirst({
+        where: {
+          userId,
+          eventType: event.type,
+          eventLinks: {
+            some: {
+              eventId: event.id
+            }
+          }
+        }
+      });
+      
+      if (existingNotification) {
+        logger.warn('⚠️ Notification already exists for this event and user, skipping', {
+          userId,
+          eventType: event.type,
+          eventId: event.id,
+          existingNotificationId: existingNotification.id,
+          existingNotificationCreatedAt: existingNotification.createdAt
+        });
+        return false;
+      }
+      
+      logger.info('✅ No duplicate notification found, proceeding with creation', {
+        userId,
+        eventType: event.type,
+        eventId: event.id
+      });
       
       // Рендерим сообщение
       const rendered = this.renderNotification(event);
@@ -260,6 +414,8 @@ export class NotificationEventHandler {
         'CLEANING_READY_FOR_REVIEW': NotificationEventType.EVENT_TYPE_CLEANING_READY_FOR_REVIEW,
         'CLEANING_CANCELLED': NotificationEventType.EVENT_TYPE_CLEANING_CANCELLED,
         'CLEANING_PRECHECK_COMPLETED': NotificationEventType.EVENT_TYPE_CLEANING_PRECHECK_COMPLETED,
+        'CLEANING_DIFFICULTY_SET': (NotificationEventType as any).EVENT_TYPE_CLEANING_DIFFICULTY_SET ?? (17 as NotificationEventType),
+        'CLEANING_APPROVED': (NotificationEventType as any).EVENT_TYPE_CLEANING_APPROVED ?? (18 as NotificationEventType),
         // Task events
         'TASK_CREATED': NotificationEventType.EVENT_TYPE_TASK_CREATED,
         'TASK_ASSIGNED': NotificationEventType.EVENT_TYPE_TASK_ASSIGNED,
@@ -437,10 +593,71 @@ export class NotificationEventHandler {
     
     switch (event.type) {
       case 'CLEANING_ASSIGNED':
-        // Если уборщик назначен - только одна кнопка "Посмотреть уборку"
+        // Форматируем дату для красивого отображения
+        const assignedScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        let assignedMessage = `Вам назначена уборка в "${payload.unitName || 'квартире'}"`;
+        
+        // Метаинформация
+        if (payload.scheduledAt) {
+          assignedMessage += `\n\n📅 Дата и время: ${assignedScheduledDate}`;
+        }
+        
+        if (payload.unitAddress) {
+          assignedMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        if (payload.cleanerName) {
+          assignedMessage += `\n👤 Уборщик: ${payload.cleanerName}`;
+        }
+        
+        // Информация о размере объекта
+        if (payload.unitGrade !== undefined && payload.unitGrade !== null) {
+          const gradeLabels: Record<number, string> = {
+            0: 'Студия',
+            1: '1-комнатная',
+            2: '2-комнатная',
+            3: '3-комнатная',
+            4: '4-комнатная',
+            5: '5+ комнат',
+          };
+          const gradeLabel = gradeLabels[payload.unitGrade] || `Размер ${payload.unitGrade}`;
+          assignedMessage += `\n🏠 Размер объекта: ${gradeLabel} (Grade ${payload.unitGrade})`;
+        }
+        
+        // Информация о сложности уборки
+        if (payload.cleaningDifficulty) {
+          assignedMessage += `\n📊 Сложность уборки: ${payload.cleaningDifficulty}`;
+        }
+        
+        // Информация о стоимости
+        if (payload.priceAmount && payload.priceCurrency) {
+          const formattedPrice = new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: payload.priceCurrency || 'RUB',
+            minimumFractionDigits: 0
+          }).format(payload.priceAmount / 100); // Предполагаем, что цена в копейках
+          assignedMessage += `\n💰 Стоимость: ${formattedPrice}`;
+        }
+        
+        // Информация о смене белья
+        if (payload.requiresLinenChange) {
+          assignedMessage += `\n\n⚠️ Требуется смена постельного белья и полотенец`;
+        }
+        
+        assignedMessage += `\n\n💡 Подготовьтесь к уборке и не забудьте взять все необходимое`;
+        
         return {
           title: '🧹 Новая уборка назначена!',
-          message: `Вам назначена уборка в ${payload.unitName || 'квартире'}`,
+          message: assignedMessage,
           actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
       
@@ -456,14 +673,57 @@ export class NotificationEventHandler {
             })
           : 'не указана';
         
+        let availableMessage = `Запланирована уборка в квартире "${payload.unitName || 'квартире'}"`;
+        
+        // Метаинформация
+        if (payload.scheduledAt) {
+          availableMessage += `\n\n📅 Дата и время: ${scheduledDate}`;
+        }
+        
+        if (payload.unitAddress) {
+          availableMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        // Информация о размере объекта
+        if (payload.unitGrade !== undefined && payload.unitGrade !== null) {
+          const gradeLabels: Record<number, string> = {
+            0: 'Студия',
+            1: '1-комнатная',
+            2: '2-комнатная',
+            3: '3-комнатная',
+            4: '4-комнатная',
+            5: '5+ комнат',
+          };
+          const gradeLabel = gradeLabels[payload.unitGrade] || `Размер ${payload.unitGrade}`;
+          availableMessage += `\n🏠 Размер объекта: ${gradeLabel} (Grade ${payload.unitGrade})`;
+        }
+        
+        // Информация о сложности уборки
+        if (payload.cleaningDifficulty) {
+          availableMessage += `\n📊 Сложность уборки: ${payload.cleaningDifficulty}`;
+        }
+        
+        // Информация о стоимости
+        if (payload.priceAmount && payload.priceCurrency) {
+          const formattedPrice = new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: payload.priceCurrency || 'RUB',
+            minimumFractionDigits: 0
+          }).format(payload.priceAmount / 100); // Предполагаем, что цена в копейках
+          availableMessage += `\n💰 Стоимость: ${formattedPrice}`;
+        }
+        
+        // Информация о смене белья
+        if (payload.requiresLinenChange) {
+          availableMessage += `\n\n⚠️ Требуется смена постельного белья и полотенец`;
+        }
+        
+        availableMessage += `\n\n💡 Нажмите кнопку ниже, чтобы взять уборку в работу`;
+        
         // Если уборка доступна (не назначена) - две кнопки: "Взять уборку" и "Посмотреть уборку"
         return {
           title: '📋 Доступна уборка!',
-          message: `Запланирована уборка в квартире "${payload.unitName || 'квартире'}"
-
-Дата: ${scheduledDate}
-
-💡 Нажмите кнопку ниже, чтобы взять уборку в работу`,
+          message: availableMessage,
           actionButtons: [
             {
               text: '✅ Взять уборку',
@@ -486,16 +746,274 @@ export class NotificationEventHandler {
         };
       
       case 'CLEANING_COMPLETED':
+        // Форматируем даты
+        const completedScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        const completedStartedDate = payload.startedAt 
+          ? new Date(payload.startedAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : null;
+        
+        const completedFinishedDate = payload.completedAt 
+          ? new Date(payload.completedAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        // Вычисляем длительность
+        let durationText = '';
+        if (payload.startedAt && payload.completedAt) {
+          const start = new Date(payload.startedAt);
+          const end = new Date(payload.completedAt);
+          const durationMs = end.getTime() - start.getTime();
+          const durationMinutes = Math.floor(durationMs / 60000);
+          const hours = Math.floor(durationMinutes / 60);
+          const minutes = durationMinutes % 60;
+          durationText = hours > 0 ? `${hours}ч ${minutes}мин` : `${minutes}мин`;
+        }
+        
+        let completedMessage = `Уборка в "${payload.unitName || 'квартире'}" успешно завершена`;
+        
+        // Метаинформация
+        if (payload.cleanerName) {
+          completedMessage += `\n\n👤 Уборщик: ${payload.cleanerName}`;
+        }
+        
+        if (payload.scheduledAt) {
+          completedMessage += `\n📅 Запланировано: ${completedScheduledDate}`;
+        }
+        
+        if (payload.startedAt) {
+          completedMessage += `\n▶️ Начато: ${completedStartedDate}`;
+        }
+        
+        completedMessage += `\n✅ Завершено: ${completedFinishedDate}`;
+        
+        if (durationText) {
+          completedMessage += `\n⏱️ Длительность: ${durationText}`;
+        }
+        
+        if (payload.unitAddress) {
+          completedMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        // Статистика чеклиста
+        if (payload.checklistStats) {
+          const { total, completed, incomplete } = payload.checklistStats;
+          const completionPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+          
+          completedMessage += `\n\n📋 Чеклист: ${completed}/${total} выполнено (${completionPercent}%)`;
+          
+          if (incomplete > 0 && payload.checklistStats.incompleteItems && payload.checklistStats.incompleteItems.length > 0) {
+            completedMessage += `\n\n⚠️ Не выполнено (${incomplete}):`;
+            payload.checklistStats.incompleteItems.slice(0, 5).forEach((item: any, index: number) => {
+              completedMessage += `\n   ${index + 1}. ${item.title}`;
+            });
+            if (incomplete > 5) {
+              completedMessage += `\n   ... и ещё ${incomplete - 5}`;
+            }
+          } else if (incomplete === 0) {
+            completedMessage += `\n✅ Все пункты выполнены`;
+          }
+        }
+        
+        // Фото
+        if (payload.photoUrls && payload.photoUrls.length > 0) {
+          completedMessage += `\n\n📸 Фотографии (${payload.photoUrls.length}):`;
+          payload.photoUrls.slice(0, 3).forEach((photo: any, index: number) => {
+            const caption = photo.caption ? ` - ${photo.caption}` : '';
+            completedMessage += `\n   ${index + 1}. ${photo.url}${caption}`;
+          });
+          if (payload.photoUrls.length > 3) {
+            completedMessage += `\n   ... и ещё ${payload.photoUrls.length - 3}`;
+          }
+        }
+        
+        completedMessage += `\n\n🎉 Спасибо за качественную работу!`;
+        
         return {
           title: '✅ Уборка завершена',
-          message: `Уборка в ${payload.unitName || 'квартире'} успешно завершена`,
+          message: completedMessage,
           actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
 
       case 'CLEANING_PRECHECK_COMPLETED':
+        // Форматируем дату
+        const precheckScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        const precheckSubmittedDate = payload.submittedAt 
+          ? new Date(payload.submittedAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        let precheckMessage = `Приёмка уборки в "${payload.unitName || 'квартире'}" завершена`;
+        
+        // Метаинформация
+        if (payload.cleanerName) {
+          precheckMessage += `\n\n👤 Уборщик: ${payload.cleanerName}`;
+        }
+        
+        if (payload.scheduledAt) {
+          precheckMessage += `\n📅 Запланировано: ${precheckScheduledDate}`;
+        }
+        
+        if (payload.unitAddress) {
+          precheckMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        precheckMessage += `\n⏰ Приёмка завершена: ${precheckSubmittedDate}`;
+        
+        // Статистика чеклиста
+        if (payload.checklistStats) {
+          const { total, completed, incomplete } = payload.checklistStats;
+          const completionPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+          
+          precheckMessage += `\n\n📋 Чеклист: ${completed}/${total} выполнено (${completionPercent}%)`;
+          
+          if (incomplete > 0 && payload.checklistStats.incompleteItems && payload.checklistStats.incompleteItems.length > 0) {
+            precheckMessage += `\n\n⚠️ Не выполнено (${incomplete}):`;
+            payload.checklistStats.incompleteItems.slice(0, 5).forEach((item: any, index: number) => {
+              precheckMessage += `\n   ${index + 1}. ${item.title}`;
+            });
+            if (incomplete > 5) {
+              precheckMessage += `\n   ... и ещё ${incomplete - 5}`;
+            }
+          } else if (incomplete === 0) {
+            precheckMessage += `\n✅ Все пункты выполнены`;
+          }
+        }
+        
+        // Фото
+        if (payload.photoUrls && payload.photoUrls.length > 0) {
+          precheckMessage += `\n\n📸 Фотографии (${payload.photoUrls.length}):`;
+          payload.photoUrls.slice(0, 3).forEach((photo: any, index: number) => {
+            const caption = photo.caption ? ` - ${photo.caption}` : '';
+            precheckMessage += `\n   ${index + 1}. ${photo.url}${caption}`;
+          });
+          if (payload.photoUrls.length > 3) {
+            precheckMessage += `\n   ... и ещё ${payload.photoUrls.length - 3}`;
+          }
+        }
+        
         return {
           title: '🧾 Приёмка завершена',
-          message: `Приёмка уборки в ${payload.unitName || 'квартире'} завершена.`,
+          message: precheckMessage,
+          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
+        };
+      
+      case 'CLEANING_READY_FOR_REVIEW':
+        // Форматируем дату для красивого отображения
+        const reviewScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        let reviewMessage = `Уборка в "${payload.unitName || 'квартире'}" готова к проверке`;
+        
+        if (payload.cleanerName) {
+          reviewMessage += `\n\n👤 Уборщик: ${payload.cleanerName}`;
+        }
+        
+        if (payload.scheduledAt) {
+          reviewMessage += `\n📅 Дата: ${reviewScheduledDate}`;
+        }
+        
+        if (payload.unitAddress) {
+          reviewMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        // Добавляем сложность уборки
+        if (payload.difficulty !== undefined && payload.difficulty !== null) {
+          reviewMessage += `\n📊 Сложность: ${payload.difficulty}/5`;
+        }
+        
+        // Добавляем стоимость уборки
+        if (payload.priceAmount && payload.priceCurrency) {
+          const formattedPrice = new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: payload.priceCurrency || 'RUB',
+            minimumFractionDigits: 0
+          }).format(payload.priceAmount / 100); // Предполагаем, что цена в копейках
+          reviewMessage += `\n💰 Стоимость: ${formattedPrice}`;
+        }
+        
+        reviewMessage += `\n\n💡 Проверьте качество уборки и подтвердите выполнение`;
+        
+        return {
+          title: '✅ Уборка готова к проверке',
+          message: reviewMessage,
+          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
+        };
+      
+      case 'CLEANING_DIFFICULTY_SET':
+        // Форматируем цену, если она есть
+        let priceText = '';
+        if (payload.priceAmount && payload.priceCurrency) {
+          const formattedPrice = new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: payload.priceCurrency || 'RUB',
+            minimumFractionDigits: 0
+          }).format(payload.priceAmount / 100); // Предполагаем, что цена в копейках
+          priceText = `\n💰 Стоимость: ${formattedPrice}`;
+        }
+        
+        return {
+          title: '📊 Сложность уборки указана',
+          message: `Сложность уборки в "${payload.unitName || 'квартире'}" установлена: ${payload.difficulty || 'N/A'}/5${priceText}`,
+          actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
+        };
+      
+      case 'CLEANING_APPROVED':
+        let approvedMessage = `Уборка в "${payload.unitName || 'квартире'}" одобрена менеджером`;
+        
+        if (payload.cleanerName) {
+          approvedMessage += `\n\n👤 Уборщик: ${payload.cleanerName}`;
+        }
+        
+        if (payload.comment) {
+          approvedMessage += `\n\n💬 Комментарий: ${payload.comment}`;
+        }
+        
+        approvedMessage += `\n\n✅ Спасибо за качественную работу!`;
+        
+        return {
+          title: '✅ Уборка одобрена',
+          message: approvedMessage,
           actionUrl: `${frontendUrl}/cleanings/${payload.cleaningId}`
         };
       
@@ -644,6 +1162,7 @@ export class NotificationEventHandler {
       // Normal priority - important events
       case 'CLEANING_STARTED':
       case 'CLEANING_PRECHECK_COMPLETED':
+      case 'CLEANING_DIFFICULTY_SET':
       case 'CLEANING_CANCELLED':
       case 'BOOKING_CREATED':
       case 'BOOKING_CONFIRMED':

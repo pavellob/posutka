@@ -9,6 +9,7 @@ export interface IDataLayerInventory {
   getUnitById(id: UUID): Promise<Unit | null>;
   getUnitsByPropertyId(propertyId: UUID): Promise<Unit[]>;
   createUnit(input: Pick<Unit, 'propertyId' | 'name' | 'capacity' | 'beds' | 'bathrooms' | 'amenities'>): Promise<Unit>;
+  updateUnit(id: UUID, input: Partial<Pick<Unit, 'name' | 'capacity' | 'beds' | 'bathrooms' | 'amenities' | 'grade' | 'cleaningDifficulty'>>): Promise<Unit>;
 
   blockDates(unitId: UUID, from: DateTime, to: DateTime, note?: string): Promise<CalendarDay[]>;
   getCalendar(unitId: UUID, rangeStart: DateTime, rangeEnd: DateTime): Promise<CalendarDay[]>;

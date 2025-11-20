@@ -62,10 +62,24 @@ export class EventBusService {
         }
       });
       
-      logger.info('Event created in DB', { eventId: event.id });
+      logger.info('Event created in DB', { 
+        eventId: event.id,
+        type: event.type,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        targetUserIdsCount: input.targetUserIds?.length || 0
+      });
       
       // 2. Асинхронная обработка (не блокируем ответ)
-      setImmediate(() => this.processEvent(event.id));
+      setImmediate(() => {
+        logger.info('Scheduling event processing', { eventId: event.id, type: event.type });
+        this.processEvent(event.id).catch((error) => {
+          logger.error('Failed to process event in setImmediate', { 
+            eventId: event.id,
+            error: error.message 
+          });
+        });
+      });
       
       return event;
     } catch (error: any) {
@@ -111,11 +125,39 @@ export class EventBusService {
         }
       });
       
+      // Также проверяем все подписки для отладки
+      const allSubscriptions = await this.prisma.eventSubscription.findMany({
+        where: { isActive: true }
+      });
+      
       logger.info('Found subscriptions', { 
         eventId: event.id,
+        eventType: event.type,
         count: subscriptions.length,
-        handlers: subscriptions.map((s: { handlerType: string }) => s.handlerType)
+        handlers: subscriptions.map((s: { handlerType: string }) => s.handlerType),
+        subscriptionIds: subscriptions.map((s: any) => s.id),
+        allActiveSubscriptions: allSubscriptions.map((s: any) => ({
+          id: s.id,
+          handlerType: s.handlerType,
+          eventTypes: s.eventTypes,
+          hasEventType: s.eventTypes?.includes(event.type)
+        }))
       });
+      
+      if (subscriptions.length === 0) {
+        logger.warn('⚠️ No active subscriptions found for event type', {
+          eventId: event.id,
+          eventType: event.type,
+          allActiveSubscriptionsCount: allSubscriptions.length,
+          allActiveSubscriptions: allSubscriptions.map((s: any) => ({
+            id: s.id,
+            handlerType: s.handlerType,
+            eventTypesCount: s.eventTypes?.length || 0,
+            hasEventType: s.eventTypes?.includes(event.type)
+          })),
+          hint: 'Check if event type is in subscription eventTypes array and subscription is active'
+        });
+      }
       
       // Отправляем событие каждому подписчику
       const results = await Promise.allSettled(

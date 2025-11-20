@@ -1,5 +1,5 @@
 import { createGraphQLLogger } from '@repo/shared-logger';
-import type { ICleaningDL } from '@repo/datalayer';
+import type { ICleaningDL, IDataLayerInventory } from '@repo/datalayer';
 import type { PrismaClient } from '@prisma/client';
 import {
   CleaningServiceDefinition,
@@ -10,6 +10,7 @@ import {
   AssignCleanerRequest,
   Cleaning as GrpcCleaning,
   CleaningStatus as GrpcCleaningStatus,
+  createPricingGrpcClient,
 } from '@repo/grpc-sdk';
 import { getEventsClient } from '../services/events-client.js';
 
@@ -22,7 +23,8 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
 
   constructor(
     private readonly dl: ICleaningDL,
-    private readonly prisma: PrismaClient
+    private readonly prisma: PrismaClient,
+    private readonly inventoryDL?: IDataLayerInventory
   ) {}
 
   async scheduleCleaning(request: ScheduleCleaningRequest): Promise<CleaningResponse> {
@@ -97,21 +99,102 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
           }
         } else {
           // Если уборщик НЕ назначен - публикуем AVAILABLE для всех привязанных
+          logger.info('No cleaner assigned, collecting active preferred cleaners', {
+            preferredCleanersCount: unit.preferredCleaners.length
+          });
+          
           const targetUserIds = unit.preferredCleaners
-            .filter(pc => pc.cleaner.isActive)
-            .map(pc => pc.cleaner.userId || pc.cleaner.id);
+            .filter(pc => {
+              if (!pc.cleaner.isActive) {
+                logger.info('Skipping inactive preferred cleaner', {
+                  cleanerId: pc.cleaner.id
+                });
+                return false;
+              }
+              return true;
+            })
+            .map(pc => {
+              const userId = pc.cleaner.userId || pc.cleaner.id;
+              logger.info('Added preferred cleaner to targetUserIds', {
+                cleanerId: pc.cleaner.id,
+                cleanerUserId: pc.cleaner.userId,
+                targetUserId: userId
+              });
+              return userId;
+            })
+            .filter(Boolean); // Убираем undefined/null
+          
+          logger.info('Collected targetUserIds for CLEANING_AVAILABLE', {
+            targetUserIdsCount: targetUserIds.length,
+            targetUserIds
+          });
           
           if (targetUserIds.length > 0) {
             const eventsClient = getEventsClient();
+            
+            // Получаем данные о unit через datalayer для grade, cleaningDifficulty и address
+            let unitGrade: number | undefined;
+            let cleaningDifficulty: string | undefined;
+            let priceAmount: number | undefined;
+            let priceCurrency: string | undefined;
+            let unitAddress: string | undefined = unit.property?.address;
+            
+            if (this.inventoryDL) {
+              try {
+                const unitData = await this.inventoryDL.getUnitById(cleaning.unitId);
+                if (unitData) {
+                  unitAddress = unitData.property?.address || unitAddress;
+                  if (unitData.grade !== null && unitData.grade !== undefined) {
+                    unitGrade = unitData.grade;
+                  }
+                  if (unitData.cleaningDifficulty !== null && unitData.cleaningDifficulty !== undefined) {
+                    cleaningDifficulty = `D${unitData.cleaningDifficulty}`;
+                  }
+                  
+                  // Рассчитываем стоимость уборки
+                  try {
+                    const pricingClient = createPricingGrpcClient({
+                      host: process.env.PRICING_GRPC_HOST || 'localhost',
+                      port: parseInt(process.env.PRICING_GRPC_PORT || '4112'),
+                    });
+                    const defaultDifficulty = unitData.cleaningDifficulty ?? 1;
+                    const priceResponse = await pricingClient.CalculateCleaningCost({
+                      unitId: cleaning.unitId,
+                      difficulty: defaultDifficulty,
+                      mode: 'BASIC'
+                    });
+                    if (priceResponse.quote?.totalAmount && priceResponse.quote?.totalCurrency) {
+                      priceAmount = Number(priceResponse.quote.totalAmount);
+                      priceCurrency = priceResponse.quote.totalCurrency;
+                    }
+                  } catch (priceError: any) {
+                    logger.warn('Failed to calculate cleaning price in gRPC service', {
+                      cleaningId: cleaning.id,
+                      error: priceError.message
+                    });
+                  }
+                }
+              } catch (error: any) {
+                logger.warn('Failed to get unit data in gRPC service', {
+                  cleaningId: cleaning.id,
+                  error: error.message
+                });
+              }
+            }
             
             await eventsClient.publishCleaningAvailable({
               cleaningId: cleaning.id,
               unitId: cleaning.unitId,
               unitName: `${unit.property?.title || ''} - ${unit.name}`,
+              unitAddress,
               scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
               requiresLinenChange: cleaning.requiresLinenChange,
               targetUserIds,
               orgId: cleaning.orgId || undefined,
+              unitGrade,
+              cleaningDifficulty,
+              priceAmount,
+              priceCurrency,
             });
             logger.info('✅ CLEANING_AVAILABLE event published', { 
               cleaningId: cleaning.id,

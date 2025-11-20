@@ -1,0 +1,150 @@
+# Pricing Subgraph - Управление ценообразованием уборок
+# Отвечает за расчёт стоимости уборок на основе градации юнитов и сложности
+
+scalar UUID
+scalar DateTime
+scalar JSON
+
+"""
+Денежная сумма с валютой.
+Amount хранится в копейках/центах для точности вычислений.
+Пример: {amount: 150000, currency: "RUB"} = 1500.00 RUB
+"""
+type Money {
+  """Сумма в копейках/центах (минимальная единица валюты)"""
+  amount: Int!
+  """Код валюты в формате ISO 4217 (RUB, USD, EUR)"""
+  currency: String!
+}
+
+"""
+Входные данные для денежной суммы.
+Используется в мутациях для создания/обновления денежных значений.
+"""
+input MoneyInput {
+  """Сумма в копейках/центах"""
+  amount: Int!
+  """Код валюты в формате ISO 4217"""
+  currency: String!
+}
+
+"""
+Градация юнита по размеру (0-10).
+"""
+enum UnitGrade {
+  GRADE_0
+  GRADE_1
+  GRADE_2
+  GRADE_3
+  GRADE_4
+  GRADE_5
+  GRADE_6
+  GRADE_7
+  GRADE_8
+  GRADE_9
+  GRADE_10
+}
+
+"""
+Сложность уборки (0-5).
+"""
+enum CleaningDifficulty {
+  D0
+  D1
+  D2
+  D3
+  D4
+  D5
+}
+
+"""
+Режим коэффициентов ценообразования.
+"""
+enum CleaningCoeffMode {
+  BASIC
+  INCREASED
+}
+
+"""
+Правила расчёта стоимости для юнита/организации.
+"""
+type CleaningPricingRule {
+  id: UUID!
+  orgId: UUID!
+  unitId: UUID
+  mode: CleaningCoeffMode!
+  baseCleaningPrice: Money!
+  gradeStep: Float!
+  difficultyStep: Float!
+  increasedDifficultyDelta: Float!
+  extras: JSON
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+Квота/калькуляция стоимости уборки.
+"""
+type CleaningCostQuote {
+  unitId: UUID!
+  grade: UnitGrade!
+  difficulty: CleaningDifficulty!
+  mode: CleaningCoeffMode!
+  base: Money!
+  gradeCoefficient: Float!
+  difficultyCoefficient: Float!
+  total: Money!
+}
+
+"""
+Запросы для работы с ценообразованием.
+"""
+type Query {
+  """Получить правило ценообразования"""
+  cleaningPricingRule(
+    orgId: UUID!
+    unitId: UUID
+  ): CleaningPricingRule
+  
+  """Получить все правила для организации/юнита"""
+  cleaningPricingRules(
+    orgId: UUID!
+    unitId: UUID
+  ): [CleaningPricingRule!]!
+  
+  """Рассчитать стоимость уборки"""
+  calculateCleaningCost(
+    unitId: UUID!
+    grade: UnitGrade
+    difficulty: CleaningDifficulty
+    mode: CleaningCoeffMode
+  ): CleaningCostQuote!
+}
+
+"""
+Входные данные для создания/обновления правила ценообразования.
+"""
+input UpsertCleaningPricingRuleInput {
+  orgId: UUID!
+  unitId: UUID
+  mode: CleaningCoeffMode!
+  baseCleaningPrice: MoneyInput!
+  gradeStep: Float
+  difficultyStep: Float
+  increasedDifficultyDelta: Float
+  extras: JSON
+}
+
+"""
+Мутации для работы с ценообразованием.
+"""
+type Mutation {
+  """Создать или обновить правило ценообразования"""
+  upsertCleaningPricingRule(
+    input: UpsertCleaningPricingRuleInput!
+  ): CleaningPricingRule!
+  
+  """Удалить правило ценообразования"""
+  deleteCleaningPricingRule(id: UUID!): Boolean!
+}
+

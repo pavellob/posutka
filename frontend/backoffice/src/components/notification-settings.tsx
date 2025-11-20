@@ -30,6 +30,8 @@ const EVENT_GROUPS = {
       { id: 'CLEANING_COMPLETED', name: 'Уборка завершена' },
       { id: 'CLEANING_PRECHECK_COMPLETED', name: 'Приёмка завершена' },
       { id: 'CLEANING_READY_FOR_REVIEW', name: 'Требуется финальная проверка' },
+      { id: 'CLEANING_DIFFICULTY_SET', name: 'Сложность уборки указана' },
+      { id: 'CLEANING_APPROVED', name: 'Уборка одобрена' },
       { id: 'CLEANING_CANCELLED', name: 'Уборка отменена' },
     ],
   },

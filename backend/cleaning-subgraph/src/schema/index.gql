@@ -152,6 +152,9 @@ type Mutation {
   """Обновить чеклист уборки"""
   updateCleaningChecklist(id: UUID!, items: [ChecklistItemInput!]!): Cleaning!
   
+  """Выставить сложность уборки после обследования (PRE_CLEANING)"""
+  setCleaningDifficulty(input: SetCleaningDifficultyInput!): Cleaning!
+  
   # Управление привязкой уборщиков к квартирам
   """Добавить уборщика в список предпочтительных для квартиры"""
   addPreferredCleaner(unitId: UUID!, cleanerId: UUID!): Unit!
@@ -410,6 +413,10 @@ type Cleaning {
   startedAt: DateTime
   """Время завершения"""
   completedAt: DateTime
+  """Сложность уборки, выставленная после обследования (0-5)"""
+  assessedDifficulty: CleaningDifficulty
+  """Дата выставления сложности"""
+  assessedAt: DateTime
   """Заметки"""
   notes: String
   """Требуется ли смена белья"""
@@ -569,6 +576,19 @@ enum CleaningReviewStatus {
 }
 
 """
+Сложность уборки (0-5).
+Выставляется уборщиком после обследования (PRE_CLEANING).
+"""
+enum CleaningDifficulty {
+  D0
+  D1
+  D2
+  D3
+  D4
+  D5
+}
+
+"""
 Тип документа уборки.
 """
 enum CleaningDocumentType {
@@ -719,6 +739,18 @@ input CreateCleaningDocumentInput {
   notes: String
   """Фотографии"""
   photos: [AddPhotoInput!]
+}
+
+"""
+Входные данные для выставления сложности уборки.
+"""
+input SetCleaningDifficultyInput {
+  """ID уборки"""
+  cleaningId: UUID!
+  """Сложность уборки (0-5)"""
+  difficulty: CleaningDifficulty!
+  """ID инстанса чек-листа обследования (опционально)"""
+  checklistInstanceId: UUID
 }
 
 """

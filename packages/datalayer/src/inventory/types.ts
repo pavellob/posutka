@@ -66,6 +66,8 @@ export interface Unit {
   beds: number;
   bathrooms: number;
   amenities: string[];
+  grade: number; // 0..10
+  cleaningDifficulty: number; // 0..5
   property?: Property;
 }
 

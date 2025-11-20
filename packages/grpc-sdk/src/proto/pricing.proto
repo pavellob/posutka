@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package pricing;
+
+// Режим коэффициентов
+enum CoeffMode {
+  COEFF_MODE_BASIC = 0;
+  COEFF_MODE_INCREASED = 1;
+}
+
+// Запрос на расчёт стоимости
+message CalculateCleaningCostRequest {
+  string unit_id = 1;
+  optional int32 difficulty = 2; // 0..5
+  optional CoeffMode mode = 3;
+}
+
+// Ответ с расчётом стоимости
+message CleaningCostQuote {
+  string unit_id = 1;
+  int32 grade = 2; // 0..10
+  int32 difficulty = 3; // 0..5
+  CoeffMode mode = 4;
+  int64 base_amount = 5; // в копейках
+  string base_currency = 6;
+  double grade_coefficient = 7;
+  double difficulty_coefficient = 8;
+  int64 total_amount = 9; // в копейках
+  string total_currency = 10;
+}
+
+// Ответ
+message CalculateCleaningCostResponse {
+  CleaningCostQuote quote = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Сервис ценообразования
+service PricingService {
+  // Рассчитать стоимость уборки
+  rpc CalculateCleaningCost(CalculateCleaningCostRequest) returns (CalculateCleaningCostResponse);
+}
+

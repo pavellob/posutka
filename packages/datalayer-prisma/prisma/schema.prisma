@@ -103,6 +103,8 @@ model Unit {
   beds               Int
   bathrooms          Int
   amenities          String[]
+  grade              Int?                   @default(0) // 0..10
+  cleaningDifficulty Int?                   @default(0) // 0..5 (fallback)
   property           Property               @relation(fields: [propertyId], references: [id])
   preferredCleaners  UnitPreferredCleaner[] // Привязанные уборщики для этой квартиры
   checklistTemplates ChecklistTemplate[] // Шаблоны чек-листов
@@ -553,6 +555,8 @@ model Cleaning {
   completedAt         DateTime?
   notes               String?
   requiresLinenChange Boolean             @default(false)
+  assessedDifficulty  Int?                // 0..5 (выставленная после PRE_CLEANING)
+  assessedAt          DateTime?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   cleaner             Cleaner?            @relation(fields: [cleanerId], references: [id])
@@ -997,6 +1001,8 @@ enum EventType {
   CLEANING_READY_FOR_REVIEW
   CLEANING_CANCELLED
   CLEANING_PRECHECK_COMPLETED
+  CLEANING_DIFFICULTY_SET
+  CLEANING_APPROVED
 
   // Booking
   BOOKING_CREATED
@@ -1038,4 +1044,23 @@ enum HandlerType {
   AUDIT
   WEBHOOK
   CUSTOM
+}
+
+model CleaningPricingRule {
+  id                    String   @id @default(cuid())
+  orgId                 String
+  unitId                String?
+  mode                  String   @default("BASIC") // "BASIC" | "INCREASED"
+  baseCleaningPrice     Int      // в копейках
+  baseCleaningCurrency  String   @default("RUB")
+  gradeStep             Float    @default(0.1)
+  difficultyStep        Float    @default(0.2)
+  increasedDifficultyDelta Float @default(0.1)
+  extras                Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([orgId, unitId])
+  @@index([orgId])
+  @@index([unitId])
 }

@@ -20,15 +20,16 @@ function getChecklistAttachmentKey(
 }
 
 export class ChecklistInstanceService {
-  private minio: MinioService;
+  private minio: MinioService | null = null;
 
   constructor(private prisma: PrismaClient) {
     try {
       this.minio = createMinioServiceFromEnv();
       logger.info('ChecklistInstanceService initialized with MinIO');
     } catch (error) {
-      logger.error('Failed to initialize MinIO service', { error });
-      throw error;
+      logger.warn('MinIO service not available - file upload functionality will be disabled', { error });
+      logger.warn('To enable file uploads, configure MinIO environment variables');
+      // Не выбрасываем ошибку, делаем MinIO опциональным
     }
   }
 
@@ -726,6 +727,9 @@ export class ChecklistInstanceService {
         extension
       );
 
+      if (!this.minio) {
+        throw new Error('MinIO is not configured. File uploads are disabled.');
+      }
       const presignedUrl = await this.minio.getPresignedPutUrl({
         objectKey,
         mimeType,
@@ -772,7 +776,10 @@ export class ChecklistInstanceService {
     }
 
     // Получаем URL для файла из MinIO
-    const url = input.url || await this.minio.getFileUrl({
+    if (!this.minio && !input.url) {
+      throw new Error('MinIO is not configured and no URL provided. Cannot generate file URL.');
+    }
+    const url = input.url || await this.minio!.getFileUrl({
       objectKey: input.objectKey,
       expiry: 7 * 24 * 60 * 60 // 7 дней
     });
@@ -1107,7 +1114,10 @@ export class ChecklistInstanceService {
     const media = await Promise.all(
       input.files.map(async (file, index) => {
         // Получаем URL для файла из MinIO
-        const url = file.url || await this.minio.getFileUrl({
+        if (!this.minio && !file.url) {
+          throw new Error('MinIO is not configured and no URL provided. Cannot create media.');
+        }
+        const url = file.url || await this.minio!.getFileUrl({
           objectKey: file.objectKey,
           expiry: 7 * 24 * 60 * 60 // 7 дней
         });
@@ -1178,6 +1188,9 @@ export class ChecklistInstanceService {
       const extension = getExtensionFromMimeType(mimeType) || 'jpg';
       const objectKey = `checklists/templates/${input.templateId}/items/${input.itemKey}/examples/${fileId}.${extension}`;
 
+      if (!this.minio) {
+        throw new Error('MinIO is not configured. File uploads are disabled.');
+      }
       const presignedUrl = await this.minio.getPresignedPutUrl({
         objectKey,
         mimeType,

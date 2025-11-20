@@ -564,7 +564,7 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
                     </div>
 
                     {unit.amenities && unit.amenities.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 mb-3">
                         {unit.amenities.slice(0, 3).map((amenity: string, index: number) => (
                           <Badge key={index} color="zinc" className="text-xs">
                             {amenity}
@@ -577,6 +577,25 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
                         )}
                       </div>
                     )}
+
+                    {/* Параметры ценообразования */}
+                    <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-700">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {unit.grade !== null && unit.grade !== undefined && (
+                          <Badge color="blue" className="text-xs">
+                            GRADE_{unit.grade.replace('GRADE_', '')}
+                          </Badge>
+                        )}
+                        {unit.cleaningDifficulty !== null && unit.cleaningDifficulty !== undefined && (
+                          <Badge color="purple" className="text-xs">
+                            Сложность: {unit.cleaningDifficulty.replace('D', '')}
+                          </Badge>
+                        )}
+                        {(!unit.grade && !unit.cleaningDifficulty) && (
+                          <Text className="text-xs text-zinc-400">Не указаны параметры</Text>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

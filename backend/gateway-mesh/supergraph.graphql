@@ -53,6 +53,7 @@ enum join__Graph {
   LISTINGS_SUBGRAPH @join__graph(name: "listings-subgraph", url: "http://localhost:4006/graphql")
   NOTIFICATIONS_SUBGRAPH @join__graph(name: "notifications-subgraph", url: "http://localhost:4011/graphql")
   OPS_SUBGRAPH @join__graph(name: "ops-subgraph", url: "http://localhost:4003/graphql")
+  PRICING_SUBGRAPH @join__graph(name: "pricing-subgraph", url: "http://localhost:4012/graphql")
 }
 
 """
@@ -60,22 +61,22 @@ enum join__Graph {
 Используется для всех сущностей в системе.
 Пример: "550e8400-e29b-41d4-a716-446655440000"
 """
-scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH)
 
 """
 Дата и время в формате ISO 8601 с часовым поясом.
 Пример: "2024-01-15T14:30:00Z" или "2024-01-15T14:30:00+03:00"
 """
-scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH)
 
 """
 Произвольный JSON объект для хранения метаданных и дополнительной информации.
 Может содержать любую валидную JSON структуру.
 Пример: {"key": "value", "nested": {"array": [1, 2, 3]}}
 """
-scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH)
+scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH)
 
-scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
+scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH)
 
 scalar Upload @join__type(graph: CLEANING_SUBGRAPH)
 
@@ -132,7 +133,7 @@ type GraphQLQueryResult @join__type(graph: AI_SUBGRAPH) {
 }
 
 """Запросы для работы с AI-функциональностью."""
-type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) {
   """Пустой запрос (требуется для GraphQL схемы)"""
   _empty: Boolean @join__field(graph: AI_SUBGRAPH)
   """Получить счет по ID"""
@@ -324,10 +325,16 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
   serviceProvider(id: UUID!): ServiceProvider @merge(subgraph: "ops-subgraph", keyField: "id", keyArg: "id") @join__field(graph: OPS_SUBGRAPH)
   """Получить список поставщиков услуг с фильтрацией по типам услуг"""
   serviceProviders(serviceTypes: [TaskType!]): [ServiceProvider!]! @join__field(graph: OPS_SUBGRAPH)
+  """Получить правило ценообразования"""
+  cleaningPricingRule(orgId: UUID!, unitId: UUID): CleaningPricingRule @join__field(graph: PRICING_SUBGRAPH)
+  """Получить все правила для организации/юнита"""
+  cleaningPricingRules(orgId: UUID!, unitId: UUID): [CleaningPricingRule!]! @join__field(graph: PRICING_SUBGRAPH)
+  """Рассчитать стоимость уборки"""
+  calculateCleaningCost(unitId: UUID!, grade: UnitGrade, difficulty: CleaningDifficulty, mode: CleaningCoeffMode): CleaningCostQuote! @join__field(graph: PRICING_SUBGRAPH)
 }
 
 """Мутации для выполнения AI-команд."""
-type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) {
   """Выполнить AI-команду на естественном языке"""
   aiCommand(
     """ID организации, для которой выполняется команда"""
@@ -403,6 +410,8 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   assignCleaningToMe(cleaningId: UUID!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
   """Обновить чеклист уборки"""
   updateCleaningChecklist(id: UUID!, items: [ChecklistItemInput!]!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
+  """Выставить сложность уборки после обследования (PRE_CLEANING)"""
+  setCleaningDifficulty(input: SetCleaningDifficultyInput!): Cleaning! @join__field(graph: CLEANING_SUBGRAPH)
   """Добавить уборщика в список предпочтительных для квартиры"""
   addPreferredCleaner(unitId: UUID!, cleanerId: UUID!): Unit! @join__field(graph: CLEANING_SUBGRAPH)
   """Удалить уборщика из списка предпочтительных для квартиры"""
@@ -515,6 +524,8 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   updateProperty(id: UUID!, title: String!, address: String!, propertyType: String, category: String, dealStatus: String, country: String, region: String, district: String, localityName: String, apartment: String, metroName: String, metroTimeOnFoot: Int, metroTimeOnTransport: Int, latitude: Float, longitude: Float, totalArea: Float, livingArea: Float, kitchenArea: Float, rooms: Int, roomsOffered: Int, floor: Int, floorsTotal: Int, buildingType: String, buildingYear: Int, buildingSeries: String, elevator: Boolean, parking: Boolean, security: Boolean, concierge: Boolean, playground: Boolean, gym: Boolean, balcony: Boolean, loggia: Boolean, airConditioning: Boolean, internet: Boolean, washingMachine: Boolean, dishwasher: Boolean, tv: Boolean, renovation: String, furniture: Boolean, isElite: Boolean, yandexBuildingId: String, yandexHouseId: String): Property! @join__field(graph: INVENTORY_SUBGRAPH)
   """Создать новую единицу недвижимости в объекте"""
   createUnit(propertyId: UUID!, name: String!, capacity: Int!, beds: Int!, bathrooms: Int!, amenities: [String!]): Unit! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Обновить единицу недвижимости"""
+  updateUnit(id: UUID!, input: UpdateUnitInput!): Unit! @join__field(graph: INVENTORY_SUBGRAPH)
   """Заблокировать даты в календаре единицы недвижимости"""
   blockDates(unitId: UUID!, from: DateTime!, to: DateTime!, note: String): [CalendarDay!]! @join__field(graph: INVENTORY_SUBGRAPH)
   """Сгенерировать договор для бронирования"""
@@ -569,6 +580,10 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   updateServiceOrderStatus(id: UUID!, status: String!): ServiceOrder! @join__field(graph: OPS_SUBGRAPH)
   """Создать нового поставщика услуг"""
   createServiceProvider(input: CreateServiceProviderInput!): ServiceProvider! @join__field(graph: OPS_SUBGRAPH)
+  """Создать или обновить правило ценообразования"""
+  upsertCleaningPricingRule(input: UpsertCleaningPricingRuleInput!): CleaningPricingRule! @join__field(graph: PRICING_SUBGRAPH)
+  """Удалить правило ценообразования"""
+  deleteCleaningPricingRule(id: UUID!): Boolean! @join__field(graph: PRICING_SUBGRAPH)
 }
 
 """
@@ -576,7 +591,7 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
 Amount хранится в копейках/центах для точности вычислений.
 Пример: {amount: 150000, currency: "RUB"} = 1500.00 RUB
 """
-type Money @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+type Money @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) {
   """Сумма в копейках/центах (минимальная единица валюты)"""
   amount: Int!
   """Код валюты в формате ISO 4217 (RUB, USD, EUR)"""
@@ -843,6 +858,10 @@ type Unit @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBG
   bathrooms: Int! @join__field(graph: INVENTORY_SUBGRAPH)
   """Список удобств единицы (кондиционер, кухня, балкон и т.д.)"""
   amenities: [String!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Градация юнита по размеру (0-10)"""
+  grade: UnitGrade! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Сложность уборки по умолчанию (0-5, fallback)"""
+  cleaningDifficulty: CleaningDifficulty! @join__field(graph: INVENTORY_SUBGRAPH)
   """Календарь доступности единицы на указанный период"""
   calendar(rangeStart: DateTime!, rangeEnd: DateTime!): [CalendarDay!]! @join__field(graph: INVENTORY_SUBGRAPH)
 }
@@ -1105,6 +1124,10 @@ type Cleaning @join__type(graph: CLEANING_SUBGRAPH, key: "id") {
   startedAt: DateTime
   """Время завершения"""
   completedAt: DateTime
+  """Сложность уборки, выставленная после обследования (0-5)"""
+  assessedDifficulty: CleaningDifficulty
+  """Дата выставления сложности"""
+  assessedAt: DateTime
   """Заметки"""
   notes: String
   """Требуется ли смена белья"""
@@ -1980,6 +2003,33 @@ type TaskConnection @join__type(graph: OPS_SUBGRAPH) {
   totalCount: Int
 }
 
+"""Правила расчёта стоимости для юнита/организации."""
+type CleaningPricingRule @join__type(graph: PRICING_SUBGRAPH) {
+  id: UUID!
+  orgId: UUID!
+  unitId: UUID
+  mode: CleaningCoeffMode!
+  baseCleaningPrice: Money!
+  gradeStep: Float!
+  difficultyStep: Float!
+  increasedDifficultyDelta: Float!
+  extras: JSON
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Квота/калькуляция стоимости уборки."""
+type CleaningCostQuote @join__type(graph: PRICING_SUBGRAPH) {
+  unitId: UUID!
+  grade: UnitGrade!
+  difficulty: CleaningDifficulty!
+  mode: CleaningCoeffMode!
+  base: Money!
+  gradeCoefficient: Float!
+  difficultyCoefficient: Float!
+  total: Money!
+}
+
 """
 Действия с депозитом/залогом.
 Используется для управления залогами при бронировании.
@@ -2129,6 +2179,19 @@ enum CleanerType @join__type(graph: CLEANING_SUBGRAPH) {
   EXTERNAL @join__enumValue(graph: CLEANING_SUBGRAPH)
 }
 
+"""
+Сложность уборки (0-5).
+Выставляется уборщиком после обследования (PRE_CLEANING).
+"""
+enum CleaningDifficulty @join__type(graph: CLEANING_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) {
+  D0 @join__enumValue(graph: CLEANING_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  D1 @join__enumValue(graph: CLEANING_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  D2 @join__enumValue(graph: CLEANING_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  D3 @join__enumValue(graph: CLEANING_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  D4 @join__enumValue(graph: CLEANING_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  D5 @join__enumValue(graph: CLEANING_SUBGRAPH) @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+}
+
 """Тип документа уборки."""
 enum CleaningDocumentType @join__type(graph: CLEANING_SUBGRAPH) {
   """Приемка квартиры перед уборкой"""
@@ -2206,6 +2269,21 @@ enum SortDirection @join__type(graph: IAM_SUBGRAPH) {
   DESC @join__enumValue(graph: IAM_SUBGRAPH)
 }
 
+"""Градация юнита по размеру (0-10)."""
+enum UnitGrade @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) {
+  GRADE_0 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_1 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_2 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_3 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_4 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_5 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_6 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_7 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_8 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_9 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+  GRADE_10 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
+}
+
 """
 Статус доступности единицы недвижимости.
 Определяет, можно ли забронировать единицу на конкретную дату.
@@ -2258,6 +2336,9 @@ enum EventType @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
   CLEANING_CANCELLED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Приёмка перед уборкой завершена"""
   CLEANING_PRECHECK_COMPLETED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Сложность уборки указана"""
+  CLEANING_DIFFICULTY_SET @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  CLEANING_APPROVED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Задача создана"""
   TASK_CREATED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Задача назначена"""
@@ -2388,6 +2469,12 @@ enum TaskType @join__type(graph: OPS_SUBGRAPH) {
   INVENTORY @join__enumValue(graph: OPS_SUBGRAPH)
 }
 
+"""Режим коэффициентов ценообразования."""
+enum CleaningCoeffMode @join__type(graph: PRICING_SUBGRAPH) {
+  BASIC @join__enumValue(graph: PRICING_SUBGRAPH)
+  INCREASED @join__enumValue(graph: PRICING_SUBGRAPH)
+}
+
 """Настройки для AI-адаптера."""
 input AIAdapterConfig @join__type(graph: AI_SUBGRAPH) {
   """Тип адаптера (openai, anthropic)"""
@@ -2402,7 +2489,7 @@ input AIAdapterConfig @join__type(graph: AI_SUBGRAPH) {
 Входные данные для денежной суммы.
 Используется в мутациях для создания/обновления денежных значений.
 """
-input MoneyInput @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
+input MoneyInput @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) {
   """Сумма в копейках/центах"""
   amount: Int!
   """Код валюты в формате ISO 4217"""
@@ -2642,6 +2729,16 @@ input CreateCleaningDocumentInput @join__type(graph: CLEANING_SUBGRAPH) {
   notes: String
   """Фотографии"""
   photos: [AddPhotoInput!]
+}
+
+"""Входные данные для выставления сложности уборки."""
+input SetCleaningDifficultyInput @join__type(graph: CLEANING_SUBGRAPH) {
+  """ID уборки"""
+  cleaningId: UUID!
+  """Сложность уборки (0-5)"""
+  difficulty: CleaningDifficulty!
+  """ID инстанса чек-листа обследования (опционально)"""
+  checklistInstanceId: UUID
 }
 
 """Входные данные для добавления фото."""
@@ -2970,6 +3067,24 @@ input RefreshTokenInput @join__type(graph: IDENTITY_SUBGRAPH) {
   refreshToken: String!
 }
 
+"""Входные данные для обновления единицы недвижимости."""
+input UpdateUnitInput @join__type(graph: INVENTORY_SUBGRAPH) {
+  """Название единицы"""
+  name: String
+  """Максимальная вместимость"""
+  capacity: Int
+  """Количество кроватей"""
+  beds: Int
+  """Количество ванных комнат"""
+  bathrooms: Int
+  """Список удобств"""
+  amenities: [String!]
+  """Градация юнита по размеру (0-10)"""
+  grade: UnitGrade
+  """Сложность уборки по умолчанию (0-5)"""
+  cleaningDifficulty: CleaningDifficulty
+}
+
 """Входные данные для создания или обновления объявления."""
 input UpsertListingInput @join__type(graph: LISTINGS_SUBGRAPH) {
   """ID единицы недвижимости для объявления"""
@@ -3142,4 +3257,16 @@ input CreateServiceProviderInput @join__type(graph: OPS_SUBGRAPH) {
   rating: Float
   """Контактная информация (опционально)"""
   contact: String
+}
+
+"""Входные данные для создания/обновления правила ценообразования."""
+input UpsertCleaningPricingRuleInput @join__type(graph: PRICING_SUBGRAPH) {
+  orgId: UUID!
+  unitId: UUID
+  mode: CleaningCoeffMode!
+  baseCleaningPrice: MoneyInput!
+  gradeStep: Float
+  difficultyStep: Float
+  increasedDifficultyDelta: Float
+  extras: JSON
 }

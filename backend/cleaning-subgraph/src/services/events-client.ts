@@ -8,6 +8,10 @@ import {
 const logger = createGraphQLLogger('cleaning-events-client');
 const EVENT_TYPE_CLEANING_READY_FOR_REVIEW =
   (EventType as any).EVENT_TYPE_CLEANING_READY_FOR_REVIEW ?? (15 as EventType);
+const EVENT_TYPE_CLEANING_DIFFICULTY_SET =
+  (EventType as any).EVENT_TYPE_CLEANING_DIFFICULTY_SET ?? (8 as EventType);
+const EVENT_TYPE_CLEANING_APPROVED =
+  (EventType as any).EVENT_TYPE_CLEANING_APPROVED ?? (9 as EventType);
 const EVENT_TYPE_CLEANING_PRECHECK_COMPLETED =
   (EventType as any).EVENT_TYPE_CLEANING_PRECHECK_COMPLETED ?? (7 as EventType);
 
@@ -76,6 +80,10 @@ export class EventsClient {
     orgId?: string;
     actorUserId?: string;
     targetUserId?: string;
+    unitGrade?: number;
+    cleaningDifficulty?: string;
+    priceAmount?: number;
+    priceCurrency?: string;
   }): Promise<void> {
     try {
       await this.ensureConnected();
@@ -107,7 +115,11 @@ export class EventsClient {
           unitAddress: params.unitAddress,
           scheduledAt: params.scheduledAt,
           requiresLinenChange: params.requiresLinenChange,
-          notes: params.notes
+          notes: params.notes,
+          unitGrade: params.unitGrade,
+          cleaningDifficulty: params.cleaningDifficulty,
+          priceAmount: params.priceAmount,
+          priceCurrency: params.priceCurrency,
         }
       });
       
@@ -184,6 +196,13 @@ export class EventsClient {
     orgId?: string;
     targetUserId?: string;
     targetUserIds?: string[];
+    checklistStats?: {
+      total: number;
+      completed: number;
+      incomplete: number;
+      incompleteItems?: Array<{ title: string; key: string }>;
+    };
+    photoUrls?: Array<{ url: string; caption?: string }>;
   }): Promise<void> {
     try {
       await this.ensureConnected();
@@ -211,7 +230,9 @@ export class EventsClient {
           scheduledAt: params.scheduledAt,
           startedAt: params.startedAt,
           completedAt: params.completedAt,
-          notes: params.notes
+          notes: params.notes,
+          checklistStats: params.checklistStats,
+          photoUrls: params.photoUrls,
         }
       });
       
@@ -238,6 +259,13 @@ export class EventsClient {
     notes?: string;
     orgId?: string;
     cleanerId?: string | null;
+    checklistStats?: {
+      total: number;
+      completed: number;
+      incomplete: number;
+      incompleteItems?: Array<{ title: string; key: string }>;
+    };
+    photoUrls?: Array<{ url: string; caption?: string }>;
   }): Promise<void> {
     try {
       await this.ensureConnected();
@@ -265,7 +293,9 @@ export class EventsClient {
           unitAddress: params.unitAddress,
           scheduledAt: params.scheduledAt,
           submittedAt: params.submittedAt,
-          notes: params.notes
+          notes: params.notes,
+          checklistStats: params.checklistStats,
+          photoUrls: params.photoUrls,
         },
       });
 
@@ -290,7 +320,7 @@ export class EventsClient {
     unitName: string;
     unitAddress?: string;
     cleanerName?: string;
-    completedAt: string;
+    completedAt?: string;
     scheduledAt?: string;
     startedAt?: string;
     notes?: string;
@@ -389,6 +419,69 @@ export class EventsClient {
   }
   
   /**
+   * Опубликовать событие CLEANING_DIFFICULTY_SET
+   */
+  async publishCleaningDifficultySet(params: {
+    cleaningId: string;
+    difficulty: number;
+    managerIds: string[];
+    unitName: string;
+    unitAddress?: string;
+    cleanerName?: string;
+    scheduledAt?: string;
+    startedAt?: string;
+    notes?: string;
+    orgId?: string;
+    priceAmount?: number;
+    priceCurrency?: string;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      if (params.managerIds.length === 0) {
+        logger.info('No managers to notify for CLEANING_DIFFICULTY_SET', {
+          cleaningId: params.cleaningId,
+        });
+        return;
+      }
+
+      logger.info('Publishing CLEANING_DIFFICULTY_SET event', params);
+
+      await this.grpcClient.publishEvent({
+        eventType: EVENT_TYPE_CLEANING_DIFFICULTY_SET,
+        sourceSubgraph: 'cleaning-subgraph',
+        entityType: 'Cleaning',
+        entityId: params.cleaningId,
+        orgId: params.orgId,
+        targetUserIds: params.managerIds,
+        payload: {
+          cleaningId: params.cleaningId,
+          difficulty: params.difficulty,
+          cleanerName: params.cleanerName,
+          unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          startedAt: params.startedAt,
+          notes: params.notes,
+          assessedAt: new Date().toISOString(),
+          ...(params.priceAmount !== undefined && params.priceCurrency !== undefined
+            ? { priceAmount: params.priceAmount, priceCurrency: params.priceCurrency }
+            : {})
+        },
+      });
+
+      logger.info('CLEANING_DIFFICULTY_SET event published', {
+        cleaningId: params.cleaningId,
+        managerIds: params.managerIds,
+      });
+    } catch (error: any) {
+      logger.error('Failed to publish CLEANING_DIFFICULTY_SET event', {
+        error: error.message,
+        params,
+      });
+    }
+  }
+  
+  /**
    * Опубликовать событие CLEANING_AVAILABLE (для самоназначения)
    */
   async publishCleaningAvailable(params: {
@@ -401,6 +494,10 @@ export class EventsClient {
     notes?: string;
     targetUserIds: string[];
     orgId?: string;
+    unitGrade?: number;
+    cleaningDifficulty?: string;
+    priceAmount?: number;
+    priceCurrency?: string;
   }): Promise<void> {
     try {
       await this.ensureConnected();
@@ -415,10 +512,57 @@ export class EventsClient {
         throw new Error('EVENT_TYPE_CLEANING_AVAILABLE is not defined in EventType enum');
       }
       
+      // Создаем payload, включая только определенные поля (не undefined)
+      const payloadData: any = {
+        cleaningId: params.cleaningId,
+        unitId: params.unitId,
+        unitName: params.unitName,
+        scheduledAt: params.scheduledAt,
+        requiresLinenChange: params.requiresLinenChange,
+      };
+      
+      // Добавляем опциональные поля только если они определены
+      if (params.unitAddress !== undefined) {
+        payloadData.unitAddress = params.unitAddress;
+      }
+      if (params.notes !== undefined) {
+        payloadData.notes = params.notes;
+      }
+      if (params.unitGrade !== undefined && params.unitGrade !== null) {
+        payloadData.unitGrade = params.unitGrade;
+      }
+      if (params.cleaningDifficulty !== undefined && params.cleaningDifficulty !== null) {
+        payloadData.cleaningDifficulty = params.cleaningDifficulty;
+      }
+      if (params.priceAmount !== undefined && params.priceAmount !== null) {
+        payloadData.priceAmount = params.priceAmount;
+      }
+      if (params.priceCurrency !== undefined && params.priceCurrency !== null) {
+        payloadData.priceCurrency = params.priceCurrency;
+      }
+      
       logger.info('Publishing CLEANING_AVAILABLE event', {
-        ...params,
         eventTypeValue,
-        eventTypeName: EventType[eventTypeValue]
+        eventTypeName: EventType[eventTypeValue],
+        paramsReceived: {
+          cleaningId: params.cleaningId,
+          hasUnitAddress: params.unitAddress !== undefined,
+          unitAddress: params.unitAddress,
+          hasUnitGrade: params.unitGrade !== undefined,
+          unitGrade: params.unitGrade,
+          hasCleaningDifficulty: params.cleaningDifficulty !== undefined,
+          cleaningDifficulty: params.cleaningDifficulty,
+          hasPriceAmount: params.priceAmount !== undefined,
+          priceAmount: params.priceAmount,
+          hasPriceCurrency: params.priceCurrency !== undefined,
+          priceCurrency: params.priceCurrency,
+        },
+        payloadData,
+        payloadKeys: Object.keys(payloadData),
+        hasUnitGrade: payloadData.unitGrade !== undefined,
+        hasCleaningDifficulty: payloadData.cleaningDifficulty !== undefined,
+        hasPriceAmount: payloadData.priceAmount !== undefined,
+        hasPriceCurrency: payloadData.priceCurrency !== undefined
       });
       
       await this.grpcClient.publishEvent({
@@ -428,15 +572,7 @@ export class EventsClient {
         entityId: params.cleaningId,
         orgId: params.orgId,
         targetUserIds: params.targetUserIds,
-        payload: {
-          cleaningId: params.cleaningId,
-          unitId: params.unitId,
-          unitName: params.unitName,
-          unitAddress: params.unitAddress,
-          scheduledAt: params.scheduledAt,
-          requiresLinenChange: params.requiresLinenChange,
-          notes: params.notes
-        }
+        payload: payloadData
       });
       
       logger.info('CLEANING_AVAILABLE event published', { cleaningId: params.cleaningId });
@@ -444,6 +580,66 @@ export class EventsClient {
       logger.error('Failed to publish CLEANING_AVAILABLE event', { 
         error: error.message,
         params 
+      });
+    }
+  }
+  
+  /**
+   * Опубликовать событие CLEANING_APPROVED
+   */
+  async publishCleaningApproved(params: {
+    cleaningId: string;
+    managerId: string;
+    cleanerId?: string;
+    unitName: string;
+    unitAddress?: string;
+    cleanerName?: string;
+    comment?: string;
+    scheduledAt?: string;
+    completedAt?: string;
+    orgId?: string;
+    targetUserIds: string[];
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      if (params.targetUserIds.length === 0) {
+        logger.info('No target users to notify for CLEANING_APPROVED', {
+          cleaningId: params.cleaningId,
+        });
+        return;
+      }
+
+      logger.info('Publishing CLEANING_APPROVED event', params);
+
+      await this.grpcClient.publishEvent({
+        eventType: EVENT_TYPE_CLEANING_APPROVED,
+        sourceSubgraph: 'cleaning-subgraph',
+        entityType: 'Cleaning',
+        entityId: params.cleaningId,
+        orgId: params.orgId,
+        targetUserIds: params.targetUserIds,
+        payload: {
+          cleaningId: params.cleaningId,
+          managerId: params.managerId,
+          cleanerId: params.cleanerId,
+          cleanerName: params.cleanerName,
+          unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          comment: params.comment,
+          scheduledAt: params.scheduledAt,
+          completedAt: params.completedAt,
+          approvedAt: new Date().toISOString()
+        },
+      });
+
+      logger.info('CLEANING_APPROVED event published', {
+        cleaningId: params.cleaningId,
+        targetUserIds: params.targetUserIds,
+      });
+    } catch (error: any) {
+      logger.error('Failed to publish CLEANING_APPROVED event', {
+        error: error.message,
+        params,
       });
     }
   }

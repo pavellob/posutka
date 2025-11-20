@@ -4,10 +4,12 @@ export * from './clients/bookings.client.js';
 export * from './clients/notifications.client.js';
 export * from './clients/cleaning.client.js';
 export * from './clients/events.client.js';
+export * from './clients/pricing.client.js';
 
 // Экспорт фабрик для создания клиентов
 export { createNotificationsGrpcClient } from './clients/notifications.client.js';
 export { createEventsGrpcClient } from './clients/events.client.js';
+export { createPricingGrpcClient } from './clients/pricing.client.js';
 
 // Экспорт сгенерированных типов для ops
 export {
@@ -76,4 +78,15 @@ export {
   GetEventStatusResponse,
   EventsServiceDefinition
 } from './generated/events.js';
+
+// Экспорт сгенерированных типов для pricing
+export {
+  CoeffMode,
+  CalculateCleaningCostRequest,
+  CleaningCostQuote,
+  CalculateCleaningCostResponse,
+  PricingServiceDefinition,
+  PricingServiceImplementation,
+  PricingServiceClient
+} from './generated/pricing.js';
 

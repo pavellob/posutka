@@ -9,13 +9,17 @@ import { Button } from '@/components/button'
 import { Badge } from '@/components/badge'
 import { Divider } from '@/components/divider'
 import { Input } from '@/components/input'
+import { Select } from '@/components/select'
 import { graphqlClient } from '@/lib/graphql-client'
 import { 
   GET_UNIT_BY_ID, 
   GET_CLEANERS,
   GET_UNIT_PREFERRED_CLEANERS,
   ADD_PREFERRED_CLEANER,
-  REMOVE_PREFERRED_CLEANER
+  REMOVE_PREFERRED_CLEANER,
+  UPDATE_UNIT,
+  GET_CLEANING_PRICING_RULE,
+  CALCULATE_CLEANING_COST
 } from '@/lib/graphql-queries'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { useRouter } from 'next/navigation'
@@ -246,6 +250,12 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* Параметры ценообразования */}
+          <section>
+            <Subheading className="mb-4">Параметры ценообразования</Subheading>
+            <UnitPricingEditor unitId={params.id} unitData={unitData} />
           </section>
 
           {/* Удобства */}
@@ -491,6 +501,232 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
         }
       `}</style>
 
+    </div>
+  )
+}
+
+// Компонент для редактирования параметров ценообразования
+function UnitPricingEditor({ unitId, unitData }: { unitId: string; unitData: any }) {
+  const queryClient = useQueryClient()
+  const { currentOrgId } = useCurrentOrganization()
+  const [grade, setGrade] = useState<string>(unitData?.grade?.replace('GRADE_', '') || '0')
+  const [difficulty, setDifficulty] = useState<string>(unitData?.cleaningDifficulty?.replace('D', '') || '0')
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Обновляем локальное состояние при изменении данных
+  useEffect(() => {
+    setGrade(unitData?.grade?.replace('GRADE_', '') || '0')
+    setDifficulty(unitData?.cleaningDifficulty?.replace('D', '') || '0')
+  }, [unitData])
+
+  // Загрузка правила ценообразования
+  const { data: pricingRuleData } = useQuery<any>({
+    queryKey: ['pricingRule', currentOrgId, unitId],
+    queryFn: () => graphqlClient.request(GET_CLEANING_PRICING_RULE, {
+      orgId: currentOrgId!,
+      unitId: unitId,
+    }),
+    enabled: !!currentOrgId && !!unitId,
+  })
+
+  const pricingRule = pricingRuleData?.cleaningPricingRule
+
+  // Расчет стоимости уборки
+  const { data: costQuoteData } = useQuery<any>({
+    queryKey: ['cleaningCost', unitId, grade, difficulty, pricingRule?.mode],
+    queryFn: () => {
+      const gradeEnum = `GRADE_${grade}`
+      const difficultyEnum = `D${difficulty}`
+      return graphqlClient.request(CALCULATE_CLEANING_COST, {
+        unitId: unitId,
+        grade: gradeEnum,
+        difficulty: difficultyEnum,
+        mode: pricingRule?.mode || 'BASIC',
+      })
+    },
+    enabled: !!unitId && !!pricingRule && grade !== undefined && difficulty !== undefined,
+  })
+
+  const costQuote = costQuoteData?.calculateCleaningCost
+
+  // Форматирование денег
+  const formatMoney = (amount: number, currency: string): string => {
+    const value = amount / 100 // конвертируем из копеек
+    return new Intl.NumberFormat('ru-RU', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(value)
+  }
+
+  const updateMutation = useMutation({
+    mutationFn: async (input: { grade?: string; cleaningDifficulty?: string }) => {
+      return graphqlClient.request(UPDATE_UNIT, {
+        id: unitId,
+        input: {
+          grade: input.grade ? `GRADE_${input.grade}` : undefined,
+          cleaningDifficulty: input.cleaningDifficulty ? `D${input.cleaningDifficulty}` : undefined,
+        }
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['unit', unitId] })
+      queryClient.invalidateQueries({ queryKey: ['cleaningCost', unitId] })
+      setIsSaving(false)
+    },
+    onError: () => {
+      setIsSaving(false)
+    }
+  })
+
+  const handleSave = () => {
+    setIsSaving(true)
+    updateMutation.mutate({ grade, cleaningDifficulty: difficulty })
+  }
+
+  const getDifficultyLabel = (difficulty: number) => {
+    const labels = ['Очень простая', 'Простая', 'Средняя', 'Сложная', 'Очень сложная', 'Экстремально сложная']
+    return labels[difficulty] || 'Не указано'
+  }
+
+  const hasChanges = 
+    grade !== (unitData?.grade?.replace('GRADE_', '') || '0') ||
+    difficulty !== (unitData?.cleaningDifficulty?.replace('D', '') || '0')
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6 space-y-6">
+      {/* Информация о правиле и стоимости */}
+      {(pricingRule || costQuote) && (
+        <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4 space-y-3 border border-zinc-200 dark:border-zinc-700">
+          {pricingRule && (
+            <div>
+              <Text className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                Применяемое правило ценообразования:
+              </Text>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Базовая цена:</Text>
+                  <Text className="font-semibold">
+                    {formatMoney(pricingRule.baseCleaningPrice.amount, pricingRule.baseCleaningPrice.currency)}
+                  </Text>
+                </div>
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Режим:</Text>
+                  <Badge color={pricingRule.mode === 'BASIC' ? 'zinc' : 'orange'} className="text-xs">
+                    {pricingRule.mode}
+                  </Badge>
+                </div>
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Шаг градации:</Text>
+                  <Text className="font-semibold">{pricingRule.gradeStep}</Text>
+                </div>
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Шаг сложности:</Text>
+                  <Text className="font-semibold">{pricingRule.difficultyStep}</Text>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {costQuote && (
+            <div className="pt-3 border-t border-zinc-200 dark:border-zinc-700">
+              <Text className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                Рассчитанная стоимость уборки:
+              </Text>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Базовая цена:</Text>
+                  <Text className="font-semibold">
+                    {formatMoney(costQuote.base.amount, costQuote.base.currency)}
+                  </Text>
+                </div>
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Коэф. градации:</Text>
+                  <Text className="font-semibold">{costQuote.gradeCoefficient.toFixed(2)}x</Text>
+                </div>
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Коэф. сложности:</Text>
+                  <Text className="font-semibold">{costQuote.difficultyCoefficient.toFixed(2)}x</Text>
+                </div>
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Итоговая стоимость:</Text>
+                  <Text className="font-semibold text-lg text-green-600 dark:text-green-400">
+                    {formatMoney(costQuote.total.amount, costQuote.total.currency)}
+                  </Text>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6">
+        {/* Градация */}
+        <div>
+          <label htmlFor="grade" className="block text-sm font-medium text-zinc-900 dark:text-white mb-1">
+            Градация (0-10)
+          </label>
+          <Select
+            id="grade"
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            className="mt-1"
+          >
+            {Array.from({ length: 11 }, (_, i) => (
+              <option key={i} value={i.toString()}>
+                GRADE_{i}
+              </option>
+            ))}
+          </Select>
+          <Text className="text-xs text-zinc-500 mt-1">
+            Размер юнита для расчёта стоимости уборки
+          </Text>
+        </div>
+
+        {/* Сложность по умолчанию */}
+        <div>
+          <label htmlFor="cleaningDifficulty" className="block text-sm font-medium text-zinc-900 dark:text-white mb-1">
+            Сложность уборки (0-5)
+          </label>
+          <Select
+            id="cleaningDifficulty"
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value)}
+            className="mt-1"
+          >
+            {Array.from({ length: 6 }, (_, i) => (
+              <option key={i} value={i.toString()}>
+                D{i} - {getDifficultyLabel(i)}
+              </option>
+            ))}
+          </Select>
+          <Text className="text-xs text-zinc-500 mt-1">
+            Сложность по умолчанию (может быть изменена при уборке)
+          </Text>
+        </div>
+      </div>
+
+      {hasChanges && (
+        <div className="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+          <Button
+            outline
+            onClick={() => {
+              setGrade(unitData?.grade?.replace('GRADE_', '') || '0')
+              setDifficulty(unitData?.cleaningDifficulty?.replace('D', '') || '0')
+            }}
+            disabled={isSaving}
+          >
+            Отмена
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Сохранение...' : 'Сохранить'}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

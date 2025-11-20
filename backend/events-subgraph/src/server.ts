@@ -14,6 +14,10 @@ import type { Context } from './context.js';
 
 const logger = createGraphQLLogger('events-subgraph');
 
+// Увеличиваем лимит слушателей событий для процесса
+// Это необходимо, так как PrismaClient и gRPC клиенты регистрируют обработчики exit
+process.setMaxListeners(20);
+
 // Инициализация Prisma
 const prisma = new PrismaClient({
   log: ['error', 'warn'],
@@ -23,7 +27,7 @@ const prisma = new PrismaClient({
 const eventBus = new EventBusService(prisma);
 
 // Инициализация handlers
-const notificationHandler = new NotificationEventHandler(prisma);
+const notificationHandler = new NotificationEventHandler(prisma, eventBus);
 
 // Регистрируем обработчики событий
 logger.info('Registering event handlers...');
@@ -64,12 +68,30 @@ logger.info('✅ Event handlers registered');
 // Создаем подписку на события для уведомлений (если еще не существует)
 async function ensureNotificationSubscription() {
   try {
-    const existing = await (prisma as any).eventSubscription.findFirst({
+    // Проверяем все подписки (включая неактивные)
+    const allSubscriptions = await (prisma as any).eventSubscription.findMany({
       where: {
-        handlerType: 'NOTIFICATION',
-        isActive: true
+        handlerType: 'NOTIFICATION'
       }
     });
+    
+    // Деактивируем дублирующиеся подписки, оставляем только одну активную
+    if (allSubscriptions.length > 1) {
+      logger.warn('⚠️ Found multiple NOTIFICATION subscriptions, deactivating duplicates', {
+        count: allSubscriptions.length,
+        ids: allSubscriptions.map((s: any) => s.id)
+      });
+      
+      // Оставляем первую активной, остальные деактивируем
+      for (let i = 1; i < allSubscriptions.length; i++) {
+        await (prisma as any).eventSubscription.update({
+          where: { id: allSubscriptions[i].id },
+          data: { isActive: false }
+        });
+      }
+    }
+    
+    const existing = allSubscriptions.find((s: any) => s.isActive) || allSubscriptions[0];
 
     const allEventTypes = [
       // Cleaning events
@@ -80,6 +102,8 @@ async function ensureNotificationSubscription() {
       'CLEANING_READY_FOR_REVIEW',
       'CLEANING_CANCELLED',
       'CLEANING_PRECHECK_COMPLETED',
+      'CLEANING_DIFFICULTY_SET',
+      'CLEANING_APPROVED',
       // Booking events
       'BOOKING_CREATED',
       'BOOKING_CONFIRMED',
@@ -103,29 +127,119 @@ async function ensureNotificationSubscription() {
     ];
 
     if (!existing) {
-      await (prisma as any).eventSubscription.create({
-        data: {
-          handlerType: 'NOTIFICATION',
-          eventTypes: allEventTypes,
-          isActive: true
-        }
+      logger.info('Creating NOTIFICATION subscription', {
+        eventTypesCount: allEventTypes.length,
+        includesCLEANING_AVAILABLE: allEventTypes.includes('CLEANING_AVAILABLE')
       });
-      logger.info('✅ Notification subscription created');
+      
+      try {
+        const subscription = await (prisma as any).eventSubscription.create({
+          data: {
+            handlerType: 'NOTIFICATION' as any, // Приводим к типу HandlerType enum
+            eventTypes: allEventTypes,
+            isActive: true
+          }
+        });
+        logger.info('✅ Notification subscription created', {
+          subscriptionId: subscription.id,
+          eventTypesCount: allEventTypes.length,
+          includesCLEANING_AVAILABLE: allEventTypes.includes('CLEANING_AVAILABLE'),
+          handlerType: subscription.handlerType,
+          isActive: subscription.isActive
+        });
+      } catch (createError: any) {
+        logger.error('❌ Failed to create NOTIFICATION subscription', { 
+          error: createError.message,
+          stack: createError.stack,
+          errorCode: createError.code,
+          errorMeta: createError.meta
+        });
+        throw createError; // Пробрасываем ошибку дальше
+      }
     } else {
-      // Обновляем список eventTypes на случай если были добавлены новые типы
-      await (prisma as any).eventSubscription.update({
-        where: { id: existing.id },
-        data: { eventTypes: allEventTypes }
+      logger.info('Updating existing NOTIFICATION subscription', {
+        subscriptionId: existing.id,
+        currentIsActive: existing.isActive,
+        currentEventTypesCount: existing.eventTypes?.length || 0
       });
-      logger.info('✅ Notification subscription updated');
+      
+      // Обновляем список eventTypes на случай если были добавлены новые типы
+      try {
+        await (prisma as any).eventSubscription.update({
+          where: { id: existing.id },
+          data: { 
+            eventTypes: allEventTypes,
+            isActive: true // Убеждаемся, что подписка активна
+          }
+        });
+        logger.info('✅ Notification subscription updated', {
+          subscriptionId: existing.id,
+          eventTypesCount: allEventTypes.length,
+          includesCLEANING_AVAILABLE: allEventTypes.includes('CLEANING_AVAILABLE'),
+          previousEventTypesCount: existing.eventTypes?.length || 0
+        });
+      } catch (updateError: any) {
+        logger.error('❌ Failed to update NOTIFICATION subscription', { 
+          subscriptionId: existing.id,
+          error: updateError.message,
+          stack: updateError.stack,
+          errorCode: updateError.code
+        });
+        throw updateError; // Пробрасываем ошибку дальше
+      }
     }
   } catch (error: any) {
-    logger.error('Failed to ensure notification subscription', { error: error.message });
+    logger.error('❌ Failed to ensure notification subscription', { 
+      error: error.message,
+      stack: error.stack,
+      errorCode: error.code,
+      errorMeta: error.meta
+    });
+    // НЕ пробрасываем ошибку дальше, чтобы сервер мог запуститься
+    // Но логируем детально для диагностики
   }
 }
 
 // Инициализируем подписку
 await ensureNotificationSubscription();
+
+// Проверяем, что подписка создана и активна
+try {
+  const verification = await (prisma as any).eventSubscription.findFirst({
+    where: {
+      handlerType: 'NOTIFICATION' as any,
+      isActive: true
+    }
+  });
+
+  if (verification) {
+    logger.info('✅ NOTIFICATION subscription verified', {
+      subscriptionId: verification.id,
+      eventTypesCount: verification.eventTypes?.length || 0,
+      includesCLEANING_AVAILABLE: verification.eventTypes?.includes('CLEANING_AVAILABLE'),
+      handlerType: verification.handlerType,
+      isActive: verification.isActive,
+      eventTypes: verification.eventTypes
+    });
+  } else {
+    // Проверяем все подписки для диагностики
+    const allSubs = await (prisma as any).eventSubscription.findMany({});
+    logger.error('❌ NOTIFICATION subscription NOT FOUND after initialization!', {
+      allSubscriptionsCount: allSubs.length,
+      allSubscriptions: allSubs.map((s: any) => ({
+        id: s.id,
+        handlerType: s.handlerType,
+        isActive: s.isActive,
+        eventTypesCount: s.eventTypes?.length || 0
+      }))
+    });
+  }
+} catch (verifyError: any) {
+  logger.error('❌ Failed to verify NOTIFICATION subscription', {
+    error: verifyError.message,
+    stack: verifyError.stack
+  });
+}
 
 // Читаем схему
 const typeDefs = readFileSync(join(process.cwd(), 'src/schema/index.gql'), 'utf-8');
@@ -175,23 +289,22 @@ grpcTransport.start().then(() => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  await grpcTransport.stop();
-  await prisma.$disconnect();
-  server.close(() => {
-    logger.info('Server closed');
-    process.exit(0);
-  });
-});
+// Используем once вместо on, чтобы обработчики не накапливались при hot reload
+const shutdown = async (signal: string) => {
+  logger.info(`${signal} received, shutting down gracefully`);
+  try {
+    await grpcTransport.stop();
+    await prisma.$disconnect();
+    server.close(() => {
+      logger.info('Server closed');
+      process.exit(0);
+    });
+  } catch (error: any) {
+    logger.error('Error during shutdown', { error: error.message });
+    process.exit(1);
+  }
+};
 
-process.on('SIGINT', async () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  await grpcTransport.stop();
-  await prisma.$disconnect();
-  server.close(() => {
-    logger.info('Server closed');
-    process.exit(0);
-  });
-});
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
 

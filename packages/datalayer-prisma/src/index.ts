@@ -7,4 +7,5 @@ export * from './listings/ListingsDLPrisma.js';
 export * from './legal/LegalDLPrisma.js';
 export * from './ai/AIOrchestratorPrisma.js';
 export * from './cleaning/CleaningDLPrisma.js';
+export * from './pricing/PricingDLPrisma.js';
 export * from './prismaClient.js';

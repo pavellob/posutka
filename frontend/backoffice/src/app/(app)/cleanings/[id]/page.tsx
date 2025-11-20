@@ -11,6 +11,8 @@ import { Button } from '@/components/button'
 import { Dialog, DialogBody, DialogTitle, DialogActions, DialogDescription } from '@/components/dialog'
 import { Textarea } from '@/components/textarea'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
+import { Select } from '@/components/select'
 import { ChecklistInstanceDialog } from '@/components/checklist-instance-dialog'
 import {
   GET_CLEANING,
@@ -21,6 +23,9 @@ import {
   APPROVE_CLEANING,
   COMPLETE_CLEANING,
   START_CLEANING,
+  SET_CLEANING_DIFFICULTY,
+  CALCULATE_CLEANING_COST,
+  GET_CLEANING_PRICING_RULE,
 } from '@/lib/graphql-queries'
 import {
   ArrowLeftIcon,
@@ -61,6 +66,7 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const { currentUserId } = useCurrentUser()
+  const { currentOrgId } = useCurrentOrganization()
   const [assignDialogOpen, setAssignDialogOpen] = useState(false)
   const [assignDialogStage, setAssignDialogStage] = useState<Stage | null>(null)
 
@@ -149,7 +155,8 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
     () => ({
       PRE_CLEANING: canEditChecklists && !preSubmitted,
       CLEANING: canEditChecklists && preSubmitted && !cleaningSubmitted,
-      FINAL_REPORT: cleaningSubmitted && data?.status !== 'APPROVED',
+      // FINAL_REPORT доступен только после завершения уборки (COMPLETED)
+    FINAL_REPORT: data?.status === 'COMPLETED' || data?.status === 'APPROVED',
     }),
     [canEditChecklists, preSubmitted, cleaningSubmitted, data?.status]
   )
@@ -697,8 +704,8 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
               )}
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <Badge color={statusColor as any} className="self-start">
+          <div className="flex flex-col gap-2">
+            <Badge color={statusColor as any}>
               {data.status === 'SCHEDULED' && 'Запланирована'}
               {data.status === 'IN_PROGRESS' && 'В работе'}
               {data.status === 'COMPLETED' && 'Завершена'}
@@ -724,7 +731,7 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
         )}
       </div>
                 
-                  <div className="space-y-4">
+      <div className="space-y-4">
         <Subheading>Чек-листы уборки</Subheading>
         {templateError && (
           <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
@@ -884,12 +891,26 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
             )
           })}
                         </div>
-        <div className="space-y-4 pt-6">
-          <Subheading>Проверка менеджера</Subheading>
-          <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-            После проверки итогов уборки подтвердите её выполнение. После подтверждения статус сменится на «Проверена».
-          </Text>
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 space-y-4">
+
+        {/* Компонент для установки сложности уборки - только после завершения уборки */}
+        {data && currentOrgId && (
+          <div className="pt-6">
+            <CleaningDifficultyEditor 
+              cleaning={data} 
+              unitId={data.unit?.id || undefined}
+              orgId={currentOrgId}
+            />
+          </div>
+        )}
+
+        {/* Проверка менеджера доступна только после завершения уборки */}
+        {data.status === 'COMPLETED' || data.status === 'APPROVED' ? (
+          <div className="space-y-4 pt-6">
+            <Subheading>Проверка менеджера</Subheading>
+            <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+              После проверки итогов уборки подтвердите её выполнение. После подтверждения статус сменится на «Проверена».
+            </Text>
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 space-y-4">
             {orderedReviews.length > 0 && (
               <div className="space-y-2">
                 <Text className="text-sm font-medium text-zinc-700 dark:text-zinc-200">История проверок</Text>
@@ -959,7 +980,17 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
               </div>
             )}
           </div>
-                        </div>
+        </div>
+        ) : (
+          <div className="space-y-4 pt-6">
+            <Subheading>Проверка менеджера</Subheading>
+            <div className="bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6">
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                Проверка менеджера будет доступна после завершения уборки.
+              </Text>
+            </div>
+          </div>
+        )}
                       </div>
 
       {isPhotoPreviewOpen && photoPreview[photoPreviewIndex] && (
@@ -1042,6 +1073,226 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
         </Dialog>
       )}
  
+    </div>
+  )
+}
+
+// Компонент для установки сложности уборки
+function CleaningDifficultyEditor({ cleaning, unitId, orgId }: { cleaning: any; unitId?: string; orgId?: string }) {
+  const queryClient = useQueryClient()
+  const [difficulty, setDifficulty] = useState<string>(
+    cleaning.assessedDifficulty?.replace('D', '') || cleaning.unit?.cleaningDifficulty?.replace('D', '') || '0'
+  )
+  const [isSaving, setIsSaving] = useState(false)
+  const [checklistInstanceId, setChecklistInstanceId] = useState<string | null>(null)
+  
+  // Сложность можно устанавливать только после завершения уборки (COMPLETED), но до проверки менеджером (APPROVED)
+  const canSetDifficulty = cleaning.status === 'COMPLETED' && cleaning.status !== 'APPROVED'
+  const isCompleted = cleaning.status === 'COMPLETED' || cleaning.status === 'APPROVED'
+
+  // Получаем PRE_CLEANING чек-лист для checklistInstanceId
+  const { data: preCleaningData } = useQuery<any>({
+    queryKey: ['checklist-instance', cleaning.id, 'PRE_CLEANING'],
+    queryFn: async () => {
+      if (!cleaning.id) return null
+      const response = await graphqlClient.request(GET_CHECKLIST_BY_CLEANING_AND_STAGE, { 
+        cleaningId: cleaning.id, 
+        stage: 'PRE_CLEANING' 
+      }) as any
+      return response.checklistByCleaning
+    },
+    enabled: !!cleaning.id,
+  })
+
+  useEffect(() => {
+    if (preCleaningData?.id) {
+      setChecklistInstanceId(preCleaningData.id)
+    }
+  }, [preCleaningData])
+
+  // Загрузка правила ценообразования
+  const { data: pricingRuleData } = useQuery<any>({
+    queryKey: ['pricingRule', orgId, unitId],
+    queryFn: () => graphqlClient.request(GET_CLEANING_PRICING_RULE, {
+      orgId: orgId!,
+      unitId: unitId,
+    }),
+    enabled: !!orgId && !!unitId,
+  })
+
+  const pricingRule = pricingRuleData?.cleaningPricingRule
+
+  // Расчет стоимости уборки
+  const { data: costQuoteData } = useQuery<any>({
+    queryKey: ['cleaningCost', unitId, cleaning.unit?.grade, difficulty, pricingRule?.mode],
+    queryFn: () => {
+      const gradeEnum = cleaning.unit?.grade || 'GRADE_0'
+      const difficultyEnum = `D${difficulty}`
+      return graphqlClient.request(CALCULATE_CLEANING_COST, {
+        unitId: unitId!,
+        grade: gradeEnum,
+        difficulty: difficultyEnum,
+        mode: pricingRule?.mode || 'BASIC',
+      })
+    },
+    enabled: !!unitId && !!pricingRule && !!cleaning.unit?.grade,
+  })
+
+  const costQuote = costQuoteData?.calculateCleaningCost
+
+  // Мутация для установки сложности
+  const setDifficultyMutation = useMutation({
+    mutationFn: async (input: { cleaningId: string; difficulty: string; checklistInstanceId?: string | null }) => {
+      return graphqlClient.request(SET_CLEANING_DIFFICULTY, {
+        input: {
+          cleaningId: input.cleaningId,
+          difficulty: `D${input.difficulty}`,
+          checklistInstanceId: input.checklistInstanceId || undefined,
+        }
+      })
+    },
+    onSuccess: async (data, variables) => {
+      // Используем cleaningId из переменных мутации для обновления кеша
+      await queryClient.refetchQueries({ queryKey: ['cleaning', variables.cleaningId] })
+      setIsSaving(false)
+    },
+    onError: () => {
+      setIsSaving(false)
+    }
+  })
+
+  const handleSave = () => {
+    if (!cleaning.id) return
+    setIsSaving(true)
+    setDifficultyMutation.mutate({
+      cleaningId: cleaning.id,
+      difficulty,
+      checklistInstanceId,
+    })
+  }
+
+  const getDifficultyLabel = (difficulty: number) => {
+    const labels = ['Очень простая', 'Простая', 'Средняя', 'Сложная', 'Очень сложная', 'Экстремально сложная']
+    return labels[difficulty] || 'Не указано'
+  }
+
+  const formatMoney = (amount: number, currency: string): string => {
+    const value = amount / 100
+    return new Intl.NumberFormat('ru-RU', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(value)
+  }
+
+  const hasChanges = difficulty !== (cleaning.assessedDifficulty?.replace('D', '') || cleaning.unit?.cleaningDifficulty?.replace('D', '') || '0')
+  const cleaningSubmitted = cleaning.status === 'COMPLETED' || cleaning.status === 'APPROVED'
+
+  return (
+    <div className={`bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6 space-y-4 mt-4 ${
+      !canSetDifficulty && !isCompleted ? 'opacity-60' : ''
+    }`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <Heading level={4}>Сложность уборки и стоимость</Heading>
+          <Text className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+            {canSetDifficulty 
+              ? 'Установите сложность после завершения уборки, перед проверкой менеджером'
+              : isCompleted && cleaning.assessedDifficulty
+                ? 'Сложность уже установлена'
+                : 'Сложность можно установить только после завершения уборки'}
+          </Text>
+        </div>
+        {cleaning.assessedDifficulty && (
+          <Badge color="green">
+            Установлена: {cleaning.assessedDifficulty}
+            {cleaning.assessedAt && (
+              <span className="ml-2 text-xs">
+                {new Date(cleaning.assessedAt).toLocaleDateString('ru-RU')}
+              </span>
+            )}
+          </Badge>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Выбор сложности */}
+        <div>
+          <label htmlFor="cleaning-difficulty" className="block text-sm font-medium text-zinc-900 dark:text-white mb-1">
+            Сложность уборки (0-5)
+          </label>
+          <Select
+            id="cleaning-difficulty"
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value)}
+            className="mt-1"
+            disabled={!canSetDifficulty || isSaving}
+          >
+            {Array.from({ length: 6 }, (_, i) => (
+              <option key={i} value={i.toString()}>
+                D{i} - {getDifficultyLabel(i)}
+              </option>
+            ))}
+          </Select>
+          <Text className="text-xs text-zinc-500 mt-1">
+            {canSetDifficulty 
+              ? 'Уборка завершена, можно установить сложность'
+              : cleaning.status === 'APPROVED'
+                ? 'Уборка уже проверена менеджером'
+                : 'Сначала завершите уборку'}
+          </Text>
+        </div>
+
+        {/* Рассчитанная стоимость */}
+        {costQuote && (
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+            <Text className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Рассчитанная стоимость:
+            </Text>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <Text className="text-zinc-500">Базовая:</Text>
+                <Text>{formatMoney(costQuote.base.amount, costQuote.base.currency)}</Text>
+              </div>
+              <div className="flex justify-between">
+                <Text className="text-zinc-500">Коэф. градации:</Text>
+                <Text>{costQuote.gradeCoefficient.toFixed(2)}x</Text>
+              </div>
+              <div className="flex justify-between">
+                <Text className="text-zinc-500">Коэф. сложности:</Text>
+                <Text>{costQuote.difficultyCoefficient.toFixed(2)}x</Text>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                <Text className="font-semibold">Итого:</Text>
+                <Text className="font-bold text-lg text-green-600 dark:text-green-400">
+                  {formatMoney(costQuote.total.amount, costQuote.total.currency)}
+                </Text>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {hasChanges && canSetDifficulty && (
+        <div className="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+          <Button
+            outline
+            onClick={() => {
+              setDifficulty(cleaning.assessedDifficulty?.replace('D', '') || cleaning.unit?.cleaningDifficulty?.replace('D', '') || '0')
+            }}
+            disabled={isSaving}
+          >
+            Отмена
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Сохранение...' : 'Сохранить сложность'}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

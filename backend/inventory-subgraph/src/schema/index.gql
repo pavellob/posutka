@@ -87,6 +87,34 @@ enum Channel {
   OTHER
 }
 
+"""
+Градация юнита по размеру (0-10).
+"""
+enum UnitGrade {
+  GRADE_0
+  GRADE_1
+  GRADE_2
+  GRADE_3
+  GRADE_4
+  GRADE_5
+  GRADE_6
+  GRADE_7
+  GRADE_8
+  GRADE_9
+  GRADE_10
+}
+
+"""
+Сложность уборки (0-5).
+"""
+enum CleaningDifficulty {
+  D0
+  D1
+  D2
+  D3
+  D4
+  D5
+}
 
 scalar UUID
 scalar DateTime
@@ -207,6 +235,8 @@ type Mutation {
   ): Property!
   """Создать новую единицу недвижимости в объекте"""
   createUnit(propertyId: UUID!, name: String!, capacity: Int!, beds: Int!, bathrooms: Int!, amenities: [String!]): Unit!
+  """Обновить единицу недвижимости"""
+  updateUnit(id: UUID!, input: UpdateUnitInput!): Unit!
   """Заблокировать даты в календаре единицы недвижимости"""
   blockDates(unitId: UUID!, from: DateTime!, to: DateTime!, note: String): [CalendarDay!]!
 }
@@ -370,6 +400,10 @@ type Unit {
   bathrooms: Int!
   """Список удобств единицы (кондиционер, кухня, балкон и т.д.)"""
   amenities: [String!]!
+  """Градация юнита по размеру (0-10)"""
+  grade: UnitGrade!
+  """Сложность уборки по умолчанию (0-5, fallback)"""
+  cleaningDifficulty: CleaningDifficulty!
   """Календарь доступности единицы на указанный период"""
   calendar(rangeStart: DateTime!, rangeEnd: DateTime!): [CalendarDay!]!
 }
@@ -400,4 +434,24 @@ type CalendarDay {
   bookingId: UUID
   """Дополнительная заметка о статусе (опционально)"""
   note: String
+}
+
+"""
+Входные данные для обновления единицы недвижимости.
+"""
+input UpdateUnitInput {
+  """Название единицы"""
+  name: String
+  """Максимальная вместимость"""
+  capacity: Int
+  """Количество кроватей"""
+  beds: Int
+  """Количество ванных комнат"""
+  bathrooms: Int
+  """Список удобств"""
+  amenities: [String!]
+  """Градация юнита по размеру (0-10)"""
+  grade: UnitGrade
+  """Сложность уборки по умолчанию (0-5)"""
+  cleaningDifficulty: CleaningDifficulty
 }

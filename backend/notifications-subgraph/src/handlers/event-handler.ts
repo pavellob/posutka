@@ -263,14 +263,16 @@ export class NotificationEventHandler {
         const unitName = payload.unitName || 'квартире';
         const unitAddress = payload.unitAddress;
         const cleanerName = payload.cleanerName;
-        const completedDate = payload.completedAt ? this.formatDate(payload.completedAt) : this.formatDate(new Date().toISOString());
+        const scheduledDate = payload.scheduledAt ? this.formatDate(payload.scheduledAt) : '';
         const notes = payload.notes ? `\n\n📝 Примечание: ${payload.notes}` : '';
         
-        let message = `Уборка в "${unitName}" завершена и ожидает проверки`;
+        let message = `Уборка в "${unitName}" готова к проверке`;
         if (unitAddress) {
           message += `\n📍 Адрес: ${unitAddress}`;
         }
-        message += `\n✅ Время завершения: ${completedDate}`;
+        if (scheduledDate) {
+          message += `\n📅 Запланировано: ${scheduledDate}`;
+        }
         if (cleanerName) {
           message += `\n👤 Исполнитель: ${cleanerName}`;
         }

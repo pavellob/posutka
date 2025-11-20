@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { Context } from '../context.js';
 import { createGraphQLLogger } from '@repo/shared-logger';
 import { getEventsClient } from '../services/events-client.js';
+import { createPricingGrpcClient } from '@repo/grpc-sdk';
 
 const logger = createGraphQLLogger('cleaning-subgraph-resolvers');
 
@@ -136,7 +137,7 @@ export const resolvers: any = {
     },
     
     // Cleaning mutations
-    scheduleCleaning: async (_: unknown, { input }: { input: any }, { dl, prisma }: Context) => {
+    scheduleCleaning: async (_: unknown, { input }: { input: any }, { dl, prisma, inventoryDL }: Context) => {
       logger.info('Scheduling cleaning', { input });
       const cleaning = await dl.scheduleCleaning(input);
       
@@ -174,12 +175,38 @@ export const resolvers: any = {
           }
         } else {
           // Если уборщик НЕ назначен - уведомляем всех preferred cleaners
+          logger.info('No cleaner assigned, collecting preferred cleaners', {
+            preferredCleanersCount: unit.preferredCleaners.length
+          });
+          
           for (const pref of unit.preferredCleaners) {
+            if (!pref.cleaner.isActive) {
+              logger.info('Skipping inactive preferred cleaner', {
+                cleanerId: pref.cleaner.id,
+                cleanerName: `${pref.cleaner.firstName} ${pref.cleaner.lastName}`
+              });
+              continue;
+            }
+            
             const targetUserId = pref.cleaner.userId || pref.cleaner.id;
             if (targetUserId) {
               targetUserIds.push(targetUserId);
+              logger.info('Added preferred cleaner to targetUserIds', {
+                cleanerId: pref.cleaner.id,
+                cleanerUserId: pref.cleaner.userId,
+                targetUserId
+              });
+            } else {
+              logger.warn('Preferred cleaner has no userId or id', {
+                cleanerId: pref.cleaner.id
+              });
             }
           }
+          
+          logger.info('Collected targetUserIds for CLEANING_AVAILABLE', {
+            targetUserIdsCount: targetUserIds.length,
+            targetUserIds
+          });
         }
         
         // Публикуем событие через Event Bus (gRPC)
@@ -192,6 +219,45 @@ export const resolvers: any = {
           });
           const cleanerName = cleaner ? `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim() : undefined;
           const unitAddress = unit.property?.address;
+          
+          // Получаем данные о unit через datalayer для grade и cleaningDifficulty
+          const unitData = await inventoryDL.getUnitById(cleaning.unitId);
+          const unitGrade = unitData?.grade ?? null;
+          const unitCleaningDifficulty = unitData?.cleaningDifficulty ?? null;
+          
+          // Рассчитываем стоимость уборки с дефолтной сложностью (D1) или из unit
+          let priceAmount: number | undefined;
+          let priceCurrency: string | undefined;
+          try {
+            const pricingClient = createPricingGrpcClient({
+              host: process.env.PRICING_GRPC_HOST || 'localhost',
+              port: parseInt(process.env.PRICING_GRPC_PORT || '4112'),
+            });
+            // Используем дефолтную сложность D1 (1) или из unit, если есть
+            const defaultDifficulty = unitCleaningDifficulty ?? 1;
+            const priceResponse = await pricingClient.CalculateCleaningCost({
+              unitId: cleaning.unitId,
+              difficulty: defaultDifficulty,
+              mode: 'BASIC'
+            });
+            if (priceResponse.quote?.totalAmount && priceResponse.quote?.totalCurrency) {
+              priceAmount = Number(priceResponse.quote.totalAmount);
+              priceCurrency = priceResponse.quote.totalCurrency;
+              logger.info('✅ Cleaning price calculated for CLEANING_ASSIGNED', {
+                cleaningId: cleaning.id,
+                unitId: cleaning.unitId,
+                difficulty: defaultDifficulty,
+                priceAmount,
+                priceCurrency
+              });
+            }
+          } catch (priceError: any) {
+            logger.warn('Failed to calculate cleaning price for CLEANING_ASSIGNED', {
+              cleaningId: cleaning.id,
+              error: priceError.message
+            });
+            // Не прерываем основной flow, продолжаем без цены
+          }
           
           await eventsClient.publishCleaningAssigned({
             cleaningId: cleaning.id,
@@ -206,6 +272,10 @@ export const resolvers: any = {
             notes: cleaning.notes || undefined,
             orgId: cleaning.orgId || undefined,
             actorUserId: undefined, // TODO: получить из context
+            unitGrade: unitGrade !== null ? unitGrade : undefined,
+            cleaningDifficulty: unitCleaningDifficulty !== null ? `D${unitCleaningDifficulty}` : undefined,
+            priceAmount,
+            priceCurrency,
           });
           
           logger.info('✅ CLEANING_ASSIGNED event published', { 
@@ -215,9 +285,79 @@ export const resolvers: any = {
           });
         } else if (targetUserIds.length > 0) {
           // Если уборщик НЕ назначен, но есть предпочитаемые - публикуем AVAILABLE
-          const unitAddress = unit.property?.address;
           
-          await eventsClient.publishCleaningAvailable({
+          // Получаем данные о unit через datalayer для grade, cleaningDifficulty и address
+          const unitData = await inventoryDL.getUnitById(cleaning.unitId);
+          const unitAddress = unitData?.property?.address || unit.property?.address;
+          logger.info('📊 Unit data retrieved for CLEANING_AVAILABLE', {
+            cleaningId: cleaning.id,
+            unitId: cleaning.unitId,
+            unitData: unitData ? {
+              id: unitData.id,
+              grade: unitData.grade,
+              cleaningDifficulty: unitData.cleaningDifficulty
+            } : null,
+            hasUnitData: !!unitData
+          });
+          
+          const unitGrade = unitData?.grade ?? null;
+          const unitCleaningDifficulty = unitData?.cleaningDifficulty ?? null;
+          
+          // Рассчитываем стоимость уборки с дефолтной сложностью (D1) или из unit
+          let priceAmount: number | undefined;
+          let priceCurrency: string | undefined;
+          try {
+            const pricingClient = createPricingGrpcClient({
+              host: process.env.PRICING_GRPC_HOST || 'localhost',
+              port: parseInt(process.env.PRICING_GRPC_PORT || '4112'),
+            });
+            // Используем дефолтную сложность D1 (1) или из unit, если есть
+            const defaultDifficulty = unitCleaningDifficulty ?? 1;
+            logger.info('💰 Calculating cleaning price for CLEANING_AVAILABLE', {
+              cleaningId: cleaning.id,
+              unitId: cleaning.unitId,
+              defaultDifficulty,
+              unitCleaningDifficulty
+            });
+            
+            const priceResponse = await pricingClient.CalculateCleaningCost({
+              unitId: cleaning.unitId,
+              difficulty: defaultDifficulty,
+              mode: 'BASIC'
+            });
+            
+            logger.info('💰 Pricing service response', {
+              cleaningId: cleaning.id,
+              hasQuote: !!priceResponse.quote,
+              quote: priceResponse.quote
+            });
+            
+            if (priceResponse.quote?.totalAmount && priceResponse.quote?.totalCurrency) {
+              priceAmount = Number(priceResponse.quote.totalAmount);
+              priceCurrency = priceResponse.quote.totalCurrency;
+              logger.info('✅ Cleaning price calculated for CLEANING_AVAILABLE', {
+                cleaningId: cleaning.id,
+                unitId: cleaning.unitId,
+                difficulty: defaultDifficulty,
+                priceAmount,
+                priceCurrency
+              });
+            } else {
+              logger.warn('⚠️ Pricing service returned no quote', {
+                cleaningId: cleaning.id,
+                priceResponse: priceResponse
+              });
+            }
+          } catch (priceError: any) {
+            logger.warn('Failed to calculate cleaning price for CLEANING_AVAILABLE', {
+              cleaningId: cleaning.id,
+              error: priceError.message,
+              stack: priceError.stack
+            });
+            // Не прерываем основной flow, продолжаем без цены
+          }
+          
+          const publishParams = {
             cleaningId: cleaning.id,
             unitId: cleaning.unitId,
             unitName,
@@ -227,7 +367,26 @@ export const resolvers: any = {
             notes: cleaning.notes || undefined,
             targetUserIds,
             orgId: cleaning.orgId || undefined,
+            unitGrade: unitGrade !== null ? unitGrade : undefined,
+            cleaningDifficulty: unitCleaningDifficulty !== null ? `D${unitCleaningDifficulty}` : undefined,
+            priceAmount,
+            priceCurrency,
+          };
+          
+          logger.info('📤 Publishing CLEANING_AVAILABLE with params', {
+            cleaningId: publishParams.cleaningId,
+            hasUnitGrade: publishParams.unitGrade !== undefined,
+            unitGrade: publishParams.unitGrade,
+            hasCleaningDifficulty: publishParams.cleaningDifficulty !== undefined,
+            cleaningDifficulty: publishParams.cleaningDifficulty,
+            hasPriceAmount: publishParams.priceAmount !== undefined,
+            priceAmount: publishParams.priceAmount,
+            hasPriceCurrency: publishParams.priceCurrency !== undefined,
+            priceCurrency: publishParams.priceCurrency,
+            allParams: publishParams
           });
+          
+          await eventsClient.publishCleaningAvailable(publishParams);
           
           logger.info('✅ CLEANING_AVAILABLE event published', { 
             cleaningId: cleaning.id,
@@ -459,38 +618,130 @@ export const resolvers: any = {
           
           if (cleaner && unit) {
             const eventsClient = getEventsClient();
-            const cleanerTargetIds: string[] = [];
-            const managerTargetIds: string[] = [];
             const cleanerTarget = cleaner.userId || cleaner.id;
+            
             if (cleanerTarget) {
-              cleanerTargetIds.push(cleanerTarget);
-            }
-
-            const managerIds = await resolveManagerUserIds(prisma, cleaning.orgId);
-            if (managerIds.length === 0) {
-              logger.info('No users with MANAGER system role available for notifications', {
-                cleaningId: cleaning.id,
-                orgId: cleaning.orgId,
-              });
-            } else {
-              managerTargetIds.push(...managerIds);
-            }
-
-            if (cleanerTargetIds.length > 0) {
               const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim();
               const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
               const unitAddress = unit.property?.address;
+              
+              // Получаем чеклист стадии CLEANING
+              const cleaningChecklistInstance = await prisma.checklistInstance.findFirst({
+                where: {
+                cleaningId: cleaning.id,
+                  stage: 'CLEANING',
+                },
+                include: {
+                  items: { orderBy: { order: 'asc' } },
+                  answers: true,
+                  attachments: true,
+                },
+                orderBy: { createdAt: 'desc' }
+              });
+              
+              // Подсчитываем статистику чеклиста
+              let checklistStats: any = undefined;
+              if (cleaningChecklistInstance) {
+                const totalItems = cleaningChecklistInstance.items?.length || 0;
+                const completedItems = cleaningChecklistInstance.items?.filter((item: any) => {
+                  if (item.requiresPhoto) {
+                    const itemAttachments = cleaningChecklistInstance.attachments?.filter((a: any) => a.itemKey === item.key) || [];
+                    return itemAttachments.length >= (item.photoMin || 1);
+            } else {
+                    // Проверяем, что есть положительный ответ (true, "yes", положительное число и т.д.)
+                    const answer = cleaningChecklistInstance.answers?.find((a: any) => a.itemKey === item.key);
+                    if (!answer || !answer.value) {
+                      return false;
+                    }
+                    // Проверяем, что значение положительное
+                    const value = answer.value;
+                    if (typeof value === 'boolean') {
+                      return value === true;
+                    }
+                    if (typeof value === 'number') {
+                      return value > 0;
+                    }
+                    if (typeof value === 'string') {
+                      const lowerValue = value.toLowerCase();
+                      return lowerValue === 'true' || lowerValue === 'yes' || lowerValue === 'да' || lowerValue === '1';
+                    }
+                    // Для других типов считаем положительным, если значение не null/undefined
+                    return value !== null && value !== undefined;
+                  }
+                }) || [];
+                const completedCount = completedItems.length;
+                const incompleteCount = totalItems - completedCount;
+                
+                // Список неотмеченных пунктов (без положительного ответа)
+                const incompleteItems = cleaningChecklistInstance.items
+                  ?.filter((item: any) => {
+                    if (item.requiresPhoto) {
+                      const itemAttachments = cleaningChecklistInstance.attachments?.filter((a: any) => a.itemKey === item.key) || [];
+                      return itemAttachments.length < (item.photoMin || 1);
+                    } else {
+                      // Проверяем, что нет положительного ответа
+                      const answer = cleaningChecklistInstance.answers?.find((a: any) => a.itemKey === item.key);
+                      if (!answer || !answer.value) {
+                        return true; // Нет ответа - неполный
+                      }
+                      // Проверяем, что значение не положительное
+                      const value = answer.value;
+                      if (typeof value === 'boolean') {
+                        return value !== true; // false или null - неполный
+                      }
+                      if (typeof value === 'number') {
+                        return value <= 0; // 0 или отрицательное - неполный
+                      }
+                      if (typeof value === 'string') {
+                        const lowerValue = value.toLowerCase();
+                        return !(lowerValue === 'true' || lowerValue === 'yes' || lowerValue === 'да' || lowerValue === '1');
+                      }
+                      // Для других типов считаем неполным, если значение null/undefined
+                      return value === null || value === undefined;
+                    }
+                  })
+                  .map((item: any) => ({ title: item.title, key: item.key })) || [];
+                
+                checklistStats = {
+                  total: totalItems,
+                  completed: completedCount,
+                  incomplete: incompleteCount,
+                  incompleteItems: incompleteItems.length > 0 ? incompleteItems : undefined,
+                };
+              }
+              
+              // Получаем фото из документов POST_CLEANING_HANDOVER
+              const cleaningWithDocs = await prisma.cleaning.findUnique({
+                where: { id: cleaning.id },
+                include: {
+                  documents: {
+                    where: { type: 'POST_CLEANING_HANDOVER' },
+                    include: { photos: { orderBy: { order: 'asc' } } }
+                  }
+                }
+              });
+              
+              const photoUrls = cleaningWithDocs?.documents
+                ?.flatMap((doc: any) => (doc.photos || []).map((photo: any) => ({
+                  url: photo.url,
+                  caption: photo.caption || undefined
+                }))) || [];
               
               logger.info('Publishing CLEANING_COMPLETED for cleaner', {
                 cleaningId: cleaning.id,
                 cleanerId: cleaning.cleanerId,
                 cleanerUserId: cleaner.userId,
-                targetUserIds: cleanerTargetIds,
+                targetUserId: cleanerTarget,
+                checklistStats,
+                photoCount: photoUrls?.length || 0,
               });
+              
+              // Публикуем CLEANING_COMPLETED только для уборщика
+              // CLEANING_READY_FOR_REVIEW будет опубликовано автоматически после указания сложности (CLEANING_DIFFICULTY_SET)
               await eventsClient.publishCleaningCompleted({
                 cleaningId: cleaning.id,
                 cleanerId: cleaning.cleanerId,
-                targetUserIds: cleanerTargetIds,
+                targetUserIds: [cleanerTarget],
                 unitName,
                 unitAddress,
                 cleanerName,
@@ -499,27 +750,11 @@ export const resolvers: any = {
                 completedAt: cleaning.completedAt || new Date().toISOString(),
                 notes: cleaning.notes || undefined,
                 orgId: cleaning.orgId || undefined,
+                checklistStats,
+                photoUrls: photoUrls && photoUrls.length > 0 ? photoUrls : undefined,
               });
-              logger.info('✅ CLEANING_COMPLETED event published', { cleaningId: id });
-            }
-
-            if (managerTargetIds.length > 0) {
-              const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim();
-              const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
-              const unitAddress = unit.property?.address;
               
-              await eventsClient.publishCleaningReadyForReview({
-                cleaningId: cleaning.id,
-                managerIds: managerTargetIds,
-                unitName,
-                unitAddress,
-                cleanerName,
-                scheduledAt: cleaning.scheduledAt,
-                startedAt: cleaning.startedAt,
-                completedAt: cleaning.completedAt || new Date().toISOString(),
-                notes: cleaning.notes || undefined,
-                orgId: cleaning.orgId || undefined,
-              });
+              logger.info('✅ CLEANING_COMPLETED event published', { cleaningId: id });
             }
           }
         }
@@ -534,10 +769,74 @@ export const resolvers: any = {
     approveCleaning: async (
       _: unknown,
       { id, managerId, comment }: { id: string; managerId: string; comment?: string },
-      { dl }: Context
+      { dl, prisma }: Context
     ) => {
       logger.info('Approving cleaning', { id, managerId });
-      return dl.approveCleaning(id, managerId, comment);
+      const cleaning = await dl.approveCleaning(id, managerId, comment);
+      
+      // Публикуем событие CLEANING_APPROVED через Event Bus
+      try {
+        const cleaningAfterApprove = await dl.getCleaningById(id);
+        if (cleaningAfterApprove) {
+          const cleaner = cleaningAfterApprove.cleanerId 
+            ? await prisma.cleaner.findUnique({ where: { id: cleaningAfterApprove.cleanerId } })
+            : null;
+          
+          const unit = await prisma.unit.findUnique({
+            where: { id: cleaningAfterApprove.unitId },
+            include: { property: true }
+          });
+          
+          if (unit) {
+            const eventsClient = getEventsClient();
+            const cleanerName = cleaner ? `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim() : undefined;
+              const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
+              const unitAddress = unit.property?.address;
+              
+            // Уведомляем менеджера и уборщика
+            const targetUserIds: string[] = [];
+            
+            // Менеджер, который одобрил
+            if (managerId) {
+              targetUserIds.push(managerId);
+            }
+            
+            // Уборщик
+            if (cleaner) {
+              const cleanerUserId = cleaner.userId || cleaner.id;
+              if (cleanerUserId) {
+                targetUserIds.push(cleanerUserId);
+              }
+            }
+            
+            if (targetUserIds.length > 0) {
+              await eventsClient.publishCleaningApproved({
+                cleaningId: cleaningAfterApprove.id,
+                managerId,
+                cleanerId: cleaningAfterApprove.cleanerId || undefined,
+                unitName,
+                unitAddress,
+                cleanerName,
+                comment: comment || undefined,
+                scheduledAt: cleaningAfterApprove.scheduledAt,
+                completedAt: cleaningAfterApprove.completedAt || undefined,
+                orgId: cleaningAfterApprove.orgId || undefined,
+                targetUserIds,
+              });
+              
+              logger.info('✅ CLEANING_APPROVED event published', {
+                cleaningId: id,
+                targetUserIdsCount: targetUserIds.length
+              });
+            }
+          }
+        }
+      } catch (error: any) {
+        logger.error('Failed to publish CLEANING_APPROVED event:', error);
+        // Не прерываем основной flow
+      }
+      
+      return cleaning;
     },
     
     assignCleaningToMe: async (_: unknown, { cleaningId }: { cleaningId: string }, { prisma, dl }: Context) => {
@@ -611,6 +910,205 @@ export const resolvers: any = {
     updateCleaningChecklist: async (_: unknown, { id, items }: { id: string; items: any[] }, { dl }: Context) => {
       logger.info('Updating cleaning checklist', { id, itemsCount: items.length });
       return dl.updateCleaningChecklist(id, items);
+    },
+    
+    setCleaningDifficulty: async (
+      _: unknown,
+      { input }: { input: { cleaningId: string; difficulty: string; checklistInstanceId?: string } },
+      { dl, prisma, inventoryDL }: Context
+    ) => {
+      const { cleaningId, difficulty, checklistInstanceId } = input;
+      logger.info('Setting cleaning difficulty', { cleaningId, difficulty, checklistInstanceId });
+      
+      // Проверка прав: назначенный уборщик или менеджер
+      const cleaning = await dl.getCleaningById(cleaningId);
+      if (!cleaning) {
+        throw new Error(`Cleaning ${cleaningId} not found`);
+      }
+
+      // Проверка статуса
+      if (!['SCHEDULED', 'IN_PROGRESS', 'COMPLETED'].includes(cleaning.status)) {
+        throw new Error('Can only set difficulty for SCHEDULED, IN_PROGRESS or COMPLETED cleanings');
+      }
+
+      // Проверка наличия PRE_CLEANING чек-листа (если передан checklistInstanceId)
+      if (checklistInstanceId) {
+        const instance = await prisma.checklistInstance.findUnique({
+          where: { id: checklistInstanceId },
+          include: { template: true },
+        });
+        
+        if (!instance || instance.stage !== 'PRE_CLEANING' || instance.status !== 'SUBMITTED') {
+          throw new Error('PRE_CLEANING checklist must be submitted');
+        }
+      }
+
+      // Конвертируем enum в число
+      const difficultyValue = parseInt(difficulty.replace('D', ''), 10);
+      
+      // Сохраняем assessedDifficulty
+      const updated = await prisma.cleaning.update({
+        where: { id: cleaningId },
+        data: {
+          assessedDifficulty: difficultyValue,
+          assessedAt: new Date(),
+        } as any, // Временное решение, пока Prisma клиент не обновлен
+      });
+
+      logger.info('✅ Cleaning difficulty set', { 
+        cleaningId, 
+        difficulty: difficultyValue,
+        updatedCleanerId: updated.cleanerId,
+        hasCleanerId: !!updated.cleanerId
+      });
+
+      // Публикуем событие CLEANING_DIFFICULTY_SET через Event Bus
+      logger.info('🔍 About to enter event publication block', { cleaningId });
+      try {
+        logger.info('🔍 Preparing to publish CLEANING_DIFFICULTY_SET event', { cleaningId });
+        
+        // Используем datalayer для получения данных
+        // Небольшая задержка, чтобы убедиться, что транзакция завершена
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const cleaningAfterUpdate = await dl.getCleaningById(cleaningId);
+        
+        logger.info('🔍 Cleaning data from datalayer after update', {
+          cleaningId,
+          hasCleaning: !!cleaningAfterUpdate,
+          cleanerId: cleaningAfterUpdate?.cleanerId,
+          cleanerIdType: typeof cleaningAfterUpdate?.cleanerId,
+          cleanerIdValue: cleaningAfterUpdate?.cleanerId,
+          status: cleaningAfterUpdate?.status,
+          orgId: cleaningAfterUpdate?.orgId,
+          unitId: cleaningAfterUpdate?.unitId,
+          // Сравниваем с данными из Prisma напрямую для диагностики
+          prismaCleanerId: updated.cleanerId
+        });
+        
+        if (!cleaningAfterUpdate) {
+          logger.warn('⚠️ Cleaning not found after update, skipping event publication', { cleaningId });
+        } else if (!cleaningAfterUpdate.cleanerId) {
+          logger.warn('⚠️ Cleaning has no cleanerId from datalayer, skipping event publication', { 
+            cleaningId,
+            cleaningData: {
+              id: cleaningAfterUpdate.id,
+              status: cleaningAfterUpdate.status,
+              orgId: cleaningAfterUpdate.orgId,
+              unitId: cleaningAfterUpdate.unitId,
+              cleanerId: cleaningAfterUpdate.cleanerId
+            }
+          });
+        } else {
+          // Получаем уборщика через datalayer
+          const cleaner = await dl.getCleanerById(cleaningAfterUpdate.cleanerId);
+          
+          if (!cleaner) {
+            logger.warn('⚠️ Cleaner not found via datalayer, skipping event publication', { 
+              cleaningId, 
+              cleanerId: cleaningAfterUpdate.cleanerId 
+            });
+          } else {
+            // Получаем квартиру через inventory datalayer
+            const unit = await inventoryDL.getUnitById(cleaningAfterUpdate.unitId);
+            
+            if (!unit) {
+              logger.warn('⚠️ Unit not found via datalayer, skipping event publication', { 
+                cleaningId, 
+                unitId: cleaningAfterUpdate.unitId 
+              });
+            } else {
+              const eventsClient = getEventsClient();
+              const managerIds = await resolveManagerUserIds(prisma, cleaningAfterUpdate.orgId);
+              
+              logger.info('📊 Manager IDs resolved', {
+                cleaningId,
+                orgId: cleaningAfterUpdate.orgId,
+                managerIdsCount: managerIds.length,
+                managerIds: managerIds
+              });
+              
+              if (managerIds.length > 0) {
+              const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim();
+              const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
+              const unitAddress = unit.property?.address;
+              
+              // Получаем цену уборки из pricing service
+              let priceAmount: number | undefined;
+              let priceCurrency: string | undefined;
+              try {
+                const pricingClient = createPricingGrpcClient({
+                  host: process.env.PRICING_GRPC_HOST || 'localhost',
+                  port: parseInt(process.env.PRICING_GRPC_PORT || '4112'),
+                });
+                const priceResponse = await pricingClient.CalculateCleaningCost({
+                  unitId: cleaningAfterUpdate.unitId,
+                  difficulty: difficultyValue,
+                  mode: 'BASIC'
+                });
+                if (priceResponse.quote?.totalAmount && priceResponse.quote?.totalCurrency) {
+                  priceAmount = Number(priceResponse.quote.totalAmount);
+                  priceCurrency = priceResponse.quote.totalCurrency;
+                  logger.info('✅ Cleaning price calculated', {
+                    cleaningId: cleaningAfterUpdate.id,
+                    priceAmount,
+                    priceCurrency
+                  });
+                }
+              } catch (priceError: any) {
+                logger.warn('Failed to calculate cleaning price', {
+                  cleaningId: cleaningAfterUpdate.id,
+                  error: priceError.message
+                });
+                // Не прерываем основной flow, продолжаем без цены
+              }
+              
+              await eventsClient.publishCleaningDifficultySet({
+                cleaningId: cleaningAfterUpdate.id,
+                difficulty: difficultyValue,
+                managerIds: managerIds,
+                unitName,
+                unitAddress,
+                cleanerName,
+                scheduledAt: cleaningAfterUpdate.scheduledAt,
+                startedAt: cleaningAfterUpdate.startedAt || undefined,
+                notes: cleaningAfterUpdate.notes || undefined,
+                orgId: cleaningAfterUpdate.orgId || undefined,
+                priceAmount,
+                priceCurrency,
+              });
+              
+              logger.info('✅ CLEANING_DIFFICULTY_SET event published', { 
+                cleaningId, 
+                managerIdsCount: managerIds.length 
+              });
+              } else {
+                logger.warn('⚠️ No managers to notify for CLEANING_DIFFICULTY_SET', {
+                  cleaningId,
+                  orgId: cleaningAfterUpdate.orgId,
+                  hint: 'Event will not be published - no managers found'
+                });
+              }
+            }
+          }
+        }
+      } catch (error: any) {
+        logger.error('❌ Failed to publish CLEANING_DIFFICULTY_SET event', {
+          cleaningId,
+          error: error.message,
+          stack: error.stack,
+          errorName: error.name,
+          errorCode: error.code
+        });
+        // Не прерываем основной flow
+      }
+
+      logger.info('🔍 Event publication block completed', { cleaningId });
+
+      // Возвращаем обновленную уборку
+      const result = await dl.getCleaningById(cleaningId);
+      logger.info('🔍 Returning updated cleaning', { cleaningId, hasResult: !!result });
+      return result;
     },
     
     cancelCleaning: async (_: unknown, { id, reason }: { id: string; reason?: string }, { dl, prisma }: Context) => {
@@ -810,6 +1308,10 @@ export const resolvers: any = {
     booking: (parent: any, _: unknown, { bookingsDL }: Context) => {
       if (!parent.bookingId) return null;
       return { id: parent.bookingId };
+    },
+    assessedDifficulty: (parent: any) => {
+      // Datalayer уже возвращает значение в формате "D{number}", просто возвращаем как есть
+      return parent.assessedDifficulty;
     },
     documents: async (parent: any, _: unknown, { prisma }: Context) => {
       // Get documents for this cleaning
@@ -1099,7 +1601,13 @@ Object.assign(resolvers.Mutation, {
           try {
             const cleaning = await prisma.cleaning.findUnique({
               where: { id: submitted.cleaningId },
-              include: { cleaner: true },
+              include: { 
+                cleaner: true,
+                documents: {
+                  where: { type: 'PRE_CLEANING_ACCEPTANCE' },
+                  include: { photos: { orderBy: { order: 'asc' } } }
+                }
+              },
             });
 
             if (!cleaning) {
@@ -1114,6 +1622,77 @@ Object.assign(resolvers.Mutation, {
               where: { id: cleaning.unitId },
               include: { property: true },
             });
+
+            // Получаем полный инстанс чеклиста с items, answers, attachments
+            const fullInstance = await checklistInstanceService.getChecklistInstance(id);
+            
+            // Подсчитываем статистику чеклиста
+            const totalItems = fullInstance.items?.length || 0;
+            const completedItems = fullInstance.items?.filter((item: any) => {
+              if (item.requiresPhoto) {
+                const itemAttachments = fullInstance.attachments?.filter((a: any) => a.itemKey === item.key) || [];
+                return itemAttachments.length >= (item.photoMin || 1);
+              } else {
+                // Проверяем, что есть положительный ответ (true, "yes", положительное число и т.д.)
+                const answer = fullInstance.answers?.find((a: any) => a.itemKey === item.key);
+                if (!answer || !answer.value) {
+                  return false;
+                }
+                // Проверяем, что значение положительное
+                const value = answer.value;
+                if (typeof value === 'boolean') {
+                  return value === true;
+                }
+                if (typeof value === 'number') {
+                  return value > 0;
+                }
+                if (typeof value === 'string') {
+                  const lowerValue = value.toLowerCase();
+                  return lowerValue === 'true' || lowerValue === 'yes' || lowerValue === 'да' || lowerValue === '1';
+                }
+                // Для других типов считаем положительным, если значение не null/undefined
+                return value !== null && value !== undefined;
+              }
+            }) || [];
+            const completedCount = completedItems.length;
+            const incompleteCount = totalItems - completedCount;
+            
+            // Список неотмеченных пунктов (без положительного ответа)
+            const incompleteItems = fullInstance.items
+              ?.filter((item: any) => {
+                if (item.requiresPhoto) {
+                  const itemAttachments = fullInstance.attachments?.filter((a: any) => a.itemKey === item.key) || [];
+                  return itemAttachments.length < (item.photoMin || 1);
+                } else {
+                  // Проверяем, что нет положительного ответа
+                  const answer = fullInstance.answers?.find((a: any) => a.itemKey === item.key);
+                  if (!answer || !answer.value) {
+                    return true; // Нет ответа - неполный
+                  }
+                  // Проверяем, что значение не положительное
+                  const value = answer.value;
+                  if (typeof value === 'boolean') {
+                    return value !== true; // false или null - неполный
+                  }
+                  if (typeof value === 'number') {
+                    return value <= 0; // 0 или отрицательное - неполный
+                  }
+                  if (typeof value === 'string') {
+                    const lowerValue = value.toLowerCase();
+                    return !(lowerValue === 'true' || lowerValue === 'yes' || lowerValue === 'да' || lowerValue === '1');
+                  }
+                  // Для других типов считаем неполным, если значение null/undefined
+                  return value === null || value === undefined;
+                }
+              })
+              .map((item: any) => ({ title: item.title, key: item.key })) || [];
+
+            // Собираем фото из документов
+            const photoUrls = cleaning.documents
+              ?.flatMap((doc: any) => (doc.photos || []).map((photo: any) => ({
+                url: photo.url,
+                caption: photo.caption || undefined
+              }))) || [];
 
             const managerIds = await resolveManagerUserIds(prisma, cleaning.orgId);
             const eventsClient = getEventsClient();
@@ -1140,6 +1719,13 @@ Object.assign(resolvers.Mutation, {
                 notes: cleaning.notes || undefined,
                 orgId: cleaning.orgId || undefined,
                 cleanerId: cleaning.cleanerId ?? null,
+                checklistStats: {
+                  total: totalItems,
+                  completed: completedCount,
+                  incomplete: incompleteCount,
+                  incompleteItems: incompleteItems.length > 0 ? incompleteItems : undefined,
+                },
+                photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
               });
             } else {
               logger.info('No users with MANAGER system role available for precheck completed notifications', {

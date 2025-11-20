@@ -141,7 +141,7 @@ async function startServer() {
     // Start gRPC server
     const GRPC_PORT = parseInt(process.env.GRPC_PORT || '4110');
     const GRPC_HOST = process.env.GRPC_HOST || 'localhost';
-    const grpcTransport = new GrpcTransport(dl, prisma, GRPC_HOST, GRPC_PORT);
+    const grpcTransport = new GrpcTransport(dl, prisma, inventoryDL, GRPC_HOST, GRPC_PORT);
     await grpcTransport.start();
 
     // Graceful shutdown

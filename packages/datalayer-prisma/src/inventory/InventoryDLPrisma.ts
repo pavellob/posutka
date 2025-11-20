@@ -214,6 +214,28 @@ export class InventoryDLPrisma implements IDataLayerInventory {
     return this.mapUnitFromPrisma(unit);
   }
 
+  async updateUnit(id: string, input: Partial<Pick<Unit, 'name' | 'capacity' | 'beds' | 'bathrooms' | 'amenities' | 'grade' | 'cleaningDifficulty'>>): Promise<Unit> {
+    const updateData: any = {};
+    
+    if (input.name !== undefined) updateData.name = input.name;
+    if (input.capacity !== undefined) updateData.capacity = input.capacity;
+    if (input.beds !== undefined) updateData.beds = input.beds;
+    if (input.bathrooms !== undefined) updateData.bathrooms = input.bathrooms;
+    if (input.amenities !== undefined) updateData.amenities = input.amenities;
+    if (input.grade !== undefined) updateData.grade = input.grade;
+    if (input.cleaningDifficulty !== undefined) updateData.cleaningDifficulty = input.cleaningDifficulty;
+
+    const unit = await this.prisma.unit.update({
+      where: { id },
+      data: updateData,
+      include: {
+        property: true,
+      }
+    });
+    
+    return this.mapUnitFromPrisma(unit);
+  }
+
   async blockDates(unitId: string, from: string, to: string, note?: string): Promise<CalendarDay[]> {
     const block = await this.prisma.calendarBlock.create({
       data: {
@@ -372,6 +394,8 @@ export class InventoryDLPrisma implements IDataLayerInventory {
       beds: unit.beds,
       bathrooms: unit.bathrooms,
       amenities: unit.amenities,
+      grade: unit.grade ?? 0,
+      cleaningDifficulty: unit.cleaningDifficulty ?? 0,
       property: unit.property,
     };
   }

@@ -65,6 +65,9 @@ enum EventType {
   CLEANING_CANCELLED
   """Приёмка перед уборкой завершена"""
   CLEANING_PRECHECK_COMPLETED
+  """Сложность уборки указана"""
+  CLEANING_DIFFICULTY_SET
+  CLEANING_APPROVED
   
   """Задача создана"""
   TASK_CREATED

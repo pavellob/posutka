@@ -784,6 +784,10 @@ export class CleaningDLPrisma implements ICleaningDL {
       scheduledAt: cleaning.scheduledAt.toISOString(),
       startedAt: cleaning.startedAt?.toISOString(),
       completedAt: cleaning.completedAt?.toISOString(),
+      assessedDifficulty: cleaning.assessedDifficulty !== null && cleaning.assessedDifficulty !== undefined 
+        ? `D${cleaning.assessedDifficulty}` as any
+        : null,
+      assessedAt: cleaning.assessedAt?.toISOString() ?? null,
       notes: cleaning.notes,
       requiresLinenChange: cleaning.requiresLinenChange,
       checklistItems: cleaning.checklistItems

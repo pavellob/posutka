@@ -1,11 +1,10 @@
 import { createServer } from 'nice-grpc';
 import { createGraphQLLogger } from '@repo/shared-logger';
-import { CleaningServiceDefinition } from '@repo/grpc-sdk';
-import type { ICleaningDL, IDataLayerInventory } from '@repo/datalayer';
-import type { PrismaClient } from '@prisma/client';
-import { CleaningGrpcService } from './cleaning.grpc.service.js';
+import { PricingServiceDefinition } from '@repo/grpc-sdk';
+import { PricingGrpcService } from './pricing.grpc.service.js';
+import type { PricingService } from '../services/pricing.service.js';
 
-const logger = createGraphQLLogger('grpc-transport');
+const logger = createGraphQLLogger('pricing-grpc-transport');
 
 export class GrpcTransport {
   private server: ReturnType<typeof createServer> | null = null;
@@ -13,11 +12,9 @@ export class GrpcTransport {
   private port: number;
 
   constructor(
-    private readonly dl: ICleaningDL,
-    private readonly prisma: PrismaClient,
-    private readonly inventoryDL?: IDataLayerInventory,
+    private readonly pricingService: PricingService,
     host: string = 'localhost',
-    port: number = 4110
+    port: number = 4112
   ) {
     this.host = host;
     this.port = port;
@@ -30,10 +27,12 @@ export class GrpcTransport {
         port: this.port,
       });
 
-      const cleaningService = new CleaningGrpcService(this.dl, this.prisma, this.inventoryDL);
+      const grpcService = new PricingGrpcService(this.pricingService);
 
       this.server = createServer();
-      this.server.add(CleaningServiceDefinition as any, cleaningService as any);
+      this.server.add(PricingServiceDefinition as any, {
+        calculateCleaningCost: grpcService.calculateCleaningCost.bind(grpcService),
+      });
 
       await this.server.listen(`${this.host}:${this.port}`);
 
