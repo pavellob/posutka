@@ -839,6 +839,9 @@ importers:
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.1.1)
+      '@tailwindcss/postcss':
+        specifier: ^4.1.13
+        version: 4.1.13
       '@tanstack/react-query':
         specifier: ^5.90.2
         version: 5.90.2(react@19.1.1)
@@ -860,16 +863,19 @@ importers:
       next:
         specifier: ^15
         version: 15.5.4(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      postcss:
+        specifier: ^8
+        version: 8.5.6
       react:
         specifier: ^19
         version: 19.1.1
       react-dom:
         specifier: ^19
         version: 19.1.1(react@19.1.1)
-    devDependencies:
-      '@tailwindcss/postcss':
+      tailwindcss:
         specifier: ^4.1.13
         version: 4.1.13
+    devDependencies:
       '@types/node':
         specifier: ^24.1.0
         version: 24.5.2
@@ -885,9 +891,6 @@ importers:
       eslint-config-next:
         specifier: ^15
         version: 15.5.4(eslint@9.36.0(jiti@2.6.0))(typescript@5.9.2)
-      postcss:
-        specifier: ^8
-        version: 8.5.6
       prettier:
         specifier: ^3.6.2
         version: 3.6.2
@@ -897,9 +900,6 @@ importers:
       prettier-plugin-tailwindcss:
         specifier: ^0.6.14
         version: 0.6.14(prettier-plugin-organize-imports@4.3.0(prettier@3.6.2)(typescript@5.9.2))(prettier@3.6.2)
-      tailwindcss:
-        specifier: ^4.1.13
-        version: 4.1.13
       typescript:
         specifier: ^5.8.3
         version: 5.9.2
