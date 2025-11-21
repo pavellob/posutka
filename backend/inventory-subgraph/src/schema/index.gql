@@ -404,6 +404,8 @@ type Unit {
   grade: UnitGrade!
   """Сложность уборки по умолчанию (0-5, fallback)"""
   cleaningDifficulty: CleaningDifficulty!
+  """Инструкция по заселению для гостя (статичный текст)"""
+  checkInInstructions: String
   """Календарь доступности единицы на указанный период"""
   calendar(rangeStart: DateTime!, rangeEnd: DateTime!): [CalendarDay!]!
 }
@@ -454,4 +456,6 @@ input UpdateUnitInput {
   grade: UnitGrade
   """Сложность уборки по умолчанию (0-5)"""
   cleaningDifficulty: CleaningDifficulty
+  """Инструкция по заселению для гостя (статичный текст)"""
+  checkInInstructions: String
 }

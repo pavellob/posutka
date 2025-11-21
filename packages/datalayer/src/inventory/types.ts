@@ -68,6 +68,7 @@ export interface Unit {
   amenities: string[];
   grade: number; // 0..10
   cleaningDifficulty: number; // 0..5
+  checkInInstructions?: string; // Инструкция по заселению для гостя
   property?: Property;
 }
 

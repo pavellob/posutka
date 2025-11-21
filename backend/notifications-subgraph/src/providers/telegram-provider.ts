@@ -113,27 +113,53 @@ export class TelegramProvider extends BaseNotificationProvider {
   }
   
   async send(message: NotificationMessage): Promise<DeliveryResult> {
+    logger.info('📥 TelegramProvider.send called', {
+      notificationId: message.id,
+      recipientId: message.recipientId,
+      hasTitle: !!message.title,
+      hasMessage: !!message.message,
+      titlePreview: message.title?.substring(0, 50),
+    });
+    
     this.ensureInitialized();
     
     if (!this.bot) {
+      logger.error('❌ Telegram bot not initialized in send method', {
+        notificationId: message.id,
+      });
       return {
         success: false,
         error: 'Telegram bot not initialized',
       };
     }
     
+    logger.info('✅ Telegram bot is initialized, proceeding with send', {
+      notificationId: message.id,
+    });
+    
     try {
       const chatId = message.recipientId;
       
-      // Формируем текст сообщения
-      let text = `<b>${this.escapeHtml(message.title)}</b>\n\n${this.escapeHtml(message.message)}`;
+      // Формируем текст сообщения в формате Markdown
+      // Используем Markdown разметку: *жирный*, _курсив_, `моноширинный`
+      // Используем обычный Markdown (не V2), так как он более гибкий и не требует экранирования многих символов
+      let text = `*${message.title}*\n\n${message.message}`;
       
       // Метаданные больше не показываем - они не нужны пользователю
       
       // Отправляем сообщение
       const options: any = {
-        parse_mode: 'HTML',
+        parse_mode: 'Markdown',
       };
+      
+      logger.info('📤 Sending Telegram message with Markdown', {
+        notificationId: message.id,
+        title: message.title,
+        messagePreview: message.message.substring(0, 100),
+        parseMode: 'Markdown',
+        textPreview: text.substring(0, 150),
+        hasParseMode: true,
+      });
       
       // Добавляем кнопки действий
       const buttons: any[][] = [];
@@ -218,12 +244,35 @@ export class TelegramProvider extends BaseNotificationProvider {
         });
       }
       
-      const sentMessage = await this.bot.sendMessage(chatId, text, options);
-      
-      logger.info(`Message sent to Telegram chat ${chatId}`, {
-        messageId: sentMessage.message_id,
-        notificationId: message.id,
-      });
+      let sentMessage;
+      try {
+        sentMessage = await this.bot.sendMessage(chatId, text, options);
+        
+        logger.info(`✅ Message sent to Telegram chat ${chatId} with Markdown`, {
+          messageId: sentMessage.message_id,
+          notificationId: message.id,
+          parseMode: 'Markdown',
+        });
+      } catch (parseError: any) {
+        // Если парсинг Markdown не удался, отправляем как обычный текст
+        logger.warn('⚠️ Markdown parsing failed, sending as plain text', {
+          notificationId: message.id,
+          error: parseError.message,
+          errorDetails: parseError,
+        });
+        
+        // Убираем parse_mode и отправляем как обычный текст
+        text = `${message.title}\n\n${message.message}`;
+        delete options.parse_mode;
+        
+        sentMessage = await this.bot.sendMessage(chatId, text, options);
+        
+        logger.info(`✅ Message sent to Telegram chat ${chatId} as plain text (fallback)`, {
+          messageId: sentMessage.message_id,
+          notificationId: message.id,
+          parseMode: 'none',
+        });
+      }
       
       return {
         success: true,
@@ -259,7 +308,7 @@ export class TelegramProvider extends BaseNotificationProvider {
   }
   
   /**
-   * Экранирует HTML символы для Telegram.
+   * Экранирует HTML символы для Telegram (для обратной совместимости).
    */
   private escapeHtml(text: string): string {
     return text
@@ -267,6 +316,83 @@ export class TelegramProvider extends BaseNotificationProvider {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+  
+  /**
+   * Экранирует специальные символы для Telegram MarkdownV2.
+   * В MarkdownV2 нужно экранировать: _ * [ ] ( ) ~ ` > # + - = | { } . !
+   */
+  private escapeMarkdownV2(text: string): string {
+    if (!text) return '';
+    
+    // Экранируем все специальные символы MarkdownV2
+    return String(text)
+      .replace(/\\/g, '\\\\')  // Обратный слэш должен быть первым
+      .replace(/_/g, '\\_')
+      .replace(/\*/g, '\\*')
+      .replace(/\[/g, '\\[')
+      .replace(/\]/g, '\\]')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
+      .replace(/~/g, '\\~')
+      .replace(/`/g, '\\`')
+      .replace(/>/g, '\\>')
+      .replace(/#/g, '\\#')
+      .replace(/\+/g, '\\+')
+      .replace(/-/g, '\\-')
+      .replace(/=/g, '\\=')
+      .replace(/\|/g, '\\|')
+      .replace(/\{/g, '\\{')
+      .replace(/\}/g, '\\}')
+      .replace(/\./g, '\\.')
+      .replace(/!/g, '\\!');
+  }
+  
+  /**
+   * Умное экранирование для MarkdownV2 - экранирует только символы, которые не являются частью валидной Markdown разметки.
+   * Позволяет использовать Markdown разметку в тексте, но экранирует опасные символы.
+   * Для простоты экранируем все специальные символы, кроме тех, что уже экранированы.
+   */
+  private escapeMarkdownV2Safe(text: string): string {
+    if (!text) return '';
+    
+    let result = String(text);
+    
+    // Сначала обрабатываем обратные слэши - удваиваем их
+    result = result.replace(/\\/g, '\\\\');
+    
+    // Экранируем специальные символы MarkdownV2
+    // Порядок важен: сначала обрабатываем более специфичные паттерны
+    const specialChars = [
+      { char: '.', escaped: '\\.' },
+      { char: '!', escaped: '\\!' },
+      { char: '-', escaped: '\\-' },
+      { char: '+', escaped: '\\+' },
+      { char: '=', escaped: '\\=' },
+      { char: '|', escaped: '\\|' },
+      { char: '{', escaped: '\\{' },
+      { char: '}', escaped: '\\}' },
+      { char: '(', escaped: '\\(' },
+      { char: ')', escaped: '\\)' },
+      { char: '[', escaped: '\\[' },
+      { char: ']', escaped: '\\]' },
+      { char: '>', escaped: '\\>' },
+      { char: '#', escaped: '\\#' },
+      { char: '~', escaped: '\\~' },
+      { char: '`', escaped: '\\`' },
+      { char: '_', escaped: '\\_' },
+      { char: '*', escaped: '\\*' },
+    ];
+    
+    // Экранируем каждый символ, если он не предваряется обратным слэшем
+    for (const { char, escaped } of specialChars) {
+      // Используем простую замену: если перед символом нет обратного слэша, экранируем
+      // Но нужно учесть, что обратные слэши уже удвоены, поэтому ищем паттерн без экранирования
+      const regex = new RegExp(`([^\\\\])${char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
+      result = result.replace(regex, `$1${escaped}`);
+    }
+    
+    return result;
   }
   
   /**

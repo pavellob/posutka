@@ -9,7 +9,7 @@ export const resolvers = {
   Query: {
     property: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getPropertyById(id),
     unit: (_: unknown, { id }: { id: string }, { dl }: Context) => dl.getUnitById(id),
-  propertiesByOrgId: async (_: unknown, { orgId }: { orgId: string }, { dl }: Context) => {
+    propertiesByOrgId: async (_: unknown, { orgId }: { orgId: string }, { dl }: Context) => {
     logger.resolverStart('propertiesByOrgId', { orgId });
     const startTime = Date.now();
       

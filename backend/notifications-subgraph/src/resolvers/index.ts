@@ -18,9 +18,17 @@ export const resolvers = {
       return notificationService.getUserSettings(userId);
     },
     
-    notificationTemplates: async (_: unknown, params: any, _ctx: Context) => {
-      // Пока возвращаем пустой массив
-      return [];
+    notificationTemplate: async (_: unknown, { id }: { id: string }, { prisma }: Context) => {
+      return prisma.notificationTemplate.findUnique({
+        where: { id },
+      });
+    },
+    
+    notificationTemplates: async (_: unknown, { eventType }: { eventType?: string }, { prisma }: Context) => {
+      return prisma.notificationTemplate.findMany({
+        where: eventType ? { eventType } : undefined,
+        orderBy: { updatedAt: 'desc' },
+      });
     },
   },
   
@@ -160,6 +168,47 @@ export const resolvers = {
     
     updateNotificationSettings: async (_: unknown, { input }: { input: any }, { notificationService }: Context) => {
       return notificationService.updateUserSettings(input.userId, input);
+    },
+    
+    upsertNotificationTemplate: async (_: unknown, { input }: { input: any }, { prisma }: Context) => {
+      logger.info('Upserting notification template', { input });
+      
+      // Маппим defaultNotificationChannels на defaultChannels для Prisma
+      const defaultChannels = input.defaultNotificationChannels || input.defaultChannels || [];
+      
+      if (input.id) {
+        // Обновление существующего шаблона
+        return prisma.notificationTemplate.update({
+          where: { id: input.id },
+          data: {
+            name: input.name,
+            titleTemplate: input.titleTemplate,
+            messageTemplate: input.messageTemplate,
+            defaultChannels: defaultChannels,
+            defaultPriority: input.defaultPriority || 'NORMAL',
+          },
+        });
+      } else {
+        // Создание нового шаблона
+        return prisma.notificationTemplate.create({
+          data: {
+            eventType: input.eventType,
+            name: input.name,
+            titleTemplate: input.titleTemplate,
+            messageTemplate: input.messageTemplate,
+            defaultChannels: defaultChannels,
+            defaultPriority: input.defaultPriority || 'NORMAL',
+          },
+        });
+      }
+    },
+    
+    deleteNotificationTemplate: async (_: unknown, { id }: { id: string }, { prisma }: Context) => {
+      logger.info('Deleting notification template', { id });
+      await prisma.notificationTemplate.delete({
+        where: { id },
+      });
+      return true;
     },
   },
   

@@ -27,7 +27,17 @@ async function startServer() {
     const inventoryDL = new InventoryDLPrisma(prisma);
 
     // Создаем сервис бронирования с GRPC клиентом
-    const bookingService = new BookingService(dl, inventoryDL, 'localhost', 4103);
+    const eventsGrpcHost = process.env.EVENTS_GRPC_HOST || 'localhost';
+    const eventsGrpcPort = parseInt(process.env.EVENTS_GRPC_PORT || '4113');
+    const bookingService = new BookingService(
+      dl,
+      inventoryDL,
+      'localhost',
+      4103,
+      eventsGrpcHost,
+      eventsGrpcPort,
+      identityDL
+    );
     await bookingService.initialize();
 
     // Создаем GraphQL схему

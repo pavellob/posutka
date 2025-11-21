@@ -52,9 +52,14 @@ export function DomainSelector() {
       </DropdownButton>
       <DropdownMenu className="min-w-80 lg:min-w-64" anchor="bottom start">
         {/* Организации из me */}
-        {user?.organizations?.map((org: any) => (
+        {user?.organizations
+          ?.filter((org: any, index: number, self: any[]) => 
+            // Фильтруем дубликаты по id
+            index === self.findIndex((o: any) => o.id === org.id)
+          )
+          ?.map((org: any, index: number) => (
           <DropdownItem 
-            key={org.id} 
+            key={org.id || `org-${index}`} 
             href="#" 
             onClick={() => handleOrganizationChange({
               id: org.id,

@@ -94,6 +94,12 @@ async function ensureNotificationSubscription() {
     const existing = allSubscriptions.find((s: any) => s.isActive) || allSubscriptions[0];
 
     const allEventTypes = [
+      // Booking events
+      'BOOKING_CREATED',
+      'BOOKING_CONFIRMED',
+      'BOOKING_CANCELLED',
+      'BOOKING_CHECKIN',
+      'BOOKING_CHECKOUT',
       // Cleaning events
       'CLEANING_AVAILABLE',
       'CLEANING_ASSIGNED',
@@ -104,12 +110,6 @@ async function ensureNotificationSubscription() {
       'CLEANING_PRECHECK_COMPLETED',
       'CLEANING_DIFFICULTY_SET',
       'CLEANING_APPROVED',
-      // Booking events
-      'BOOKING_CREATED',
-      'BOOKING_CONFIRMED',
-      'BOOKING_CANCELLED',
-      'BOOKING_CHECKIN',
-      'BOOKING_CHECKOUT',
       // Task events
       'TASK_CREATED',
       'TASK_ASSIGNED',

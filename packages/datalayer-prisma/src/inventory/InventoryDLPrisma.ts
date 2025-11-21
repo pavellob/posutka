@@ -214,7 +214,7 @@ export class InventoryDLPrisma implements IDataLayerInventory {
     return this.mapUnitFromPrisma(unit);
   }
 
-  async updateUnit(id: string, input: Partial<Pick<Unit, 'name' | 'capacity' | 'beds' | 'bathrooms' | 'amenities' | 'grade' | 'cleaningDifficulty'>>): Promise<Unit> {
+  async updateUnit(id: string, input: Partial<Pick<Unit, 'name' | 'capacity' | 'beds' | 'bathrooms' | 'amenities' | 'grade' | 'cleaningDifficulty' | 'checkInInstructions'>>): Promise<Unit> {
     const updateData: any = {};
     
     if (input.name !== undefined) updateData.name = input.name;
@@ -224,6 +224,7 @@ export class InventoryDLPrisma implements IDataLayerInventory {
     if (input.amenities !== undefined) updateData.amenities = input.amenities;
     if (input.grade !== undefined) updateData.grade = input.grade;
     if (input.cleaningDifficulty !== undefined) updateData.cleaningDifficulty = input.cleaningDifficulty;
+    if (input.checkInInstructions !== undefined) updateData.checkInInstructions = input.checkInInstructions;
 
     const unit = await this.prisma.unit.update({
       where: { id },
@@ -339,7 +340,7 @@ export class InventoryDLPrisma implements IDataLayerInventory {
       address: property.address,
       amenities: property.amenities,
       org: property.org,
-      units: property.units,
+      units: property.units ? property.units.map((u: any) => this.mapUnitFromPrisma(u)) : [],
       // Яндекс.Недвижимость поля
       propertyType: property.propertyType,
       category: property.category,
@@ -396,6 +397,7 @@ export class InventoryDLPrisma implements IDataLayerInventory {
       amenities: unit.amenities,
       grade: unit.grade ?? 0,
       cleaningDifficulty: unit.cleaningDifficulty ?? 0,
+      checkInInstructions: unit.checkInInstructions ?? undefined,
       property: unit.property,
     };
   }

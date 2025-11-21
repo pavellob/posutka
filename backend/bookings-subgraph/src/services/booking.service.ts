@@ -1,16 +1,22 @@
 import { createOpsGrpcClient, OpsGrpcClient, TaskPriority } from '@repo/grpc-sdk';
+import { createEventsGrpcClient, type EventsGrpcClient, EventsEventType as EventType } from '@repo/grpc-sdk';
 import { createGraphQLLogger } from '@repo/shared-logger';
 
 const logger = createGraphQLLogger('booking-service');
 
 export class BookingService {
   private opsClient: OpsGrpcClient;
+  private eventsClient: EventsGrpcClient | null = null;
+  private identityDL: any = null;
 
   constructor(
     private readonly dl: any,
     private readonly inventoryDL: any,
     opsGrpcHost: string,
-    opsGrpcPort: number
+    opsGrpcPort: number,
+    eventsGrpcHost?: string,
+    eventsGrpcPort?: number,
+    identityDL?: any
   ) {
     this.opsClient = createOpsGrpcClient({
       host: opsGrpcHost,
@@ -19,10 +25,51 @@ export class BookingService {
       retryDelay: 1000,
       timeout: 5000
     });
+
+    // Инициализируем events client если указаны параметры
+    if (eventsGrpcHost && eventsGrpcPort) {
+      logger.info('Initializing events client', {
+        host: eventsGrpcHost,
+        port: eventsGrpcPort
+      });
+      this.eventsClient = createEventsGrpcClient({
+        host: eventsGrpcHost,
+        port: eventsGrpcPort,
+        retryAttempts: 3,
+        retryDelay: 1000,
+        timeout: 10000,
+      });
+      logger.info('✅ Events client created');
+    } else {
+      logger.warn('⚠️ Events client not initialized - missing host or port', {
+        hasHost: !!eventsGrpcHost,
+        hasPort: !!eventsGrpcPort
+      });
+    }
+    
+    // Сохраняем identityDL для поиска пользователей
+    this.identityDL = identityDL;
   }
 
   async initialize(): Promise<void> {
     await this.opsClient.connect();
+    if (this.eventsClient) {
+      try {
+        await this.eventsClient.connect();
+        logger.info('✅ Events client connected successfully', {
+          isHealthy: this.eventsClient.isHealthy()
+        });
+      } catch (error: any) {
+        logger.error('❌ Failed to connect to events-subgraph gRPC', { 
+          error: error.message,
+          stack: error.stack
+        });
+      }
+    } else {
+      logger.warn('⚠️ Events client not initialized', {
+        hint: 'EVENTS_GRPC_HOST and EVENTS_GRPC_PORT must be provided to publish events'
+      });
+    }
   }
 
   async createBooking(bookingData: any): Promise<any> {
@@ -32,8 +79,46 @@ export class BookingService {
       // Создаем бронирование
       const booking = await this.dl.createBooking(bookingData);
 
-      // Создаем задачу на уборку
-      await this.createCleaningTask(booking);
+      // Получаем полную информацию о госте и объекте для события
+      const guest = await this.dl.getGuestById(booking.guestId);
+      const unit = await this.inventoryDL.getUnitById(booking.unitId);
+      const property = unit ? await this.inventoryDL.getPropertyById(unit.propertyId) : null;
+
+      // Создаем задачу на уборку (не блокируем публикацию события при ошибке)
+      try {
+        await this.createCleaningTask(booking);
+        logger.info('✅ Cleaning task created', { bookingId: booking.id });
+      } catch (cleaningTaskError: any) {
+        logger.warn('⚠️ Failed to create cleaning task, continuing with booking creation', {
+          bookingId: booking.id,
+          error: cleaningTaskError.message,
+        });
+        // Не прерываем создание бронирования, если задача на уборку не создалась
+      }
+
+      // Публикуем событие BOOKING_CREATED (всегда, даже если задача на уборку не создалась)
+      logger.info('📤 About to publish BOOKING_CREATED event', {
+        bookingId: booking.id,
+        hasEventsClient: !!this.eventsClient,
+        eventsClientHealthy: this.eventsClient?.isHealthy() || false,
+        hasGuest: !!guest,
+        hasUnit: !!unit,
+        hasProperty: !!property,
+        orgId: bookingData.orgId || booking.orgId,
+      });
+      
+      try {
+        await this.publishBookingCreatedEvent(booking, guest, unit, property, bookingData.orgId);
+        logger.info('✅ BOOKING_CREATED event publication completed', { bookingId: booking.id });
+      } catch (eventError: any) {
+        logger.error('❌ Failed to publish BOOKING_CREATED event', {
+          bookingId: booking.id,
+          error: eventError.message,
+          stack: eventError.stack,
+          hint: 'Booking was created but event was not published. Check events-subgraph connection.'
+        });
+        // Не прерываем создание бронирования, если событие не опубликовалось
+      }
 
       logger.info('Booking created successfully', { bookingId: booking.id });
       return booking;
@@ -177,7 +262,255 @@ export class BookingService {
     }
   }
 
+  /**
+   * Публикует событие BOOKING_CREATED через event bus
+   */
+  private async publishBookingCreatedEvent(
+    booking: any,
+    guest: any,
+    unit: any,
+    property: any,
+    orgId?: string
+  ): Promise<void> {
+    logger.info('🔔 publishBookingCreatedEvent called', {
+      bookingId: booking?.id,
+      hasGuest: !!guest,
+      hasUnit: !!unit,
+      hasProperty: !!property,
+      orgId: orgId || booking?.orgId,
+      eventsClientExists: !!this.eventsClient,
+    });
+
+    if (!this.eventsClient) {
+      logger.error('❌ Events client not initialized, cannot publish BOOKING_CREATED event', {
+        bookingId: booking.id,
+        hint: 'Check EVENTS_GRPC_HOST and EVENTS_GRPC_PORT environment variables'
+      });
+      return;
+    }
+
+    // Проверяем подключение
+    if (!this.eventsClient.isHealthy()) {
+      logger.warn('⚠️ Events client not connected, attempting to connect...', {
+        bookingId: booking.id,
+      });
+      try {
+        await this.eventsClient.connect();
+        logger.info('✅ Events client connected successfully');
+      } catch (connectError: any) {
+        logger.error('❌ Failed to connect events client', {
+          bookingId: booking.id,
+          error: connectError.message,
+        });
+        return;
+      }
+    }
+
+    try {
+      // Вычисляем код от замка (последние 4 цифры телефона гостя)
+      let lockCode: string | undefined = undefined;
+      if (guest?.phone) {
+        const phoneDigits = guest.phone.replace(/\D/g, ''); // Убираем все нецифровые символы
+        if (phoneDigits.length >= 4) {
+          lockCode = phoneDigits.slice(-4);
+        }
+      }
+
+      // Формируем адрес
+      const unitAddress = property?.address || unit?.name || 'Адрес не указан';
+
+      // Определяем targetUserIds
+      const targetUserIds: string[] = [];
+      
+      // 1. Пытаемся найти пользователя по email гостя
+      if (guest?.email && this.identityDL) {
+        try {
+          const user = await this.identityDL.getUserByEmail(guest.email);
+          if (user?.id) {
+            targetUserIds.push(user.id);
+            logger.info('Found user for guest email', {
+              guestEmail: guest.email,
+              userId: user.id,
+            });
+          }
+        } catch (error: any) {
+          logger.warn('Failed to find user by guest email', {
+            guestEmail: guest.email,
+            error: error.message,
+          });
+        }
+      }
+      
+      // 2. Добавляем менеджеров организации, чтобы уведомление было отправлено даже если гость не зарегистрирован
+      const finalOrgId = orgId || booking.orgId;
+      if (finalOrgId && this.identityDL) {
+        try {
+          const memberships = await this.identityDL.getMembershipsByOrg(finalOrgId);
+          const managerUserIds = memberships
+            .filter((m: any) => m.role === 'MANAGER' || m.role === 'OWNER')
+            .map((m: any) => m.userId);
+          
+          managerUserIds.forEach((userId: string) => {
+            if (!targetUserIds.includes(userId)) {
+              targetUserIds.push(userId);
+            }
+          });
+          
+          if (managerUserIds.length > 0) {
+            logger.info('Added organization managers to targetUserIds', {
+              orgId: finalOrgId,
+              managerCount: managerUserIds.length,
+              managerUserIds,
+            });
+          } else {
+            logger.warn('No managers found for organization', {
+              orgId: finalOrgId,
+            });
+          }
+        } catch (error: any) {
+          logger.warn('Failed to get organization managers', {
+            orgId: finalOrgId,
+            error: error.message,
+          });
+        }
+      }
+      
+      if (targetUserIds.length === 0) {
+        logger.warn('⚠️ No target users found for BOOKING_CREATED event', {
+          bookingId: booking.id,
+          guestEmail: guest?.email,
+          orgId: finalOrgId,
+          hint: 'Notification will not be sent. Ensure guest is registered or organization has managers.',
+        });
+      }
+
+      const payload = {
+        bookingId: booking.id,
+        guestId: booking.guestId,
+        guestName: guest?.name || 'Гость',
+        guestPhone: guest?.phone || undefined,
+        guestEmail: guest?.email || undefined,
+        unitId: booking.unitId,
+        unitName: unit?.name || 'Квартира',
+        unitAddress: unitAddress,
+        propertyId: property?.id || unit?.propertyId,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        guestsCount: booking.guestsCount,
+        lockCode: lockCode, // Код от замка (последние 4 цифры телефона)
+        houseRules: undefined, // Правила проживания - можно добавить позже, если будут храниться в БД
+        checkInInstructions: unit?.checkInInstructions || undefined, // Инструкция по заселению для гостя
+        priceBreakdown: {
+          basePrice: {
+            amount: booking.basePriceAmount,
+            currency: booking.basePriceCurrency,
+          },
+          total: {
+            amount: booking.totalAmount,
+            currency: booking.totalCurrency,
+          },
+        },
+      };
+
+      logger.info('📤 Publishing BOOKING_CREATED event', {
+        bookingId: booking.id,
+        guestName: payload.guestName,
+        hasLockCode: !!lockCode,
+        lockCode: lockCode,
+        targetUserIdsCount: targetUserIds.length,
+        targetUserIds: targetUserIds,
+        orgId: orgId || booking.orgId,
+        payloadKeys: Object.keys(payload),
+        eventsClientExists: !!this.eventsClient,
+        eventsClientHealthy: this.eventsClient?.isHealthy() || false,
+        eventTypeValue: EventType.EVENT_TYPE_BOOKING_CREATED,
+        fullPayload: JSON.stringify(payload, null, 2),
+      });
+
+      // Публикуем событие даже если targetUserIds пустой (для логирования и аудита)
+      // Но уведомление не будет создано, если нет получателей
+      if (!this.eventsClient) {
+        logger.error('❌ Cannot publish BOOKING_CREATED - eventsClient is null', {
+          bookingId: booking.id,
+          hint: 'Events client was not initialized. Check EVENTS_GRPC_HOST and EVENTS_GRPC_PORT environment variables.'
+        });
+        return;
+      }
+
+      if (!this.eventsClient.isHealthy()) {
+        logger.warn('⚠️ Events client not healthy, attempting to reconnect...', {
+          bookingId: booking.id,
+        });
+        try {
+          await this.eventsClient.connect();
+          logger.info('✅ Events client reconnected');
+        } catch (reconnectError: any) {
+          logger.error('❌ Failed to reconnect events client', {
+            bookingId: booking.id,
+            error: reconnectError.message,
+          });
+          return;
+        }
+      }
+
+      try {
+        const eventTypeValue = EventType.EVENT_TYPE_BOOKING_CREATED;
+        logger.info('📤 Calling publishEvent with eventType', {
+          bookingId: booking.id,
+          eventTypeValue,
+          eventTypeName: EventType[eventTypeValue],
+        });
+
+        const result = await this.eventsClient.publishEvent({
+          eventType: eventTypeValue,
+          sourceSubgraph: 'bookings-subgraph',
+          entityType: 'Booking',
+          entityId: booking.id,
+          orgId: orgId || booking.orgId,
+          targetUserIds,
+          payload,
+        });
+
+        logger.info('✅ BOOKING_CREATED event published to gRPC', {
+          bookingId: booking.id,
+          result: result,
+        });
+      } catch (publishError: any) {
+        logger.error('❌ Failed to publish BOOKING_CREATED event', {
+          bookingId: booking.id,
+          error: publishError.message,
+          stack: publishError.stack,
+        });
+        throw publishError;
+      }
+
+      if (targetUserIds.length > 0) {
+        logger.info('✅ BOOKING_CREATED event published successfully', { 
+          bookingId: booking.id,
+          targetUserIdsCount: targetUserIds.length,
+          targetUserIds 
+        });
+      } else {
+        logger.warn('⚠️ BOOKING_CREATED event published but no target users', { 
+          bookingId: booking.id,
+          hint: 'Event was published but notification will not be created without targetUserIds'
+        });
+      }
+    } catch (error: any) {
+      logger.error('Failed to publish BOOKING_CREATED event', {
+        error: error.message,
+        bookingId: booking.id,
+      });
+      // Не прерываем создание бронирования, если событие не опубликовалось
+    }
+  }
+
   async cleanup(): Promise<void> {
     await this.opsClient.disconnect();
+    if (this.eventsClient) {
+      await this.eventsClient.disconnect().catch((error) => {
+        logger.warn('Failed to disconnect events client', { error });
+      });
+    }
   }
 }

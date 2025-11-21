@@ -193,6 +193,11 @@ export class EventsGrpcService {
       33: 'USER_UNLOCKED'
     };
     
+    // Проверяем, есть ли значение в маппинге
+    if (mapping[grpcType]) {
+      return mapping[grpcType];
+    }
+    
     const mapped = mapping[grpcType];
     if (!mapped) {
       logger.error('Unknown or unspecified event type received', { grpcType });

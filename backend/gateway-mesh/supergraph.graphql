@@ -862,6 +862,8 @@ type Unit @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: CLEANING_SUBG
   grade: UnitGrade! @join__field(graph: INVENTORY_SUBGRAPH)
   """Сложность уборки по умолчанию (0-5, fallback)"""
   cleaningDifficulty: CleaningDifficulty! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Инструкция по заселению для гостя (статичный текст)"""
+  checkInInstructions: String @join__field(graph: INVENTORY_SUBGRAPH)
   """Календарь доступности единицы на указанный период"""
   calendar(rangeStart: DateTime!, rangeEnd: DateTime!): [CalendarDay!]! @join__field(graph: INVENTORY_SUBGRAPH)
 }
@@ -3083,6 +3085,8 @@ input UpdateUnitInput @join__type(graph: INVENTORY_SUBGRAPH) {
   grade: UnitGrade
   """Сложность уборки по умолчанию (0-5)"""
   cleaningDifficulty: CleaningDifficulty
+  """Инструкция по заселению для гостя (статичный текст)"""
+  checkInInstructions: String
 }
 
 """Входные данные для создания или обновления объявления."""

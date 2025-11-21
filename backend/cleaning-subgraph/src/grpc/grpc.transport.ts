@@ -1,9 +1,10 @@
 import { createServer } from 'nice-grpc';
 import { createGraphQLLogger } from '@repo/shared-logger';
 import { CleaningServiceDefinition } from '@repo/grpc-sdk';
-import type { ICleaningDL, IDataLayerInventory } from '@repo/datalayer';
+import type { ICleaningDL } from '@repo/datalayer';
 import type { PrismaClient } from '@prisma/client';
 import { CleaningGrpcService } from './cleaning.grpc.service.js';
+import type { CleaningService } from '../services/cleaning.service.js';
 
 const logger = createGraphQLLogger('grpc-transport');
 
@@ -15,7 +16,7 @@ export class GrpcTransport {
   constructor(
     private readonly dl: ICleaningDL,
     private readonly prisma: PrismaClient,
-    private readonly inventoryDL?: IDataLayerInventory,
+    private readonly cleaningService: CleaningService,
     host: string = 'localhost',
     port: number = 4110
   ) {
@@ -30,10 +31,10 @@ export class GrpcTransport {
         port: this.port,
       });
 
-      const cleaningService = new CleaningGrpcService(this.dl, this.prisma, this.inventoryDL);
+      const grpcService = new CleaningGrpcService(this.dl, this.prisma, this.cleaningService);
 
       this.server = createServer();
-      this.server.add(CleaningServiceDefinition as any, cleaningService as any);
+      this.server.add(CleaningServiceDefinition as any, grpcService as any);
 
       await this.server.listen(`${this.host}:${this.port}`);
 

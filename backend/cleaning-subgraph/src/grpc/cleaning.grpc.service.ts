@@ -1,5 +1,5 @@
 import { createGraphQLLogger } from '@repo/shared-logger';
-import type { ICleaningDL, IDataLayerInventory } from '@repo/datalayer';
+import type { ICleaningDL } from '@repo/datalayer';
 import type { PrismaClient } from '@prisma/client';
 import {
   CleaningServiceDefinition,
@@ -10,8 +10,8 @@ import {
   AssignCleanerRequest,
   Cleaning as GrpcCleaning,
   CleaningStatus as GrpcCleaningStatus,
-  createPricingGrpcClient,
 } from '@repo/grpc-sdk';
+import { CleaningService } from '../services/cleaning.service.js';
 import { getEventsClient } from '../services/events-client.js';
 
 const logger = createGraphQLLogger('cleaning-grpc');
@@ -24,7 +24,7 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
   constructor(
     private readonly dl: ICleaningDL,
     private readonly prisma: PrismaClient,
-    private readonly inventoryDL?: IDataLayerInventory
+    private readonly cleaningService: CleaningService
   ) {}
 
   async scheduleCleaning(request: ScheduleCleaningRequest): Promise<CleaningResponse> {
@@ -35,7 +35,16 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
         taskId: request.taskId,
         scheduledAtType: typeof request.scheduledAt,
         scheduledAtValue: request.scheduledAt,
+        hasCleaningService: !!this.cleaningService,
+        cleaningServiceType: this.cleaningService ? typeof this.cleaningService : 'undefined',
       });
+
+      if (!this.cleaningService) {
+        logger.error('❌ cleaningService is null or undefined in CleaningGrpcService!', {
+          hint: 'Check that cleaningService is passed to CleaningGrpcService constructor',
+        });
+        throw new Error('CleaningService is not initialized');
+      }
 
       // Преобразуем scheduledAt - может быть Date или Timestamp
       let scheduledAt: Date;
@@ -49,8 +58,14 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
         scheduledAt = new Date(request.scheduledAt as any);
       }
 
-      // cleanerId опциональный - если не указан, система отправит уведомления всем привязанным уборщикам
-      const cleaning = await this.dl.scheduleCleaning({
+      logger.info('📞 About to call cleaningService.scheduleCleaning', {
+        orgId: request.orgId,
+        unitId: request.unitId,
+        scheduledAt: scheduledAt.toISOString(),
+      });
+
+      // Используем единый сервис для создания уборки и публикации событий
+      const result = await this.cleaningService.scheduleCleaning({
         orgId: request.orgId,
         unitId: request.unitId,
         bookingId: request.bookingId,
@@ -62,154 +77,13 @@ export class CleaningGrpcService implements CleaningServiceDefinition {
       });
 
       logger.info('✅ Cleaning scheduled via gRPC', {
-        cleaningId: cleaning.id,
+        cleaningId: result.cleaning.id,
         taskId: request.taskId,
       });
 
-      // Публикуем событие через Event Bus
-      try {
-        const unit = await this.prisma.unit.findUnique({
-          where: { id: cleaning.unitId },
-          include: { property: true, preferredCleaners: { include: { cleaner: true } } }
-        });
-        
-        if (!unit) {
-          logger.warn('❌ Unit not found for events', { unitId: cleaning.unitId });
-        } else if (cleaning.cleanerId) {
-          // Если уборщик назначен - публикуем CLEANING_ASSIGNED
-          const cleaner = await this.prisma.cleaner.findUnique({
-            where: { id: cleaning.cleanerId },
-          });
-          
-          if (cleaner) {
-            const targetUserId = cleaner.userId || cleaner.id;
-            const eventsClient = getEventsClient();
-            
-            await eventsClient.publishCleaningAssigned({
-              cleaningId: cleaning.id,
-              cleanerId: cleaning.cleanerId,
-              unitId: cleaning.unitId,
-              unitName: `${unit.property?.title || ''} - ${unit.name}`,
-              scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
-              requiresLinenChange: cleaning.requiresLinenChange,
-              orgId: cleaning.orgId || undefined,
-              actorUserId: undefined, // TODO: получить из context
-            });
-            logger.info('✅ CLEANING_ASSIGNED event published', { cleaningId: cleaning.id });
-          }
-        } else {
-          // Если уборщик НЕ назначен - публикуем AVAILABLE для всех привязанных
-          logger.info('No cleaner assigned, collecting active preferred cleaners', {
-            preferredCleanersCount: unit.preferredCleaners.length
-          });
-          
-          const targetUserIds = unit.preferredCleaners
-            .filter(pc => {
-              if (!pc.cleaner.isActive) {
-                logger.info('Skipping inactive preferred cleaner', {
-                  cleanerId: pc.cleaner.id
-                });
-                return false;
-              }
-              return true;
-            })
-            .map(pc => {
-              const userId = pc.cleaner.userId || pc.cleaner.id;
-              logger.info('Added preferred cleaner to targetUserIds', {
-                cleanerId: pc.cleaner.id,
-                cleanerUserId: pc.cleaner.userId,
-                targetUserId: userId
-              });
-              return userId;
-            })
-            .filter(Boolean); // Убираем undefined/null
-          
-          logger.info('Collected targetUserIds for CLEANING_AVAILABLE', {
-            targetUserIdsCount: targetUserIds.length,
-            targetUserIds
-          });
-          
-          if (targetUserIds.length > 0) {
-            const eventsClient = getEventsClient();
-            
-            // Получаем данные о unit через datalayer для grade, cleaningDifficulty и address
-            let unitGrade: number | undefined;
-            let cleaningDifficulty: string | undefined;
-            let priceAmount: number | undefined;
-            let priceCurrency: string | undefined;
-            let unitAddress: string | undefined = unit.property?.address;
-            
-            if (this.inventoryDL) {
-              try {
-                const unitData = await this.inventoryDL.getUnitById(cleaning.unitId);
-                if (unitData) {
-                  unitAddress = unitData.property?.address || unitAddress;
-                  if (unitData.grade !== null && unitData.grade !== undefined) {
-                    unitGrade = unitData.grade;
-                  }
-                  if (unitData.cleaningDifficulty !== null && unitData.cleaningDifficulty !== undefined) {
-                    cleaningDifficulty = `D${unitData.cleaningDifficulty}`;
-                  }
-                  
-                  // Рассчитываем стоимость уборки
-                  try {
-                    const pricingClient = createPricingGrpcClient({
-                      host: process.env.PRICING_GRPC_HOST || 'localhost',
-                      port: parseInt(process.env.PRICING_GRPC_PORT || '4112'),
-                    });
-                    const defaultDifficulty = unitData.cleaningDifficulty ?? 1;
-                    const priceResponse = await pricingClient.CalculateCleaningCost({
-                      unitId: cleaning.unitId,
-                      difficulty: defaultDifficulty,
-                      mode: 'BASIC'
-                    });
-                    if (priceResponse.quote?.totalAmount && priceResponse.quote?.totalCurrency) {
-                      priceAmount = Number(priceResponse.quote.totalAmount);
-                      priceCurrency = priceResponse.quote.totalCurrency;
-                    }
-                  } catch (priceError: any) {
-                    logger.warn('Failed to calculate cleaning price in gRPC service', {
-                      cleaningId: cleaning.id,
-                      error: priceError.message
-                    });
-                  }
-                }
-              } catch (error: any) {
-                logger.warn('Failed to get unit data in gRPC service', {
-                  cleaningId: cleaning.id,
-                  error: error.message
-                });
-              }
-            }
-            
-            await eventsClient.publishCleaningAvailable({
-              cleaningId: cleaning.id,
-              unitId: cleaning.unitId,
-              unitName: `${unit.property?.title || ''} - ${unit.name}`,
-              unitAddress,
-              scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
-              requiresLinenChange: cleaning.requiresLinenChange,
-              targetUserIds,
-              orgId: cleaning.orgId || undefined,
-              unitGrade,
-              cleaningDifficulty,
-              priceAmount,
-              priceCurrency,
-            });
-            logger.info('✅ CLEANING_AVAILABLE event published', { 
-              cleaningId: cleaning.id,
-              targetUserIdsCount: targetUserIds.length 
-            });
-          }
-        }
-      } catch (error) {
-        logger.error('Failed to publish event', error);
-        // Не прерываем выполнение если событие не опубликовалось
-      }
-
       return {
-        cleaning: this.mapCleaningToGrpc(cleaning),
-        cleanings: [this.mapCleaningToGrpc(cleaning)],
+        cleaning: this.mapCleaningToGrpc(result.cleaning),
+        cleanings: [this.mapCleaningToGrpc(result.cleaning)],
         success: true,
         message: 'Cleaning scheduled successfully',
       };

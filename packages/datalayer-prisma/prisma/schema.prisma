@@ -105,6 +105,7 @@ model Unit {
   amenities          String[]
   grade              Int?                   @default(0) // 0..10
   cleaningDifficulty Int?                   @default(0) // 0..5 (fallback)
+  checkInInstructions String?               @db.Text // Инструкция по заселению для гостя
   property           Property               @relation(fields: [propertyId], references: [id])
   preferredCleaners  UnitPreferredCleaner[] // Привязанные уборщики для этой квартиры
   checklistTemplates ChecklistTemplate[] // Шаблоны чек-листов

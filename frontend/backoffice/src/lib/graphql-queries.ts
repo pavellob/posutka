@@ -106,6 +106,7 @@ export const GET_UNIT_BY_ID = gql`
       amenities
       grade
       cleaningDifficulty
+      checkInInstructions
       property {
         id
         title
@@ -1959,6 +1960,7 @@ export const UPDATE_UNIT = gql`
       amenities
       grade
       cleaningDifficulty
+      checkInInstructions
     }
   }
 `
@@ -2524,5 +2526,61 @@ export const ADD_TEMPLATE_ITEM_EXAMPLE_MEDIA = gql`
 export const REMOVE_TEMPLATE_ITEM_EXAMPLE_MEDIA = gql`
   mutation RemoveTemplateItemExampleMedia($mediaId: UUID!) {
     removeTemplateItemExampleMedia(mediaId: $mediaId)
+  }
+`
+
+// ===== ЗАПРОСЫ ДЛЯ ШАБЛОНОВ УВЕДОМЛЕНИЙ =====
+
+export const GET_NOTIFICATION_TEMPLATES = gql`
+  query GetNotificationTemplates($eventType: EventType) {
+    notificationTemplates(eventType: $eventType) {
+      id
+      eventType
+      name
+      titleTemplate
+      messageTemplate
+      defaultChannels
+      defaultPriority
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const GET_NOTIFICATION_TEMPLATE = gql`
+  query GetNotificationTemplate($id: UUID!) {
+    notificationTemplate(id: $id) {
+      id
+      eventType
+      name
+      titleTemplate
+      messageTemplate
+      defaultChannels
+      defaultPriority
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const UPSERT_NOTIFICATION_TEMPLATE = gql`
+  mutation UpsertNotificationTemplate($input: UpsertNotificationTemplateInput!) {
+    upsertNotificationTemplate(input: $input) {
+      id
+      eventType
+      name
+      titleTemplate
+      messageTemplate
+      defaultChannels
+      defaultPriority
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const DELETE_NOTIFICATION_TEMPLATE = gql`
+  mutation DeleteNotificationTemplate($id: UUID!) {
+    deleteNotificationTemplate(id: $id)
   }
 `

@@ -2,6 +2,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { ICleaningDL, IIdentityDL, IDataLayerInventory, IBookingsDL } from '@repo/datalayer';
 import type { ChecklistInstanceService } from './services/checklist-instance.service.js';
+import type { CleaningService } from './services/cleaning.service.js';
 
 export interface Context {
   dl: ICleaningDL;
@@ -10,5 +11,6 @@ export interface Context {
   bookingsDL: IBookingsDL;
   prisma: PrismaClient;
   checklistInstanceService: ChecklistInstanceService;
+  cleaningService: CleaningService;
 }
 

@@ -37,6 +37,7 @@ import {
 import { UnitChecklistTemplate } from '@/components/unit-checklist-template'
 import { UnitChecklistView } from '@/components/unit-checklist-view'
 import { UnitChecklistEditorView } from '@/components/unit-checklist-editor-view'
+import { Textarea } from '@/components/textarea'
 
 type UnitDetailsPageProps = {
   params: Promise<{
@@ -49,7 +50,7 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'cleaners' | 'checklist'>('cleaners')
+  const [activeTab, setActiveTab] = useState<'cleaners' | 'checklist' | 'instructions'>('cleaners')
   const { currentOrgId } = useCurrentOrganization()
   const queryClient = useQueryClient()
 
@@ -58,17 +59,21 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
     const tab = searchParams.get('tab')
     if (tab === 'checklist') {
       setActiveTab('checklist')
+    } else if (tab === 'instructions') {
+      setActiveTab('instructions')
     } else if (tab === 'cleaners') {
       setActiveTab('cleaners')
     }
   }, [searchParams])
 
   // Обновляем URL при переключении вкладок
-  const handleTabChange = (tab: 'cleaners' | 'checklist') => {
+  const handleTabChange = (tab: 'cleaners' | 'checklist' | 'instructions') => {
     setActiveTab(tab)
     const params = new URLSearchParams(searchParams.toString())
     if (tab === 'checklist') {
       params.set('tab', 'checklist')
+    } else if (tab === 'instructions') {
+      params.set('tab', 'instructions')
     } else {
       params.delete('tab')
     }
@@ -305,6 +310,18 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
             >
               Чеклист уборки
             </button>
+            <button
+              onClick={() => handleTabChange('instructions')}
+              className={`
+                px-4 py-3 font-medium transition-colors border-b-2
+                ${activeTab === 'instructions'
+                  ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+                  : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                }
+              `}
+            >
+              Инструкция
+            </button>
           </div>
 
           <div className="sticky top-6">
@@ -449,6 +466,13 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
               <UnitChecklistEditorView 
                 unitId={params.id}
                 unitName={unitData?.name}
+              />
+            )}
+
+            {activeTab === 'instructions' && unitData && (
+              <UnitCheckInInstructionsEditor 
+                unitId={params.id}
+                unitData={unitData}
               />
             )}
           </div>
@@ -714,6 +738,110 @@ function UnitPricingEditor({ unitId, unitData }: { unitId: string; unitData: any
             onClick={() => {
               setGrade(unitData?.grade?.replace('GRADE_', '') || '0')
               setDifficulty(unitData?.cleaningDifficulty?.replace('D', '') || '0')
+            }}
+            disabled={isSaving}
+          >
+            Отмена
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Сохранение...' : 'Сохранить'}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Компонент для редактирования инструкции по заселению
+function UnitCheckInInstructionsEditor({ unitId, unitData }: { unitId: string; unitData: any }) {
+  const [instructions, setInstructions] = useState(unitData?.checkInInstructions || '')
+  const [isSaving, setIsSaving] = useState(false)
+  const queryClient = useQueryClient()
+
+  const updateUnitMutation = useMutation({
+    mutationFn: async (input: any) => {
+      return await graphqlClient.request(UPDATE_UNIT, {
+        id: unitId,
+        input
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['unit', unitId] })
+      setIsSaving(false)
+    },
+    onError: (error: any) => {
+      console.error('Failed to update unit instructions:', error)
+      alert('Ошибка при сохранении инструкции: ' + (error.message || 'Неизвестная ошибка'))
+      setIsSaving(false)
+    }
+  })
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    await updateUnitMutation.mutateAsync({
+      checkInInstructions: instructions || null
+    })
+  }
+
+  const hasChanges = instructions !== (unitData?.checkInInstructions || '')
+
+  return (
+    <div className="space-y-6">
+      {/* Заголовок секции */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center">
+          <HomeIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+        </div>
+        <div>
+          <Subheading>Инструкция по заселению</Subheading>
+          <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+            Статичная инструкция для гостя (без переменных)
+          </Text>
+        </div>
+      </div>
+
+      {/* Информационная панель */}
+      <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 mb-6 border border-purple-200 dark:border-purple-800">
+        <div className="flex items-start gap-3">
+          <BellAlertIcon className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-purple-900 dark:text-purple-100">
+            <p className="font-medium mb-2">Использование инструкции:</p>
+            <ul className="space-y-1 text-purple-800 dark:text-purple-200">
+              <li>• Инструкция будет доступна в шаблонах уведомлений как <code className="bg-purple-100 dark:bg-purple-900 px-1 rounded">payload.checkInInstructions</code></li>
+              <li>• Инструкция статична и не использует переменные</li>
+              <li>• Можно использовать эмодзи и форматирование</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Текстовое поле */}
+      <div>
+        <label htmlFor="checkInInstructions" className="block text-sm font-medium text-zinc-900 dark:text-white mb-2">
+          Инструкция по заселению
+        </label>
+        <Textarea
+          id="checkInInstructions"
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          placeholder="🗺️ Как пройти к квартире&#10;&#10;Адрес: ...&#10;&#10;🔑 Как открыть электронный замок&#10;..."
+          rows={20}
+          className="font-mono text-sm"
+        />
+        <Text className="text-xs text-zinc-500 mt-2">
+          Введите инструкцию по заселению для гостя. Она будет подставляться в уведомления о бронировании.
+        </Text>
+      </div>
+
+      {hasChanges && (
+        <div className="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+          <Button
+            outline
+            onClick={() => {
+              setInstructions(unitData?.checkInInstructions || '')
             }}
             disabled={isSaving}
           >

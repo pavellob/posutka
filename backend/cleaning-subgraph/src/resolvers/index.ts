@@ -137,422 +137,28 @@ export const resolvers: any = {
     },
     
     // Cleaning mutations
-    scheduleCleaning: async (_: unknown, { input }: { input: any }, { dl, prisma, inventoryDL }: Context) => {
-      logger.info('Scheduling cleaning', { input });
-      const cleaning = await dl.scheduleCleaning(input);
-      
-      const unit = await prisma.unit.findUnique({
-        where: { id: cleaning.unitId },
-        include: { property: true, preferredCleaners: { include: { cleaner: true } } }
+    scheduleCleaning: async (_: unknown, { input }: { input: any }, { cleaningService }: Context) => {
+      logger.info('Scheduling cleaning via GraphQL', { 
+        input,
+        hasCleaningService: !!cleaningService,
+        cleaningServiceType: cleaningService ? typeof cleaningService : 'undefined',
       });
       
-      if (!unit) {
-        logger.warn('❌ Unit not found', { unitId: cleaning.unitId });
-        return cleaning;
+      if (!cleaningService) {
+        logger.error('❌ cleaningService is null or undefined in GraphQL resolver!', {
+          hint: 'Check that cleaningService is passed to context',
+        });
+        throw new Error('CleaningService is not initialized');
       }
       
-      logger.info('✅ Unit found', { unitId: unit.id, unitName: unit.name, preferredCleanersCount: unit.preferredCleaners.length });
+      logger.info('📞 About to call cleaningService.scheduleCleaning from GraphQL', {
+        orgId: input.orgId,
+        unitId: input.unitId,
+      });
       
-      // 🎯 НОВАЯ ЛОГИКА: Публикуем событие вместо прямого вызова
-      try {
-        const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
-        const targetUserIds: string[] = [];
-        
-        if (cleaning.cleanerId) {
-          // Если уборщик назначен
-          const cleaner = await prisma.cleaner.findUnique({
-            where: { id: cleaning.cleanerId }
-          });
-          const targetUserId = cleaner?.userId || cleaner?.id;
-          logger.info('Determined targetUserId for cleaner', {
-            cleanerId: cleaning.cleanerId,
-            cleanerUserId: cleaner?.userId,
-            cleanerType: cleaner?.type,
-            targetUserId
-          });
-          if (targetUserId) {
-            targetUserIds.push(targetUserId);
-          }
-        } else {
-          // Если уборщик НЕ назначен - уведомляем всех preferred cleaners
-          logger.info('No cleaner assigned, collecting preferred cleaners', {
-            preferredCleanersCount: unit.preferredCleaners.length
-          });
-          
-          for (const pref of unit.preferredCleaners) {
-            if (!pref.cleaner.isActive) {
-              logger.info('Skipping inactive preferred cleaner', {
-                cleanerId: pref.cleaner.id,
-                cleanerName: `${pref.cleaner.firstName} ${pref.cleaner.lastName}`
-              });
-              continue;
-            }
-            
-            const targetUserId = pref.cleaner.userId || pref.cleaner.id;
-            if (targetUserId) {
-              targetUserIds.push(targetUserId);
-              logger.info('Added preferred cleaner to targetUserIds', {
-                cleanerId: pref.cleaner.id,
-                cleanerUserId: pref.cleaner.userId,
-                targetUserId
-              });
-            } else {
-              logger.warn('Preferred cleaner has no userId or id', {
-                cleanerId: pref.cleaner.id
-              });
-            }
-          }
-          
-          logger.info('Collected targetUserIds for CLEANING_AVAILABLE', {
-            targetUserIdsCount: targetUserIds.length,
-            targetUserIds
-          });
-        }
-        
-        // Публикуем событие через Event Bus (gRPC)
-        const eventsClient = getEventsClient();
-        
-        if (cleaning.cleanerId) {
-          // Если уборщик назначен - публикуем CLEANING_ASSIGNED
-          const cleaner = await prisma.cleaner.findUnique({
-            where: { id: cleaning.cleanerId }
-          });
-          const cleanerName = cleaner ? `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim() : undefined;
-          const unitAddress = unit.property?.address;
-          
-          // Получаем данные о unit через datalayer для grade и cleaningDifficulty
-          const unitData = await inventoryDL.getUnitById(cleaning.unitId);
-          const unitGrade = unitData?.grade ?? null;
-          const unitCleaningDifficulty = unitData?.cleaningDifficulty ?? null;
-          
-          // Рассчитываем стоимость уборки с дефолтной сложностью (D1) или из unit
-          let priceAmount: number | undefined;
-          let priceCurrency: string | undefined;
-          try {
-            const pricingClient = createPricingGrpcClient({
-              host: process.env.PRICING_GRPC_HOST || 'localhost',
-              port: parseInt(process.env.PRICING_GRPC_PORT || '4112'),
-            });
-            // Используем дефолтную сложность D1 (1) или из unit, если есть
-            const defaultDifficulty = unitCleaningDifficulty ?? 1;
-            const priceResponse = await pricingClient.CalculateCleaningCost({
-              unitId: cleaning.unitId,
-              difficulty: defaultDifficulty,
-              mode: 'BASIC'
-            });
-            if (priceResponse.quote?.totalAmount && priceResponse.quote?.totalCurrency) {
-              priceAmount = Number(priceResponse.quote.totalAmount);
-              priceCurrency = priceResponse.quote.totalCurrency;
-              logger.info('✅ Cleaning price calculated for CLEANING_ASSIGNED', {
-                cleaningId: cleaning.id,
-                unitId: cleaning.unitId,
-                difficulty: defaultDifficulty,
-                priceAmount,
-                priceCurrency
-              });
-            }
-          } catch (priceError: any) {
-            logger.warn('Failed to calculate cleaning price for CLEANING_ASSIGNED', {
-              cleaningId: cleaning.id,
-              error: priceError.message
-            });
-            // Не прерываем основной flow, продолжаем без цены
-          }
-          
-          await eventsClient.publishCleaningAssigned({
-            cleaningId: cleaning.id,
-            cleanerId: cleaning.cleanerId,
-            targetUserId: targetUserIds[0], // Используем вычисленный targetUserId
-            unitId: cleaning.unitId,
-            unitName,
-            unitAddress,
-            cleanerName,
-            scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
-            requiresLinenChange: cleaning.requiresLinenChange,
-            notes: cleaning.notes || undefined,
-            orgId: cleaning.orgId || undefined,
-            actorUserId: undefined, // TODO: получить из context
-            unitGrade: unitGrade !== null ? unitGrade : undefined,
-            cleaningDifficulty: unitCleaningDifficulty !== null ? `D${unitCleaningDifficulty}` : undefined,
-            priceAmount,
-            priceCurrency,
-          });
-          
-          logger.info('✅ CLEANING_ASSIGNED event published', { 
-            cleaningId: cleaning.id,
-            cleanerId: cleaning.cleanerId,
-            targetUserId: targetUserIds[0]
-          });
-        } else if (targetUserIds.length > 0) {
-          // Если уборщик НЕ назначен, но есть предпочитаемые - публикуем AVAILABLE
-          
-          // Получаем данные о unit через datalayer для grade, cleaningDifficulty и address
-          const unitData = await inventoryDL.getUnitById(cleaning.unitId);
-          const unitAddress = unitData?.property?.address || unit.property?.address;
-          logger.info('📊 Unit data retrieved for CLEANING_AVAILABLE', {
-            cleaningId: cleaning.id,
-            unitId: cleaning.unitId,
-            unitData: unitData ? {
-              id: unitData.id,
-              grade: unitData.grade,
-              cleaningDifficulty: unitData.cleaningDifficulty
-            } : null,
-            hasUnitData: !!unitData
-          });
-          
-          const unitGrade = unitData?.grade ?? null;
-          const unitCleaningDifficulty = unitData?.cleaningDifficulty ?? null;
-          
-          // Рассчитываем стоимость уборки с дефолтной сложностью (D1) или из unit
-          let priceAmount: number | undefined;
-          let priceCurrency: string | undefined;
-          try {
-            const pricingClient = createPricingGrpcClient({
-              host: process.env.PRICING_GRPC_HOST || 'localhost',
-              port: parseInt(process.env.PRICING_GRPC_PORT || '4112'),
-            });
-            // Используем дефолтную сложность D1 (1) или из unit, если есть
-            const defaultDifficulty = unitCleaningDifficulty ?? 1;
-            logger.info('💰 Calculating cleaning price for CLEANING_AVAILABLE', {
-              cleaningId: cleaning.id,
-              unitId: cleaning.unitId,
-              defaultDifficulty,
-              unitCleaningDifficulty
-            });
-            
-            const priceResponse = await pricingClient.CalculateCleaningCost({
-              unitId: cleaning.unitId,
-              difficulty: defaultDifficulty,
-              mode: 'BASIC'
-            });
-            
-            logger.info('💰 Pricing service response', {
-              cleaningId: cleaning.id,
-              hasQuote: !!priceResponse.quote,
-              quote: priceResponse.quote
-            });
-            
-            if (priceResponse.quote?.totalAmount && priceResponse.quote?.totalCurrency) {
-              priceAmount = Number(priceResponse.quote.totalAmount);
-              priceCurrency = priceResponse.quote.totalCurrency;
-              logger.info('✅ Cleaning price calculated for CLEANING_AVAILABLE', {
-                cleaningId: cleaning.id,
-                unitId: cleaning.unitId,
-                difficulty: defaultDifficulty,
-                priceAmount,
-                priceCurrency
-              });
-            } else {
-              logger.warn('⚠️ Pricing service returned no quote', {
-                cleaningId: cleaning.id,
-                priceResponse: priceResponse
-              });
-            }
-          } catch (priceError: any) {
-            logger.warn('Failed to calculate cleaning price for CLEANING_AVAILABLE', {
-              cleaningId: cleaning.id,
-              error: priceError.message,
-              stack: priceError.stack
-            });
-            // Не прерываем основной flow, продолжаем без цены
-          }
-          
-          const publishParams = {
-            cleaningId: cleaning.id,
-            unitId: cleaning.unitId,
-            unitName,
-            unitAddress,
-            scheduledAt: cleaning.scheduledAt, // Уже строка из datalayer
-            requiresLinenChange: cleaning.requiresLinenChange,
-            notes: cleaning.notes || undefined,
-            targetUserIds,
-            orgId: cleaning.orgId || undefined,
-            unitGrade: unitGrade !== null ? unitGrade : undefined,
-            cleaningDifficulty: unitCleaningDifficulty !== null ? `D${unitCleaningDifficulty}` : undefined,
-            priceAmount,
-            priceCurrency,
-          };
-          
-          logger.info('📤 Publishing CLEANING_AVAILABLE with params', {
-            cleaningId: publishParams.cleaningId,
-            hasUnitGrade: publishParams.unitGrade !== undefined,
-            unitGrade: publishParams.unitGrade,
-            hasCleaningDifficulty: publishParams.cleaningDifficulty !== undefined,
-            cleaningDifficulty: publishParams.cleaningDifficulty,
-            hasPriceAmount: publishParams.priceAmount !== undefined,
-            priceAmount: publishParams.priceAmount,
-            hasPriceCurrency: publishParams.priceCurrency !== undefined,
-            priceCurrency: publishParams.priceCurrency,
-            allParams: publishParams
-          });
-          
-          await eventsClient.publishCleaningAvailable(publishParams);
-          
-          logger.info('✅ CLEANING_AVAILABLE event published', { 
-            cleaningId: cleaning.id,
-            targetUserIdsCount: targetUserIds.length
-          });
-        }
-      } catch (error: any) {
-        logger.error('❌ Failed to publish event', { error: error.message });
-        // Не прерываем основной flow
-      }
-      
-      // 🔴 СТАРАЯ ЛОГИКА - ОТКЛЮЧЕНА (используем Event Bus)
-      /*
-      if (cleaning.cleanerId) {
-        try {
-          logger.info('🔔 Sending ASSIGNED notification to specific cleaner', { cleanerId: cleaning.cleanerId });
-          
-          const cleaner = await prisma.cleaner.findUnique({
-            where: { id: cleaning.cleanerId },
-            include: { cleanings: false }
-          });
-          
-          if (!cleaner) {
-            logger.warn('❌ Cleaner not found', { cleanerId: cleaning.cleanerId });
-            return cleaning;
-          }
-          
-          const targetUserId = cleaner.userId || cleaner.id;
-          logger.info('🎯 Target userId determined', { targetUserId, cleanerUserId: cleaner.userId, cleanerId: cleaner.id });
-        
-        const settings = targetUserId 
-          ? await prisma.userNotificationSettings.findUnique({
-              where: { userId: targetUserId },
-            }).catch((err) => {
-              logger.error('❌ Error fetching notification settings', { error: err });
-              return null;
-            })
-          : null;
-        
-        if (!settings) {
-          logger.warn('⚠️ No notification settings found for user', { 
-            targetUserId,
-            hint: 'User needs to set up notification settings first. They can do this in /settings/notifications'
-          });
-          return cleaning;
-        }
-        
-        logger.info('✅ Notification settings found', { 
-          userId: settings.userId,
-          enabled: settings.enabled,
-          telegramChatId: settings.telegramChatId ? '***' + settings.telegramChatId.slice(-4) : null,
-          enabledChannels: settings.enabledChannels,
-          subscribedEvents: settings.subscribedEvents
-        });
-        
-        if (!settings.enabled) {
-          logger.warn('⚠️ Notifications disabled for user', { targetUserId });
-          return cleaning;
-        }
-        
-        if (!settings.telegramChatId) {
-          logger.warn('⚠️ No Telegram chat ID configured', { 
-            targetUserId,
-            hint: 'User needs to connect Telegram bot via /start command'
-          });
-          return cleaning;
-        }
-        
-        if (!settings.enabledChannels.includes('TELEGRAM')) {
-          logger.warn('⚠️ Telegram channel not enabled', { 
-            targetUserId,
-            enabledChannels: settings.enabledChannels 
-          });
-          return cleaning;
-        }
-        
-        if (!settings.subscribedEvents.includes('CLEANING_ASSIGNED')) {
-          logger.warn('⚠️ User not subscribed to CLEANING_ASSIGNED events', { 
-            targetUserId,
-            subscribedEvents: settings.subscribedEvents 
-          });
-          return cleaning;
-        }
-        
-        logger.info('📤 Sending notification...', { 
-          cleaningId: cleaning.id,
-          userId: targetUserId,
-          telegramChatId: settings?.telegramChatId ? '***' + settings.telegramChatId.slice(-4) : 'none'
-        });
-        
-        await notificationClient.notifyCleaningAssigned({
-          userId: targetUserId,
-          telegramChatId: settings?.telegramChatId,
-          cleanerId: cleaning.cleanerId,
-          cleaningId: cleaning.id,
-          unitName: `${unit.property?.title || ''} - ${unit.name}`,
-          scheduledAt: cleaning.scheduledAt,
-          requiresLinenChange: cleaning.requiresLinenChange,
-          orgId: cleaning.orgId,
-        });
-        
-          logger.info('✅ ASSIGNED notification sent successfully!', { cleaningId: cleaning.id });
-        } catch (error) {
-          logger.error('❌ Failed to send ASSIGNED notification:', error);
-          // Не прерываем основной flow
-        }
-      } else {
-        // Уборщик НЕ назначен - отправляем уведомления ВСЕМ привязанным уборщикам
-        logger.info('🔔 No cleaner assigned, sending AVAILABLE notifications to preferred cleaners', { 
-          cleaningId: cleaning.id,
-          preferredCleanersCount: unit.preferredCleaners.length 
-        });
-        
-        if (unit.preferredCleaners.length === 0) {
-          logger.warn('⚠️ No preferred cleaners for this unit', { unitId: unit.id });
-          return cleaning;
-        }
-        
-        // Отправляем уведомления всем привязанным уборщикам
-        for (const preferredCleaner of unit.preferredCleaners) {
-          try {
-            const cleaner = preferredCleaner.cleaner;
-            
-            if (!cleaner.isActive) {
-              logger.info('⏭️ Skipping inactive cleaner', { cleanerId: cleaner.id });
-              continue;
-            }
-            
-            const targetUserId = cleaner.userId || cleaner.id;
-            const settings = await prisma.userNotificationSettings.findUnique({
-              where: { userId: targetUserId },
-            }).catch(() => null);
-            
-            if (!settings || !settings.enabled || !settings.telegramChatId) {
-              logger.info('⏭️ Skipping cleaner without notification settings', { cleanerId: cleaner.id });
-              continue;
-            }
-            
-            await notificationClient.notifyCleaningAvailable({
-              userId: targetUserId,
-              telegramChatId: settings.telegramChatId,
-              cleaningId: cleaning.id,
-              unitName: `${unit.property?.title || ''} - ${unit.name}`,
-              scheduledAt: cleaning.scheduledAt,
-              requiresLinenChange: cleaning.requiresLinenChange,
-              orgId: cleaning.orgId,
-            });
-            
-            logger.info('✅ AVAILABLE notification sent to preferred cleaner', { 
-              cleanerId: cleaner.id,
-              cleanerName: `${cleaner.firstName} ${cleaner.lastName}`
-            });
-          } catch (error) {
-            logger.error('❌ Failed to send AVAILABLE notification to cleaner:', error);
-            // Продолжаем отправлять остальным
-          }
-        }
-        
-        logger.info('✅ All AVAILABLE notifications sent', { 
-          cleaningId: cleaning.id,
-          sentTo: unit.preferredCleaners.length 
-        });
-      }
-      */
-      
-      return cleaning;
+      // Используем единый сервис для создания уборки и публикации событий
+      const result = await cleaningService.scheduleCleaning(input);
+      return result.cleaning;
     },
     
     startCleaning: async (_: unknown, { id }: { id: string }, { dl, prisma }: Context) => {
@@ -839,7 +445,7 @@ export const resolvers: any = {
       return cleaning;
     },
     
-    assignCleaningToMe: async (_: unknown, { cleaningId }: { cleaningId: string }, { prisma, dl }: Context) => {
+    assignCleaningToMe: async (_: unknown, { cleaningId }: { cleaningId: string }, { prisma, dl, inventoryDL }: Context) => {
       logger.info('🎯 Assigning cleaning to current user', { cleaningId });
       
       // TODO: Получить текущего пользователя из context/JWT
@@ -881,7 +487,61 @@ export const resolvers: any = {
           const eventsClient = getEventsClient();
           const cleanerName = `${currentCleaner.firstName || ''} ${currentCleaner.lastName || ''}`.trim();
           const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
-          const unitAddress = unit.property?.address;
+          let unitAddress = unit.property?.address;
+          
+          // Получаем дополнительные данные о unit (grade, cleaningDifficulty, price)
+          let unitGrade: number | undefined;
+          let cleaningDifficulty: string | undefined;
+          let priceAmount: number | undefined;
+          let priceCurrency: string | undefined;
+          
+          if (inventoryDL) {
+            try {
+              const unitData = await inventoryDL.getUnitById(cleaning.unitId);
+              
+              if (unitData) {
+                unitAddress = unitData.property?.address || unitAddress;
+                
+                if (unitData.grade !== null && unitData.grade !== undefined) {
+                  unitGrade = unitData.grade;
+                }
+                
+                if (unitData.cleaningDifficulty !== null && unitData.cleaningDifficulty !== undefined) {
+                  cleaningDifficulty = `D${unitData.cleaningDifficulty}`;
+                }
+                
+                // Рассчитываем стоимость уборки
+                try {
+                  const pricingClient = createPricingGrpcClient({
+                    host: process.env.PRICING_GRPC_HOST || 'localhost',
+                    port: parseInt(process.env.PRICING_GRPC_PORT || '4112'),
+                  });
+                  const defaultDifficulty = unitData.cleaningDifficulty ?? 1;
+                  
+                  const priceResponse = await pricingClient.CalculateCleaningCost({
+                    unitId: cleaning.unitId,
+                    difficulty: defaultDifficulty,
+                    mode: 'BASIC'
+                  });
+                  
+                  if (priceResponse.quote?.totalAmount && priceResponse.quote?.totalCurrency) {
+                    priceAmount = Number(priceResponse.quote.totalAmount);
+                    priceCurrency = priceResponse.quote.totalCurrency;
+                  }
+                } catch (priceError: any) {
+                  logger.warn('Failed to calculate cleaning price in assignCleaningToMe', {
+                    cleaningId,
+                    error: priceError.message,
+                  });
+                }
+              }
+            } catch (error: any) {
+              logger.warn('Failed to get unit data in assignCleaningToMe', {
+                cleaningId,
+                error: error.message,
+              });
+            }
+          }
           
           await eventsClient.publishCleaningAssigned({
             cleaningId: cleaning.id,
@@ -896,8 +556,17 @@ export const resolvers: any = {
             orgId: cleaning.orgId || undefined,
             actorUserId: undefined, // TODO: получить из context
             targetUserId: currentCleaner.userId || currentCleaner.id,
+            unitGrade,
+            cleaningDifficulty,
+            priceAmount,
+            priceCurrency,
           });
-          logger.info('✅ CLEANING_ASSIGNED event published', { cleaningId });
+          logger.info('✅ CLEANING_ASSIGNED event published', { 
+            cleaningId,
+            hasUnitGrade: unitGrade !== undefined,
+            hasCleaningDifficulty: cleaningDifficulty !== undefined,
+            hasPriceAmount: priceAmount !== undefined,
+          });
         }
       } catch (error) {
         logger.error('Failed to publish CLEANING_ASSIGNED event:', error);

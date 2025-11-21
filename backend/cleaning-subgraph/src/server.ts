@@ -23,6 +23,7 @@ import { PrismaClient } from '@prisma/client';
 import { createGraphQLLogger } from '@repo/shared-logger';
 import { GrpcTransport } from './grpc/grpc.transport.js';
 import { ChecklistInstanceService } from './services/checklist-instance.service.js';
+import { CleaningService } from './services/cleaning.service.js';
 
 const logger = createGraphQLLogger('cleaning-subgraph');
 
@@ -115,7 +116,19 @@ async function startServer() {
       resolvers,
     });
 
-    const context = { dl, identityDL, inventoryDL, bookingsDL, prisma, checklistInstanceService };
+    // Initialize CleaningService
+    logger.info('🔧 Initializing CleaningService', {
+      hasDl: !!dl,
+      hasPrisma: !!prisma,
+      hasInventoryDL: !!inventoryDL,
+      inventoryDLType: inventoryDL ? typeof inventoryDL : 'undefined',
+    });
+    const cleaningService = new CleaningService(dl, prisma, inventoryDL);
+    logger.info('✅ CleaningService initialized successfully', {
+      hasInventoryDL: !!inventoryDL,
+    });
+
+    const context = { dl, identityDL, inventoryDL, bookingsDL, prisma, checklistInstanceService, cleaningService };
     
     logger.info('🔍 Context created:', {
       hasDl: !!context.dl,
@@ -123,6 +136,7 @@ async function startServer() {
       hasInventoryDL: !!context.inventoryDL,
       hasBookingsDL: !!context.bookingsDL,
       hasPrisma: !!context.prisma,
+      hasCleaningService: !!context.cleaningService,
     });
     
     const yoga = createYoga({
@@ -141,7 +155,7 @@ async function startServer() {
     // Start gRPC server
     const GRPC_PORT = parseInt(process.env.GRPC_PORT || '4110');
     const GRPC_HOST = process.env.GRPC_HOST || 'localhost';
-    const grpcTransport = new GrpcTransport(dl, prisma, inventoryDL, GRPC_HOST, GRPC_PORT);
+    const grpcTransport = new GrpcTransport(dl, prisma, cleaningService, GRPC_HOST, GRPC_PORT);
     await grpcTransport.start();
 
     // Graceful shutdown

@@ -87,7 +87,19 @@ export class EventsClient {
   }): Promise<void> {
     try {
       await this.ensureConnected();
-      logger.info('Publishing CLEANING_ASSIGNED event', params);
+      logger.info('📥 Received params in publishCleaningAssigned', {
+        cleaningId: params.cleaningId,
+        hasUnitGrade: params.unitGrade !== undefined && params.unitGrade !== null,
+        unitGrade: params.unitGrade,
+        hasCleaningDifficulty: params.cleaningDifficulty !== undefined && params.cleaningDifficulty !== null,
+        cleaningDifficulty: params.cleaningDifficulty,
+        hasPriceAmount: params.priceAmount !== undefined && params.priceAmount !== null,
+        priceAmount: params.priceAmount,
+        hasPriceCurrency: params.priceCurrency !== undefined && params.priceCurrency !== null,
+        priceCurrency: params.priceCurrency,
+        allParamsKeys: Object.keys(params),
+        allParams: JSON.stringify(params, null, 2),
+      });
       
       // Используем targetUserId если передан, иначе fallback на cleanerId для обратной совместимости
       const targetUserIds = params.targetUserId ? [params.targetUserId] : [params.cleanerId];
@@ -98,6 +110,49 @@ export class EventsClient {
         targetUserIds
       });
       
+      // Создаем payload, явно включая все поля (даже если undefined)
+      // JSON.stringify пропускает undefined, поэтому используем null для опциональных полей
+      const payloadData: any = {
+        cleaningId: params.cleaningId,
+        cleanerId: params.cleanerId,
+        cleanerName: params.cleanerName,
+        unitId: params.unitId,
+        unitName: params.unitName,
+        unitAddress: params.unitAddress,
+        scheduledAt: params.scheduledAt,
+        requiresLinenChange: params.requiresLinenChange,
+        notes: params.notes || null,
+      };
+      
+      // Явно добавляем опциональные поля, даже если они undefined
+      // Это гарантирует, что они будут в JSON (как null, если undefined)
+      if (params.unitGrade !== undefined && params.unitGrade !== null) {
+        payloadData.unitGrade = params.unitGrade;
+      }
+      if (params.cleaningDifficulty !== undefined && params.cleaningDifficulty !== null) {
+        payloadData.cleaningDifficulty = params.cleaningDifficulty;
+      }
+      if (params.priceAmount !== undefined && params.priceAmount !== null) {
+        payloadData.priceAmount = params.priceAmount;
+      }
+      if (params.priceCurrency !== undefined && params.priceCurrency !== null) {
+        payloadData.priceCurrency = params.priceCurrency;
+      }
+      
+      logger.info('📤 Publishing CLEANING_ASSIGNED event with payload', {
+        cleaningId: params.cleaningId,
+        hasUnitGrade: payloadData.unitGrade !== undefined && payloadData.unitGrade !== null,
+        unitGrade: payloadData.unitGrade,
+        hasCleaningDifficulty: payloadData.cleaningDifficulty !== undefined && payloadData.cleaningDifficulty !== null,
+        cleaningDifficulty: payloadData.cleaningDifficulty,
+        hasPriceAmount: payloadData.priceAmount !== undefined && payloadData.priceAmount !== null,
+        priceAmount: payloadData.priceAmount,
+        hasPriceCurrency: payloadData.priceCurrency !== undefined && payloadData.priceCurrency !== null,
+        priceCurrency: payloadData.priceCurrency,
+        requiresLinenChange: payloadData.requiresLinenChange,
+        fullPayload: JSON.stringify(payloadData, null, 2),
+      });
+      
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_ASSIGNED,
         sourceSubgraph: 'cleaning-subgraph',
@@ -106,24 +161,10 @@ export class EventsClient {
         orgId: params.orgId,
         actorUserId: params.actorUserId,
         targetUserIds,
-        payload: {
-          cleaningId: params.cleaningId,
-          cleanerId: params.cleanerId,
-          cleanerName: params.cleanerName,
-          unitId: params.unitId,
-          unitName: params.unitName,
-          unitAddress: params.unitAddress,
-          scheduledAt: params.scheduledAt,
-          requiresLinenChange: params.requiresLinenChange,
-          notes: params.notes,
-          unitGrade: params.unitGrade,
-          cleaningDifficulty: params.cleaningDifficulty,
-          priceAmount: params.priceAmount,
-          priceCurrency: params.priceCurrency,
-        }
+        payload: payloadData,
       });
       
-      logger.info('CLEANING_ASSIGNED event published', { cleaningId: params.cleaningId });
+      logger.info('✅ CLEANING_ASSIGNED event published', { cleaningId: params.cleaningId });
     } catch (error: any) {
       logger.error('Failed to publish CLEANING_ASSIGNED event', { 
         error: error.message,

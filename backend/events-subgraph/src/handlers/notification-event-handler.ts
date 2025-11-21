@@ -8,6 +8,7 @@ import {
   NotificationChannel,
   Priority as NotificationPriority
 } from '@repo/grpc-sdk';
+import { TemplateRenderer } from '../utils/template-renderer.js';
 
 const logger = createGraphQLLogger('notification-event-handler');
 
@@ -50,6 +51,40 @@ export class NotificationEventHandler {
         entityId: event.entityId,
         orgId: event.orgId
       });
+      
+      // Специальное логирование для BOOKING_CREATED
+      if (event.type === 'BOOKING_CREATED') {
+        logger.info('🔔 BOOKING_CREATED event received in notification handler', {
+          eventId: event.id,
+          bookingId: event.payload?.bookingId,
+          guestName: event.payload?.guestName,
+          guestEmail: event.payload?.guestEmail,
+          targetUserIds: event.targetUserIds,
+          targetUserIdsCount: event.targetUserIds?.length || 0,
+          payloadKeys: Object.keys(event.payload || {}),
+          hasCheckIn: !!event.payload?.checkIn,
+          hasCheckOut: !!event.payload?.checkOut,
+          hasLockCode: !!event.payload?.lockCode,
+          lockCode: event.payload?.lockCode,
+          fullPayload: JSON.stringify(event.payload, null, 2),
+        });
+      }
+      
+      // Специальное логирование для CLEANING_AVAILABLE - проверяем наличие сложности и стоимости
+      if (event.type === 'CLEANING_AVAILABLE') {
+        logger.info('🔔 CLEANING_AVAILABLE payload check', {
+          eventId: event.id,
+          cleaningId: event.payload?.cleaningId,
+          hasCleaningDifficulty: event.payload?.cleaningDifficulty !== undefined && event.payload?.cleaningDifficulty !== null,
+          cleaningDifficulty: event.payload?.cleaningDifficulty,
+          hasPriceAmount: event.payload?.priceAmount !== undefined && event.payload?.priceAmount !== null,
+          priceAmount: event.payload?.priceAmount,
+          hasPriceCurrency: event.payload?.priceCurrency !== undefined && event.payload?.priceCurrency !== null,
+          priceCurrency: event.payload?.priceCurrency,
+          payloadKeys: Object.keys(event.payload || {}),
+          fullPayload: JSON.stringify(event.payload, null, 2),
+        });
+      }
       
       // Специальное логирование для CLEANING_AVAILABLE
       if (event.type === 'CLEANING_AVAILABLE') {
@@ -249,6 +284,17 @@ export class NotificationEventHandler {
         settings.subscribedEvents = updatedEvents as any;
         logger.info('Auto-subscribed user to CLEANING_COMPLETED', { userId });
       }
+
+      // Автоподписка на события бронирований
+      if (event.type === 'BOOKING_CREATED' && !settings.subscribedEvents.includes('BOOKING_CREATED')) {
+        const updatedEvents = [...settings.subscribedEvents, 'BOOKING_CREATED'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to BOOKING_CREATED', { userId });
+      }
       
       // Проверяем подписку на событие
       // Для CLEANING_AVAILABLE, CLEANING_READY_FOR_REVIEW, CLEANING_PRECHECK_COMPLETED, CLEANING_STARTED, CLEANING_COMPLETED уже сделана автоподписка выше
@@ -305,7 +351,7 @@ export class NotificationEventHandler {
       });
       
       // Рендерим сообщение
-      const rendered = this.renderNotification(event);
+      const rendered = await this.renderNotification(event);
       const { title, message, actionUrl, actionButtons } = rendered;
       
       logger.info('Rendered notification', {
@@ -581,7 +627,180 @@ export class NotificationEventHandler {
     return deliveries;
   }
   
-  private renderNotification(event: any): { 
+  private async renderNotification(event: any): Promise<{ 
+    title: string; 
+    message: string; 
+    actionUrl?: string; 
+    actionButtons?: Array<{ text: string; url: string; useWebApp?: boolean }> 
+  }> {
+    // Попытаться загрузить шаблон из БД
+    const template = await this.getTemplateForEvent(event.type);
+    
+    if (template) {
+      try {
+        const context = {
+          payload: event.payload,
+          event: {
+            type: event.type,
+            orgId: event.orgId,
+            entityId: event.entityId,
+            entityType: event.entityType,
+          }
+        };
+        
+        logger.info('📝 Rendering notification from template', {
+          eventType: event.type,
+          templateId: template.id,
+          templateName: template.name,
+          hasTitleTemplate: !!template.titleTemplate,
+          hasMessageTemplate: !!template.messageTemplate,
+          payloadKeys: Object.keys(event.payload || {}),
+          contextPayloadKeys: Object.keys(context.payload || {}),
+          payloadData: event.type === 'CLEANING_ASSIGNED' ? {
+            hasUnitGrade: event.payload?.unitGrade !== undefined && event.payload?.unitGrade !== null,
+            unitGrade: event.payload?.unitGrade,
+            hasCleaningDifficulty: !!event.payload?.cleaningDifficulty,
+            cleaningDifficulty: event.payload?.cleaningDifficulty,
+            hasPriceAmount: event.payload?.priceAmount !== undefined && event.payload?.priceAmount !== null,
+            priceAmount: event.payload?.priceAmount,
+            hasPriceCurrency: !!event.payload?.priceCurrency,
+            priceCurrency: event.payload?.priceCurrency,
+            requiresLinenChange: event.payload?.requiresLinenChange,
+            fullPayload: JSON.stringify(event.payload, null, 2),
+          } : undefined,
+        });
+        
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const useWebApp = process.env.TELEGRAM_USE_MINIAPP === 'true';
+        
+        const rendered = {
+          title: TemplateRenderer.render(template.titleTemplate, context),
+          message: TemplateRenderer.render(template.messageTemplate, context),
+          actionUrl: this.getActionUrl(event),
+          actionButtons: this.getActionButtons(event, useWebApp),
+        };
+        
+        logger.info('✅ Rendered notification from template successfully', {
+          eventType: event.type,
+          templateId: template.id,
+          templateName: template.name,
+          renderedTitleLength: rendered.title.length,
+          renderedMessageLength: rendered.message.length,
+          renderedTitle: rendered.title.substring(0, 100),
+          renderedMessagePreview: rendered.message.substring(0, 200),
+        });
+        
+        return rendered;
+      } catch (error: any) {
+        logger.error('❌ Failed to render template, falling back to default', {
+          eventType: event.type,
+          templateId: template.id,
+          templateName: template.name,
+          error: error.message,
+          stack: error.stack,
+        });
+        // Fallback на захардкоженный шаблон
+      }
+    } else {
+      logger.info('⚠️ No template found for event type, using fallback', {
+        eventType: event.type,
+      });
+    }
+    
+    // Fallback на захардкоженные шаблоны
+    return this.renderNotificationFallback(event);
+  }
+  
+  /**
+   * Загружает шаблон для события из БД
+   */
+  private async getTemplateForEvent(eventType: string): Promise<any> {
+    try {
+      const template = await this.prisma.notificationTemplate.findFirst({
+        where: {
+          eventType: eventType,
+        },
+        orderBy: { updatedAt: 'desc' }
+      });
+      
+      if (template) {
+        logger.info('✅ Template found for event type', {
+          eventType,
+          templateId: template.id,
+          templateName: template.name,
+          hasTitleTemplate: !!template.titleTemplate,
+          hasMessageTemplate: !!template.messageTemplate,
+        });
+      } else {
+        logger.info('⚠️ No template found for event type', {
+          eventType,
+        });
+      }
+      
+      return template;
+    } catch (error: any) {
+      logger.error('❌ Failed to load notification template', { 
+        eventType, 
+        error: error.message,
+        stack: error.stack,
+      });
+      return null;
+    }
+  }
+  
+  /**
+   * Получает URL для действия
+   */
+  private getActionUrl(event: any): string {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const payload = event.payload;
+    
+    if (payload.cleaningId) {
+      return `${frontendUrl}/cleanings/${payload.cleaningId}`;
+    }
+    if (payload.bookingId) {
+      return `${frontendUrl}/bookings/${payload.bookingId}`;
+    }
+    if (payload.taskId) {
+      return `${frontendUrl}/tasks/${payload.taskId}`;
+    }
+    if (payload.invoiceId) {
+      return `${frontendUrl}/invoices/${payload.invoiceId}`;
+    }
+    
+    return frontendUrl;
+  }
+  
+  /**
+   * Получает кнопки действий для уведомления
+   */
+  private getActionButtons(event: any, useWebApp: boolean): Array<{ text: string; url: string; useWebApp?: boolean }> | undefined {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const payload = event.payload;
+    
+    // Для CLEANING_AVAILABLE - две кнопки
+    if (event.type === 'CLEANING_AVAILABLE' && payload.cleaningId) {
+      return [
+        {
+          text: '✅ Взять уборку',
+          url: `${frontendUrl}/cleanings/${payload.cleaningId}?action=assign`,
+          useWebApp
+        },
+        {
+          text: '👀 Посмотреть уборку',
+          url: `${frontendUrl}/cleanings/${payload.cleaningId}`,
+          useWebApp
+        }
+      ];
+    }
+    
+    return undefined;
+  }
+  
+  /**
+   * Fallback метод с захардкоженными шаблонами (для обратной совместимости)
+   */
+  private renderNotificationFallback(event: any): { 
     title: string; 
     message: string; 
     actionUrl?: string; 
@@ -622,12 +841,17 @@ export class NotificationEventHandler {
         // Информация о размере объекта
         if (payload.unitGrade !== undefined && payload.unitGrade !== null) {
           const gradeLabels: Record<number, string> = {
-            0: 'Студия',
-            1: '1-комнатная',
-            2: '2-комнатная',
-            3: '3-комнатная',
-            4: '4-комнатная',
-            5: '5+ комнат',
+            0: 'Маленькая комната',
+            1: 'Большая комната',
+            2: 'Студия',
+            3: 'Большая студия',
+            4: 'Однушка',
+            5: 'Большая однушка',
+            6: 'Двушка',
+            7: 'Большая двушка',
+            8: 'Трешка',
+            9: 'Большая трешка',
+            10: '4+ комнат',
           };
           const gradeLabel = gradeLabels[payload.unitGrade] || `Размер ${payload.unitGrade}`;
           assignedMessage += `\n🏠 Размер объекта: ${gradeLabel} (Grade ${payload.unitGrade})`;
@@ -635,7 +859,17 @@ export class NotificationEventHandler {
         
         // Информация о сложности уборки
         if (payload.cleaningDifficulty) {
-          assignedMessage += `\n📊 Сложность уборки: ${payload.cleaningDifficulty}`;
+          const difficultyLabels: Record<string, string> = {
+            'D0': 'D0 - элементарная',
+            'D1': 'D1 - поддерживающая',
+            'D2': 'D2 - стандартная',
+            'D3': 'D3 - расширенная',
+            'D4': 'D4 - сложная',
+            'D5': 'D5 - капитальная',
+          };
+          const difficultyStr = String(payload.cleaningDifficulty).trim().toUpperCase();
+          const difficultyLabel = difficultyLabels[difficultyStr] || payload.cleaningDifficulty;
+          assignedMessage += `\n📊 Сложность уборки: ${difficultyLabel}`;
         }
         
         // Информация о стоимости
@@ -687,12 +921,17 @@ export class NotificationEventHandler {
         // Информация о размере объекта
         if (payload.unitGrade !== undefined && payload.unitGrade !== null) {
           const gradeLabels: Record<number, string> = {
-            0: 'Студия',
-            1: '1-комнатная',
-            2: '2-комнатная',
-            3: '3-комнатная',
-            4: '4-комнатная',
-            5: '5+ комнат',
+            0: 'Маленькая комната',
+            1: 'Большая комната',
+            2: 'Студия',
+            3: 'Большая студия',
+            4: 'Однушка',
+            5: 'Большая однушка',
+            6: 'Двушка',
+            7: 'Большая двушка',
+            8: 'Трешка',
+            9: 'Большая трешка',
+            10: '4+ комнат',
           };
           const gradeLabel = gradeLabels[payload.unitGrade] || `Размер ${payload.unitGrade}`;
           availableMessage += `\n🏠 Размер объекта: ${gradeLabel} (Grade ${payload.unitGrade})`;
@@ -700,7 +939,17 @@ export class NotificationEventHandler {
         
         // Информация о сложности уборки
         if (payload.cleaningDifficulty) {
-          availableMessage += `\n📊 Сложность уборки: ${payload.cleaningDifficulty}`;
+          const difficultyLabels: Record<string, string> = {
+            'D0': 'D0 - элементарная',
+            'D1': 'D1 - поддерживающая',
+            'D2': 'D2 - стандартная',
+            'D3': 'D3 - расширенная',
+            'D4': 'D4 - сложная',
+            'D5': 'D5 - капитальная',
+          };
+          const difficultyStr = String(payload.cleaningDifficulty).trim().toUpperCase();
+          const difficultyLabel = difficultyLabels[difficultyStr] || payload.cleaningDifficulty;
+          availableMessage += `\n📊 Сложность уборки: ${difficultyLabel}`;
         }
         
         // Информация о стоимости
@@ -1026,9 +1275,69 @@ export class NotificationEventHandler {
       
       // Booking events
       case 'BOOKING_CREATED':
+        // Форматируем даты заезда и выезда
+        const checkInDate = payload.checkIn 
+          ? new Date(payload.checkIn).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        const checkOutDate = payload.checkOut 
+          ? new Date(payload.checkOut).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+
+        // Форматируем только время заезда
+        const checkInTime = payload.checkIn 
+          ? new Date(payload.checkIn).toLocaleString('ru-RU', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указано';
+
+        // Формируем сообщение для гостя
+        let bookingMessage = '';
+        
+        if (payload.guestName) {
+          bookingMessage += `Уважаемый(ая) ${payload.guestName}!\n\n`;
+        } else {
+          bookingMessage += `Уважаемый гость!\n\n`;
+        }
+        
+        bookingMessage += `Ваш заезд:\n`;
+        
+        if (payload.unitAddress) {
+          bookingMessage += `📍 Адрес: ${payload.unitAddress}\n`;
+        }
+        
+        bookingMessage += `📅 Дата и время заезда: ${checkInDate}\n`;
+        bookingMessage += `📅 Дата и время выезда: ${checkOutDate}\n`;
+        
+        if (payload.lockCode) {
+          bookingMessage += `🔑 Код от замка: ${payload.lockCode}\n`;
+          bookingMessage += `(последние 4 цифры вашего телефона)\n`;
+        }
+        
+        if (payload.houseRules) {
+          bookingMessage += `\n📋 Правила проживания:\n${payload.houseRules}\n`;
+        } else {
+          bookingMessage += `\n📋 Пожалуйста, соблюдайте правила проживания в объекте.\n`;
+        }
+        
+        bookingMessage += `\nЖелаем приятного отдыха! 🏠`;
+
         return {
-          title: '📅 Новое бронирование',
-          message: `Создано бронирование #${payload.bookingId || 'N/A'}${payload.guestName ? `\nГость: ${payload.guestName}` : ''}`,
+          title: '📅 Бронирование создано',
+          message: bookingMessage,
           actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
         };
       

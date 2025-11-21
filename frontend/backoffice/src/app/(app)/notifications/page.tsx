@@ -11,6 +11,7 @@ import { Select } from '@/components/select'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { GET_NOTIFICATIONS, MARK_AS_READ, MARK_ALL_AS_READ } from '@/lib/graphql-queries'
+import Link from 'next/link'
 
 export default function NotificationsPage() {
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
@@ -127,7 +128,25 @@ export default function NotificationsPage() {
           </Button>
         )}
       </div>
-      
+
+      {/* Табы */}
+      <div className="border-b border-zinc-200 dark:border-zinc-700">
+        <nav className="-mb-px flex space-x-8">
+          <Link
+            href="/notifications"
+            className="whitespace-nowrap border-b-2 border-blue-500 px-1 py-4 text-sm font-medium text-blue-600 dark:text-blue-400"
+          >
+            Список уведомлений
+          </Link>
+          <Link
+            href="/notifications/templates"
+            className="whitespace-nowrap border-b-2 border-transparent px-1 py-4 text-sm font-medium text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          >
+            Шаблоны
+          </Link>
+        </nav>
+      </div>
+
       {/* Статистика */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">

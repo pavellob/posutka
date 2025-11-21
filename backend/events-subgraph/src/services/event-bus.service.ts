@@ -46,6 +46,9 @@ export class EventBusService {
         targetUserIds: input.targetUserIds
       });
       
+      // УБРАНА дедупликация - она блокировала нормальные события с данными
+      // Проблема дублирования должна решаться на уровне публикации (не публиковать дважды)
+      
       // 1. Сохраняем событие в БД
       const event = await this.prisma.event.create({
         data: {

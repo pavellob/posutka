@@ -135,7 +135,20 @@ export class ProviderManager {
         // Проверяем, можем ли отправить
         const canSend = await provider.canSend(message.recipientId);
         
+        logger.info(`🔍 Provider ${provider.name} canSend check`, {
+          channel,
+          providerName: provider.name,
+          recipientId: message.recipientId,
+          canSend,
+          notificationId: message.id,
+        });
+        
         if (!canSend) {
+          logger.warn(`⚠️ Provider ${provider.name} cannot send to recipient`, {
+            channel,
+            recipientId: message.recipientId,
+            notificationId: message.id,
+          });
           results.set(channel, {
             success: false,
             error: `Provider ${provider.name} cannot send to recipient ${message.recipientId}`,
@@ -144,7 +157,21 @@ export class ProviderManager {
         }
         
         // Отправляем
+        logger.info(`📤 Calling provider.send for ${provider.name}`, {
+          channel,
+          providerName: provider.name,
+          notificationId: message.id,
+          recipientId: message.recipientId,
+        });
+        
         const result = await provider.send(message);
+        
+        logger.info(`📥 Provider ${provider.name} send completed`, {
+          channel,
+          providerName: provider.name,
+          notificationId: message.id,
+          success: result.success,
+        });
         results.set(channel, result);
         
         if (result.success) {
