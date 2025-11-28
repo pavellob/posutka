@@ -33,7 +33,7 @@ services:
       - "4007:4007"  # Legal Subgraph (GraphQL)
       - "4008:4008"  # AI Subgraph (GraphQL)
       - "4009:4009"  # IAM Subgraph (GraphQL)
-      - "4010:4010"  # Cleaning Subgraph (GraphQL)
+      - "4010:4010"  # Field Service Subgraph (GraphQL)
       - "4011:4011"  # Notifications Subgraph (GraphQL)
       - "4111:4111"  # Notifications Subgraph (gRPC)
       - "4020:4020"  # Notifications WebSocket

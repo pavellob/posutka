@@ -1,5 +1,5 @@
-# Pricing Subgraph - Управление ценообразованием уборок
-# Отвечает за расчёт стоимости уборок на основе градации юнитов и сложности
+# Pricing Subgraph - Управление ценообразованием уборок и ремонтов
+# Отвечает за расчёт стоимости уборок и ремонтов на основе градации юнитов и сложности
 
 scalar UUID
 scalar DateTime
@@ -58,9 +58,46 @@ enum CleaningDifficulty {
 }
 
 """
+Размер ремонта в часах (0-10).
+"""
+enum RepairSize {
+  SIZE_0
+  SIZE_1
+  SIZE_2
+  SIZE_3
+  SIZE_4
+  SIZE_5
+  SIZE_6
+  SIZE_7
+  SIZE_8
+  SIZE_9
+  SIZE_10
+}
+
+"""
+Сложность ремонта (0-5).
+"""
+enum RepairDifficulty {
+  D0
+  D1
+  D2
+  D3
+  D4
+  D5
+}
+
+"""
 Режим коэффициентов ценообразования.
 """
 enum CleaningCoeffMode {
+  BASIC
+  INCREASED
+}
+
+"""
+Режим коэффициентов ценообразования для ремонтов.
+"""
+enum RepairCoeffMode {
   BASIC
   INCREASED
 }
@@ -97,6 +134,38 @@ type CleaningCostQuote {
 }
 
 """
+Правила расчёта стоимости для ремонтов.
+"""
+type RepairPricingRule {
+  id: UUID!
+  orgId: UUID!
+  unitId: UUID
+  mode: RepairCoeffMode!
+  baseRepairPrice: Money!
+  gradeStep: Float!
+  difficultyStep: Float!
+  increasedDifficultyDelta: Float!
+  extras: JSON
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+Квота/калькуляция стоимости ремонта.
+"""
+type RepairCostQuote {
+  unitId: UUID!
+  size: RepairSize!
+  difficulty: RepairDifficulty!
+  mode: RepairCoeffMode!
+  base: Money!
+  sizeCoefficient: Float!
+  difficultyCoefficient: Float!
+  materialsCost: Money! # Сумма расходников (shoppingItems)
+  total: Money!
+}
+
+"""
 Запросы для работы с ценообразованием.
 """
 type Query {
@@ -119,6 +188,27 @@ type Query {
     difficulty: CleaningDifficulty
     mode: CleaningCoeffMode
   ): CleaningCostQuote!
+  
+  """Получить правило ценообразования для ремонта"""
+  repairPricingRule(
+    orgId: UUID!
+    unitId: UUID
+  ): RepairPricingRule
+  
+  """Получить все правила для ремонта организации/юнита"""
+  repairPricingRules(
+    orgId: UUID!
+    unitId: UUID
+  ): [RepairPricingRule!]!
+  
+  """Рассчитать стоимость ремонта"""
+  calculateRepairCost(
+    unitId: UUID!
+    repairId: UUID!
+    size: RepairSize
+    difficulty: RepairDifficulty
+    mode: RepairCoeffMode
+  ): RepairCostQuote!
 }
 
 """
@@ -136,6 +226,20 @@ input UpsertCleaningPricingRuleInput {
 }
 
 """
+Входные данные для создания/обновления правила ценообразования для ремонта.
+"""
+input UpsertRepairPricingRuleInput {
+  orgId: UUID!
+  unitId: UUID
+  mode: RepairCoeffMode!
+  baseRepairPrice: MoneyInput!
+  gradeStep: Float
+  difficultyStep: Float
+  increasedDifficultyDelta: Float
+  extras: JSON
+}
+
+"""
 Мутации для работы с ценообразованием.
 """
 type Mutation {
@@ -146,5 +250,13 @@ type Mutation {
   
   """Удалить правило ценообразования"""
   deleteCleaningPricingRule(id: UUID!): Boolean!
+  
+  """Создать или обновить правило ценообразования для ремонта"""
+  upsertRepairPricingRule(
+    input: UpsertRepairPricingRuleInput!
+  ): RepairPricingRule!
+  
+  """Удалить правило ценообразования для ремонта"""
+  deleteRepairPricingRule(id: UUID!): Boolean!
 }
 

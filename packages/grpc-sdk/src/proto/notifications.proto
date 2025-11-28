@@ -36,6 +36,13 @@ enum EventType {
   EVENT_TYPE_CLEANING_DIFFICULTY_SET = 17; // Сложность уборки указана
   EVENT_TYPE_CLEANING_APPROVED = 18; // Уборка одобрена менеджером
   
+  // Repair events
+  EVENT_TYPE_REPAIR_ASSIGNED = 19; // Ремонт назначен мастеру
+  EVENT_TYPE_REPAIR_INSPECTION_COMPLETED = 24; // Осмотр ремонта завершен
+  EVENT_TYPE_REPAIR_STARTED = 25; // Ремонт начат
+  EVENT_TYPE_REPAIR_COMPLETED = 26; // Ремонт завершен
+  EVENT_TYPE_REPAIR_CANCELLED = 27; // Ремонт отменен
+  
   // Task events
   EVENT_TYPE_TASK_CREATED = 20;
   EVENT_TYPE_TASK_ASSIGNED = 21;

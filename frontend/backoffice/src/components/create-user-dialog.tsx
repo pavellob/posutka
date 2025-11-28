@@ -50,7 +50,7 @@ export function CreateUserDialog({ isOpen, onClose, onSuccess, orgId }: CreateUs
     password: '',
     confirmPassword: '',
     assignToOrg: false,
-    role: 'STAFF' as 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR'
+    role: 'STAFF' as 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'MASTER' | 'OPERATOR'
   })
   const [error, setError] = useState<string | null>(null)
 
@@ -273,6 +273,7 @@ export function CreateUserDialog({ isOpen, onClose, onSuccess, orgId }: CreateUs
                   <option value="MANAGER">Менеджер</option>
                   <option value="STAFF">Сотрудник</option>
                   <option value="CLEANER">Уборщик</option>
+                  <option value="MASTER">Мастер</option>
                   <option value="OPERATOR">Оператор</option>
                 </select>
                 <Text className="mt-2 text-xs text-gray-500 dark:text-gray-400">

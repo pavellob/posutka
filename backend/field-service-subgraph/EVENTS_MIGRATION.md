@@ -4,7 +4,7 @@
 
 ### ✅ Отключена старая логика уведомлений
 
-Все прямые вызовы `notificationClient` в `cleaning-subgraph/src/resolvers/index.ts` закомментированы:
+Все прямые вызовы `notificationClient` в `field-service-subgraph/src/resolvers/index.ts` закомментированы:
 
 1. **scheduleCleaning** (строки 167-319)
    - Блок отправки `CLEANING_ASSIGNED` уведомлений
@@ -34,7 +34,7 @@
 
 ```
 ┌─────────────────┐
-│ cleaning-subgraph│
+│ field-service-subgraph│
 │  scheduleCleaning│
 └────────┬─────────┘
          │ publishes event
@@ -65,7 +65,7 @@
 ## Преимущества
 
 1. **🔌 Развязка (Decoupling)**
-   - `cleaning-subgraph` не знает о Telegram, WebSocket, Email
+   - `field-service-subgraph` не знает о Telegram, WebSocket, Email
    - Просто публикует события - и все
 
 2. **📊 Централизованный Event Store**

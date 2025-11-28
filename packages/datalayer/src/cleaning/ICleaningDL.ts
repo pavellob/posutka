@@ -17,6 +17,22 @@ import type {
   AddPhotoInput,
   ListCleanersParams,
   ListCleaningsParams,
+  Master,
+  MasterConnection,
+  CreateMasterInput,
+  UpdateMasterInput,
+  ListMastersParams,
+  Repair,
+  RepairConnection,
+  RepairTemplate,
+  CreateRepairTemplateInput,
+  UpdateRepairTemplateInput,
+  ScheduleRepairInput,
+  AssessRepairInput,
+  RepairShoppingItem,
+  CreateRepairShoppingItemInput,
+  UpdateRepairShoppingItemInput,
+  ListRepairsParams,
   UUID,
 } from './types.js';
 
@@ -53,5 +69,34 @@ export interface ICleaningDL {
   createPostCleaningDocument(cleaningId: UUID, input: CreateCleaningDocumentInput): Promise<CleaningDocument>;
   addPhotoToDocument(documentId: UUID, input: AddPhotoInput): Promise<CleaningDocumentPhoto>;
   deletePhotoFromDocument(photoId: UUID): Promise<boolean>;
+
+  // Master operations
+  getMasterById(id: UUID): Promise<Master | null>;
+  listMasters(params: ListMastersParams): Promise<MasterConnection>;
+  createMaster(input: CreateMasterInput): Promise<Master>;
+  updateMaster(id: UUID, input: UpdateMasterInput): Promise<Master>;
+
+  // Repair Template operations
+  getRepairTemplateById(id: UUID): Promise<RepairTemplate | null>;
+  getRepairTemplatesByUnitId(unitId: UUID): Promise<RepairTemplate[]>;
+  createRepairTemplate(input: CreateRepairTemplateInput): Promise<RepairTemplate>;
+  updateRepairTemplate(id: UUID, input: UpdateRepairTemplateInput): Promise<RepairTemplate>;
+  deleteRepairTemplate(id: UUID): Promise<boolean>;
+
+  // Repair operations
+  getRepairById(id: UUID): Promise<Repair | null>;
+  listRepairs(params: ListRepairsParams): Promise<RepairConnection>;
+  scheduleRepair(input: ScheduleRepairInput): Promise<Repair>;
+  startRepair(id: UUID): Promise<Repair>;
+  assessRepair(id: UUID, input: AssessRepairInput): Promise<Repair>;
+  completeRepair(id: UUID): Promise<Repair>;
+  cancelRepair(id: UUID, reason?: string): Promise<Repair>;
+  
+  // Repair Shopping List operations
+  createRepairShoppingItem(repairId: UUID, input: CreateRepairShoppingItemInput): Promise<RepairShoppingItem>;
+  updateRepairShoppingItem(itemId: UUID, input: UpdateRepairShoppingItemInput): Promise<RepairShoppingItem>;
+  deleteRepairShoppingItem(itemId: UUID): Promise<boolean>;
+  addPhotoToShoppingItem(itemId: UUID, url: string, caption?: string, order?: number): Promise<RepairShoppingItem>;
+  deletePhotoFromShoppingItem(photoId: UUID): Promise<boolean>;
 }
 

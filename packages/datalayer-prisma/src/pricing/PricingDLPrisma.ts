@@ -4,6 +4,8 @@ import type {
   IPricingDL,
   CleaningPricingRule,
   UpsertCleaningPricingRuleInput,
+  RepairPricingRule,
+  UpsertRepairPricingRuleInput,
   UUID,
 } from '@repo/datalayer';
 
@@ -132,6 +134,128 @@ export class PricingDLPrisma implements IPricingDL {
     }
   }
 
+  async getRepairPricingRule(orgId: string, unitId?: string | null): Promise<RepairPricingRule | null> {
+    try {
+      // Сначала пытаемся найти unit-specific правило
+      if (unitId) {
+        const unitRule = await this.prisma.repairPricingRule.findUnique({
+          where: {
+            orgId_unitId: {
+              orgId,
+              unitId,
+            },
+          },
+        });
+
+        if (unitRule) {
+          return this.mapRepairRuleFromPrisma(unitRule);
+        }
+      }
+
+      // Затем пытаемся найти org-level правило (unitId = null)
+      const orgRule = await this.prisma.repairPricingRule.findFirst({
+        where: {
+          orgId,
+          unitId: null,
+        },
+      });
+
+      if (orgRule) {
+        return this.mapRepairRuleFromPrisma(orgRule);
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error in getRepairPricingRule:', { orgId, unitId, error });
+      throw error;
+    }
+  }
+
+  async getRepairPricingRules(orgId: string, unitId?: string | null): Promise<RepairPricingRule[]> {
+    try {
+      const where: any = { orgId };
+      if (unitId !== undefined) {
+        where.unitId = unitId;
+      }
+
+      const rules = await this.prisma.repairPricingRule.findMany({
+        where,
+        orderBy: [{ unitId: 'asc' }, { createdAt: 'desc' }],
+      });
+
+      return rules.map((rule) => this.mapRepairRuleFromPrisma(rule));
+    } catch (error) {
+      console.error('Error in getRepairPricingRules:', { orgId, unitId, error });
+      throw error;
+    }
+  }
+
+  async upsertRepairPricingRule(input: UpsertRepairPricingRuleInput): Promise<RepairPricingRule> {
+    try {
+      const unitIdValue = input.unitId ?? null;
+      
+      // Сначала пытаемся найти существующее правило
+      const existingRule = unitIdValue === null
+        ? await this.prisma.repairPricingRule.findFirst({
+            where: {
+              orgId: input.orgId,
+              unitId: null,
+            },
+          })
+        : await this.prisma.repairPricingRule.findUnique({
+            where: {
+              orgId_unitId: {
+                orgId: input.orgId,
+                unitId: unitIdValue,
+              },
+            },
+          });
+
+      const ruleData = {
+        orgId: input.orgId,
+        unitId: unitIdValue,
+        mode: input.mode,
+        baseRepairPrice: input.baseRepairPrice.amount,
+        baseRepairCurrency: input.baseRepairPrice.currency,
+        gradeStep: input.gradeStep ?? 0.1,
+        difficultyStep: input.difficultyStep ?? 0.2,
+        increasedDifficultyDelta: input.increasedDifficultyDelta ?? 0.1,
+        extras: input.extras || null,
+      };
+
+      let rule;
+      if (existingRule) {
+        // Обновляем существующее правило
+        rule = await this.prisma.repairPricingRule.update({
+          where: { id: existingRule.id },
+          data: ruleData,
+        });
+      } else {
+        // Создаём новое правило
+        rule = await this.prisma.repairPricingRule.create({
+          data: ruleData,
+        });
+      }
+
+      return this.mapRepairRuleFromPrisma(rule);
+    } catch (error) {
+      console.error('Error in upsertRepairPricingRule:', { input, error });
+      throw error;
+    }
+  }
+
+  async deleteRepairPricingRule(id: string): Promise<boolean> {
+    try {
+      await this.prisma.repairPricingRule.delete({
+        where: { id },
+      });
+      return true;
+    } catch (error) {
+      console.error('Error in deleteRepairPricingRule:', { id, error });
+      throw error;
+    }
+  }
+
   private mapRuleFromPrisma(rule: any): CleaningPricingRule {
     return {
       id: rule.id,
@@ -141,6 +265,25 @@ export class PricingDLPrisma implements IPricingDL {
       baseCleaningPrice: {
         amount: rule.baseCleaningPrice,
         currency: rule.baseCleaningCurrency,
+      },
+      gradeStep: rule.gradeStep,
+      difficultyStep: rule.difficultyStep,
+      increasedDifficultyDelta: rule.increasedDifficultyDelta,
+      extras: rule.extras,
+      createdAt: rule.createdAt.toISOString(),
+      updatedAt: rule.updatedAt.toISOString(),
+    };
+  }
+
+  private mapRepairRuleFromPrisma(rule: any): RepairPricingRule {
+    return {
+      id: rule.id,
+      orgId: rule.orgId,
+      unitId: rule.unitId,
+      mode: rule.mode as 'BASIC' | 'INCREASED',
+      baseRepairPrice: {
+        amount: rule.baseRepairPrice,
+        currency: rule.baseRepairCurrency,
       },
       gradeStep: rule.gradeStep,
       difficultyStep: rule.difficultyStep,

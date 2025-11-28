@@ -2,14 +2,30 @@ import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
 
+import Link from 'next/link'
+
 export default function BillingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Heading level={1}>Биллинг и Платежи</Heading>
+        <Heading level={1}>Деньги</Heading>
         <Text className="mt-2 text-zinc-600 dark:text-zinc-400">
           Управление биллингом, платежами и финансовой отчетностью
         </Text>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Link href="/billing/pricing" className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6 hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+              <span className="text-white font-semibold text-lg">₽</span>
+            </div>
+            <Heading level={3}>Ценообразование</Heading>
+          </div>
+          <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+            Настройка правил расчёта стоимости уборок и ремонтов
+          </Text>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

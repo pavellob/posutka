@@ -21,6 +21,22 @@ import type {
   AddPhotoInput,
   ListCleanersParams,
   ListCleaningsParams,
+  Master,
+  MasterConnection,
+  CreateMasterInput,
+  UpdateMasterInput,
+  ListMastersParams,
+  Repair,
+  RepairConnection,
+  RepairTemplate,
+  CreateRepairTemplateInput,
+  UpdateRepairTemplateInput,
+  ScheduleRepairInput,
+  AssessRepairInput,
+  RepairShoppingItem,
+  CreateRepairShoppingItemInput,
+  UpdateRepairShoppingItemInput,
+  ListRepairsParams,
   UUID,
 } from '@repo/datalayer';
 
@@ -278,6 +294,122 @@ export class CleaningDLPrisma implements ICleaningDL {
       where: { id },
     });
     return true;
+  }
+
+  // ===== Repair Template operations =====
+
+  async getRepairTemplateById(id: string): Promise<RepairTemplate | null> {
+    const template = await (this.prisma.repairTemplate as any).findUnique({
+      where: { id },
+      include: { checklistItems: true },
+    });
+    
+    if (!template) return null;
+    
+    return this.mapRepairTemplateFromPrisma(template);
+  }
+
+  async getRepairTemplatesByUnitId(unitId: string): Promise<RepairTemplate[]> {
+    const templates = await (this.prisma.repairTemplate as any).findMany({
+      where: { unitId },
+      include: { checklistItems: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return templates.map((t: any) => this.mapRepairTemplateFromPrisma(t));
+  }
+
+  async createRepairTemplate(input: CreateRepairTemplateInput): Promise<RepairTemplate> {
+    const template = await (this.prisma.repairTemplate as any).create({
+      data: {
+        unitId: input.unitId,
+        name: input.name,
+        description: input.description,
+        estimatedDuration: input.estimatedDuration,
+        checklistItems: input.checklistItems
+          ? {
+              create: input.checklistItems.map((item, index) => ({
+                label: item.label,
+                order: item.order ?? index,
+                isRequired: item.isRequired ?? false,
+              })),
+            }
+          : undefined,
+      },
+      include: { checklistItems: true },
+    });
+    return this.mapRepairTemplateFromPrisma(template);
+  }
+
+  async updateRepairTemplate(id: string, input: UpdateRepairTemplateInput): Promise<RepairTemplate> {
+    let deduplicatedItems: any[] | undefined = undefined;
+    
+    // If checklistItems are provided, delete old ones and create new ones
+    if (input.checklistItems) {
+      await (this.prisma.repairTemplateCheckbox as any).deleteMany({
+        where: { templateId: id },
+      });
+      
+      // ДЕДУПЛИКАЦИЯ: удаляем дубликаты из входящих данных
+      const uniqueItems = new Map();
+      input.checklistItems.forEach((item, index) => {
+        const key = `${item.label}-${item.order ?? index}`;
+        if (!uniqueItems.has(key)) {
+          uniqueItems.set(key, {
+            label: item.label,
+            order: item.order ?? index,
+            isRequired: item.isRequired ?? false,
+          });
+        }
+      });
+      
+      deduplicatedItems = Array.from(uniqueItems.values());
+    }
+
+    const template = await (this.prisma.repairTemplate as any).update({
+      where: { id },
+      data: {
+        name: input.name,
+        description: input.description,
+        estimatedDuration: input.estimatedDuration,
+        checklistItems: deduplicatedItems
+          ? {
+              create: deduplicatedItems,
+            }
+          : undefined,
+      },
+      include: { checklistItems: true },
+    });
+
+    return this.mapRepairTemplateFromPrisma(template);
+  }
+
+  async deleteRepairTemplate(id: string): Promise<boolean> {
+    await (this.prisma.repairTemplate as any).delete({
+      where: { id },
+    });
+    return true;
+  }
+
+  private mapRepairTemplateFromPrisma(template: any): RepairTemplate {
+    return {
+      id: template.id,
+      unitId: template.unitId,
+      name: template.name,
+      description: template.description || undefined,
+      estimatedDuration: template.estimatedDuration || undefined,
+      checklistItems: (template.checklistItems || []).map((item: any) => ({
+        id: item.id,
+        templateId: item.templateId,
+        label: item.label,
+        order: item.order,
+        isRequired: item.isRequired,
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
+      })),
+      createdAt: template.createdAt.toISOString(),
+      updatedAt: template.updatedAt.toISOString(),
+    };
   }
 
   // ===== Cleaning operations =====
@@ -843,6 +975,473 @@ export class CleaningDLPrisma implements ICleaningDL {
       status: review.status,
       comment: review.comment ?? undefined,
       createdAt: review.createdAt.toISOString(),
+    };
+  }
+
+  // ===== Master operations =====
+
+  async getMasterById(id: string): Promise<Master | null> {
+    try {
+      const master = await (this.prisma.master as any).findUnique({
+        where: { id },
+      });
+      
+      if (!master) return null;
+      
+      return this.mapMasterFromPrisma(master);
+    } catch (error) {
+      console.error('Error in getMasterById:', { id, error });
+      throw error;
+    }
+  }
+
+  async listMasters(params: ListMastersParams): Promise<MasterConnection> {
+    const where: any = {
+      orgId: params.orgId,
+      deletedAt: null,
+    };
+    
+    if (params.isActive !== undefined) {
+      where.isActive = params.isActive;
+    }
+
+    const first = params.first || 10;
+    const skip = params.after ? 1 : 0;
+    const cursor = params.after ? { id: params.after } : undefined;
+
+    const [masters, totalCount] = await Promise.all([
+      (this.prisma.master as any).findMany({
+        where,
+        take: first + 1,
+        skip,
+        cursor,
+        orderBy: { createdAt: 'desc' },
+      }),
+      (this.prisma.master as any).count({ where }),
+    ]);
+
+    const hasNextPage = masters.length > first;
+    const edges = masters.slice(0, first).map((master: any) => ({
+      node: this.mapMasterFromPrisma(master),
+      cursor: master.id,
+    }));
+
+    return {
+      edges,
+      pageInfo: {
+        hasNextPage,
+        hasPreviousPage: !!params.after,
+        startCursor: edges[0]?.cursor,
+        endCursor: edges[edges.length - 1]?.cursor,
+        totalCount,
+      },
+    };
+  }
+
+  async createMaster(input: CreateMasterInput): Promise<Master> {
+    let firstName = input.firstName;
+    let lastName = input.lastName;
+    let email = input.email;
+
+    // Если передан userId, получаем данные пользователя
+    if (input.userId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: input.userId },
+      });
+      
+      if (!user) {
+        throw new Error(`User with id ${input.userId} not found`);
+      }
+      
+      // Парсим имя пользователя (если полное имя в одном поле)
+      const nameParts = (user.name || '').trim().split(/\s+/).filter(Boolean);
+      if (!firstName && nameParts.length > 0) {
+        firstName = nameParts[0];
+      }
+      if (!lastName && nameParts.length > 1) {
+        lastName = nameParts.slice(1).join(' ');
+      }
+      if (!email) {
+        email = user.email;
+      }
+    }
+
+    // Убеждаемся, что firstName всегда имеет значение
+    if (!firstName || firstName.trim() === '') {
+      firstName = 'Unknown';
+    }
+    if (!lastName || lastName.trim() === '') {
+      lastName = 'User';
+    }
+
+    const master = await (this.prisma.master as any).create({
+      data: {
+        type: input.type || (input.userId ? 'INTERNAL' : 'EXTERNAL'),
+        userId: input.userId || null,
+        orgId: input.orgId,
+        firstName,
+        lastName: lastName || null,
+        phone: input.phone || null,
+        email: email || null,
+        telegramUsername: input.telegramUsername || null,
+        isActive: true,
+      },
+    });
+
+    // Обеспечиваем, что у пользователя есть членство с ролью MASTER в этой организации
+    if (input.userId) {
+      await this.prisma.membership.upsert({
+        where: {
+          userId_orgId_role: {
+            userId: input.userId,
+            orgId: input.orgId,
+            role: 'MASTER',
+          },
+        },
+        update: {
+          role: 'MASTER',
+        },
+        create: {
+          userId: input.userId,
+          orgId: input.orgId,
+          role: 'MASTER',
+        },
+      });
+    }
+
+    return this.mapMasterFromPrisma(master);
+  }
+
+  async updateMaster(id: string, input: UpdateMasterInput): Promise<Master> {
+    const updateData: any = {};
+    
+    if (input.firstName !== undefined) updateData.firstName = input.firstName;
+    if (input.lastName !== undefined) updateData.lastName = input.lastName;
+    if (input.phone !== undefined) updateData.phone = input.phone || null;
+    if (input.email !== undefined) updateData.email = input.email || null;
+    if (input.telegramUsername !== undefined) updateData.telegramUsername = input.telegramUsername || null;
+    if (input.rating !== undefined) updateData.rating = input.rating;
+    if (input.isActive !== undefined) updateData.isActive = input.isActive;
+
+    const master = await (this.prisma.master as any).update({
+      where: { id },
+      data: updateData,
+    });
+
+    return this.mapMasterFromPrisma(master);
+  }
+
+  private mapMasterFromPrisma(master: any): Master {
+    return {
+      id: master.id,
+      type: master.type,
+      userId: master.userId || null,
+      orgId: master.orgId,
+      firstName: master.firstName,
+      lastName: master.lastName,
+      phone: master.phone || null,
+      email: master.email || null,
+      telegramUsername: master.telegramUsername || null,
+      rating: master.rating || null,
+      isActive: master.isActive,
+      deletedAt: master.deletedAt ? master.deletedAt.toISOString() : null,
+      createdAt: master.createdAt.toISOString(),
+      updatedAt: master.updatedAt.toISOString(),
+    };
+  }
+
+  // ===== Repair operations =====
+
+  async getRepairById(id: string): Promise<Repair | null> {
+    try {
+      const repair = await (this.prisma.repair as any).findUnique({
+        where: { id },
+        include: {
+          shoppingItems: {
+            include: {
+              photos: true,
+            },
+          },
+        },
+      });
+      
+      if (!repair) return null;
+      
+      return this.mapRepairFromPrisma(repair);
+    } catch (error) {
+      console.error('Error in getRepairById:', { id, error });
+      throw error;
+    }
+  }
+
+  async listRepairs(params: ListRepairsParams): Promise<RepairConnection> {
+    const where: any = {};
+    
+    if (params.orgId) where.orgId = params.orgId;
+    if (params.unitId) where.unitId = params.unitId;
+    if (params.masterId) where.masterId = params.masterId;
+    if (params.status) where.status = params.status;
+    if (params.from || params.to) {
+      where.scheduledAt = {};
+      if (params.from) where.scheduledAt.gte = new Date(params.from);
+      if (params.to) where.scheduledAt.lte = new Date(params.to);
+    }
+
+    const first = params.first || 10;
+    const skip = params.after ? 1 : 0;
+    const cursor = params.after ? { id: params.after } : undefined;
+
+    const [repairs, totalCount] = await Promise.all([
+      (this.prisma.repair as any).findMany({
+        where,
+        take: first + 1,
+        skip,
+        cursor,
+        orderBy: { scheduledAt: 'desc' },
+      }),
+      (this.prisma.repair as any).count({ where }),
+    ]);
+
+    const hasNextPage = repairs.length > first;
+    const edges = repairs.slice(0, first).map((repair: any) => ({
+      node: this.mapRepairFromPrisma(repair),
+      cursor: repair.id,
+    }));
+
+    return {
+      edges,
+      pageInfo: {
+        hasNextPage,
+        hasPreviousPage: !!params.after,
+        startCursor: edges[0]?.cursor,
+        endCursor: edges[edges.length - 1]?.cursor,
+        totalCount,
+      },
+    };
+  }
+
+  async scheduleRepair(input: ScheduleRepairInput): Promise<Repair> {
+    // Если это плановый осмотр, подтягиваем шаблон для логирования
+    // Создание ChecklistInstance из шаблона будет сделано в резолвере
+    if (input.isPlannedInspection) {
+      const templates = await (this.prisma.repairTemplate as any).findMany({
+        where: { unitId: input.unitId },
+        include: { checklistItems: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      
+      const template = templates[0]; // Берем первый (самый свежий)
+      
+      console.log('📋 Repair template for planned inspection:', {
+        unitId: input.unitId,
+        templateId: template?.id,
+        templateName: template?.name,
+        itemsCount: template?.checklistItems?.length || 0,
+      });
+      
+      if (!template || !template.checklistItems || template.checklistItems.length === 0) {
+        console.warn('⚠️ No repair template found for unit:', input.unitId);
+      }
+    }
+
+    const repair = await (this.prisma.repair as any).create({
+      data: {
+        orgId: input.orgId,
+        unitId: input.unitId,
+        masterId: input.masterId || null,
+        bookingId: input.bookingId || null,
+        taskId: input.taskId || null,
+        isPlannedInspection: input.isPlannedInspection || false,
+        scheduledAt: new Date(input.scheduledAt),
+        notes: input.notes || null,
+        status: 'PLANNED',
+      },
+    });
+
+    return this.mapRepairFromPrisma(repair);
+  }
+
+  async startRepair(id: string): Promise<Repair> {
+    const repair = await (this.prisma.repair as any).update({
+      where: { id },
+      data: {
+        status: 'IN_PROGRESS',
+        startedAt: new Date(),
+      },
+    });
+
+    return this.mapRepairFromPrisma(repair);
+  }
+
+  async completeRepair(id: string): Promise<Repair> {
+    const repair = await (this.prisma.repair as any).update({
+      where: { id },
+      data: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+      },
+    });
+
+    return this.mapRepairFromPrisma(repair);
+  }
+
+  async cancelRepair(id: string, reason?: string): Promise<Repair> {
+    const updateData: any = {
+      status: 'CANCELLED',
+    };
+    
+    if (reason) {
+      updateData.notes = reason;
+    }
+
+    const repair = await (this.prisma.repair as any).update({
+      where: { id },
+      data: updateData,
+    });
+
+    return this.mapRepairFromPrisma(repair);
+  }
+
+  async assessRepair(id: string, input: AssessRepairInput): Promise<Repair> {
+    const repair = await (this.prisma.repair as any).update({
+      where: { id },
+      data: {
+        assessedDifficulty: input.difficulty,
+        assessedSize: input.size,
+        assessedAt: new Date(),
+      },
+      include: {
+        shoppingItems: {
+          include: {
+            photos: true,
+          },
+        },
+      },
+    });
+
+    return this.mapRepairFromPrisma(repair);
+  }
+
+  async createRepairShoppingItem(repairId: string, input: CreateRepairShoppingItemInput): Promise<RepairShoppingItem> {
+    const item = await (this.prisma.repairShoppingItem as any).create({
+      data: {
+        repairId,
+        name: input.name,
+        quantity: input.quantity,
+        amount: input.amount,
+        currency: input.currency || 'RUB',
+        notes: input.notes,
+        photos: input.photos ? {
+          create: input.photos.map((photo, index) => ({
+            url: photo.url,
+            caption: photo.caption,
+            order: photo.order ?? index,
+          })),
+        } : undefined,
+      },
+      include: {
+        photos: true,
+      },
+    });
+
+    return this.mapRepairShoppingItemFromPrisma(item);
+  }
+
+  async updateRepairShoppingItem(itemId: string, input: UpdateRepairShoppingItemInput): Promise<RepairShoppingItem> {
+    const item = await (this.prisma.repairShoppingItem as any).update({
+      where: { id: itemId },
+      data: {
+        ...(input.name !== undefined && { name: input.name }),
+        ...(input.quantity !== undefined && { quantity: input.quantity }),
+        ...(input.amount !== undefined && { amount: input.amount }),
+        ...(input.currency !== undefined && { currency: input.currency }),
+        ...(input.notes !== undefined && { notes: input.notes }),
+      },
+      include: {
+        photos: true,
+      },
+    });
+
+    return this.mapRepairShoppingItemFromPrisma(item);
+  }
+
+  async deleteRepairShoppingItem(itemId: string): Promise<boolean> {
+    await (this.prisma.repairShoppingItem as any).delete({
+      where: { id: itemId },
+    });
+    return true;
+  }
+
+  async addPhotoToShoppingItem(itemId: string, url: string, caption?: string, order?: number): Promise<RepairShoppingItem> {
+    const photo = await (this.prisma.repairShoppingItemPhoto as any).create({
+      data: {
+        itemId,
+        url,
+        caption,
+        order: order ?? 0,
+      },
+    });
+
+    const item = await (this.prisma.repairShoppingItem as any).findUnique({
+      where: { id: itemId },
+      include: {
+        photos: true,
+      },
+    });
+
+    return this.mapRepairShoppingItemFromPrisma(item);
+  }
+
+  async deletePhotoFromShoppingItem(photoId: string): Promise<boolean> {
+    await (this.prisma.repairShoppingItemPhoto as any).delete({
+      where: { id: photoId },
+    });
+    return true;
+  }
+
+  private mapRepairFromPrisma(repair: any): Repair {
+    return {
+      id: repair.id,
+      orgId: repair.orgId,
+      masterId: repair.masterId || null,
+      unitId: repair.unitId,
+      bookingId: repair.bookingId || null,
+      taskId: repair.taskId || null,
+      status: repair.status,
+      isPlannedInspection: repair.isPlannedInspection || false,
+      scheduledAt: repair.scheduledAt.toISOString(),
+      startedAt: repair.startedAt ? repair.startedAt.toISOString() : null,
+      completedAt: repair.completedAt ? repair.completedAt.toISOString() : null,
+      notes: repair.notes || null,
+      assessedDifficulty: repair.assessedDifficulty ?? null,
+      assessedSize: repair.assessedSize ?? null,
+      assessedAt: repair.assessedAt ? repair.assessedAt.toISOString() : null,
+      createdAt: repair.createdAt.toISOString(),
+      updatedAt: repair.updatedAt.toISOString(),
+      shoppingItems: repair.shoppingItems ? repair.shoppingItems.map((item: any) => this.mapRepairShoppingItemFromPrisma(item)) : [],
+    };
+  }
+
+  private mapRepairShoppingItemFromPrisma(item: any): RepairShoppingItem {
+    return {
+      id: item.id,
+      repairId: item.repairId,
+      name: item.name,
+      quantity: item.quantity,
+      amount: item.amount,
+      currency: item.currency,
+      notes: item.notes || null,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
+      photos: item.photos ? item.photos.map((photo: any) => ({
+        id: photo.id,
+        itemId: photo.itemId,
+        url: photo.url,
+        caption: photo.caption || null,
+        order: photo.order,
+        createdAt: photo.createdAt.toISOString(),
+        updatedAt: photo.updatedAt.toISOString(),
+      })) : [],
     };
   }
 }

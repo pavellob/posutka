@@ -108,6 +108,7 @@ model Unit {
   checkInInstructions String?               @db.Text // Инструкция по заселению для гостя
   property           Property               @relation(fields: [propertyId], references: [id])
   preferredCleaners  UnitPreferredCleaner[] // Привязанные уборщики для этой квартиры
+  preferredMasters   UnitPreferredMaster[] // Привязанные мастера для этой квартиры
   checklistTemplates ChecklistTemplate[] // Шаблоны чек-листов
   checklistInstances ChecklistInstance[] // Инстансы чек-листов
   createdAt          DateTime               @default(now())
@@ -247,24 +248,40 @@ model ServiceProvider {
 }
 
 model Task {
-  id                 String           @id @default(cuid())
-  orgId              String
-  unitId             String?
-  bookingId          String?
-  type               TaskType
-  status             TaskStatus       @default(TODO)
-  dueAt              DateTime?
-  assignedProviderId String?
-  assignedCleanerId  String? // Для задач типа CLEANING
-  checklist          String[]
-  note               String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  assignedProvider   ServiceProvider? @relation(fields: [assignedProviderId], references: [id])
-  assignedCleaner    Cleaner?         @relation(fields: [assignedCleanerId], references: [id])
-  serviceOrders      ServiceOrder[]
+  id                      String                @id @default(cuid())
+  orgId                   String
+  unitId                  String?
+  bookingId               String?
+  sourceId                String? // Связь с источником задачи (cleaning, repair, booking и т.д.)
+  checklistItemKey        String? // Ключ пункта чек-листа, из которого создана задача (deprecated, используйте checklistItemInstanceId)
+  checklistItemInstanceId String? // Связь с конкретным пунктом чек-листа (ChecklistInstanceItem)
+  authorId                String? // ID пользователя/уборщика, который создал задачу
+  type                    TaskType
+  status                  TaskStatus             @default(TODO)
+  dueAt                   DateTime?
+  assignedProviderId      String?
+  assignedCleanerId       String? // Для задач типа CLEANING
+  assignedMasterId        String? // Для задач типа MAINTENANCE/ремонтов
+  plannedForNextChecklist Boolean                @default(false) // Задача для следующего чек-листа
+  sourceCleaningId        String? // ID уборки, из которой создана задача для следующего чек-листа
+  checklist               String[]
+  note                    String?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  assignedProvider        ServiceProvider?       @relation(fields: [assignedProviderId], references: [id])
+  assignedCleaner         Cleaner?               @relation(fields: [assignedCleanerId], references: [id])
+  assignedMaster          Master?                @relation(fields: [assignedMasterId], references: [id])
+  source                  Source?                 @relation(fields: [sourceId], references: [id])
+  checklistItemInstance   ChecklistInstanceItem? @relation(fields: [checklistItemInstanceId], references: [id])
+  serviceOrders           ServiceOrder[]
 
   @@index([assignedCleanerId])
+  @@index([assignedMasterId])
+  @@index([sourceId])
+  @@index([checklistItemKey])
+  @@index([checklistItemInstanceId])
+  @@index([unitId, plannedForNextChecklist])
+  @@index([sourceCleaningId])
 }
 
 model ServiceOrder {
@@ -414,6 +431,7 @@ enum Role {
   MANAGER
   STAFF
   CLEANER
+  MASTER
   OPERATOR
 }
 
@@ -642,6 +660,146 @@ enum CleaningDocumentType {
   POST_CLEANING_HANDOVER
 }
 
+// ===== Repair Models =====
+
+model Master {
+  id               String                 @id @default(cuid())
+  type             MasterType              @default(EXTERNAL)
+  userId           String? // Для сотрудников (internal)
+  orgId            String
+  firstName        String
+  lastName         String
+  phone            String?
+  email            String?
+  telegramUsername String? // Username в Telegram (без @) для автопривязки
+  rating           Float?                  @default(0)
+  isActive         Boolean                 @default(true)
+  deletedAt        DateTime? // Soft delete - дата деактивации
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  repairs          Repair[]
+  tasks            Task[] // Задачи, назначенные на этого мастера
+  preferredUnits   UnitPreferredMaster[] // Квартиры, где этот мастер предпочтителен
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([type])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@index([telegramUsername])
+}
+
+enum MasterType {
+  INTERNAL // Сотрудник компании (User)
+  EXTERNAL // Внешний подрядчик
+}
+
+model RepairTemplate {
+  id                  String                     @id @default(cuid())
+  unitId              String
+  name                String
+  description         String?
+  estimatedDuration   Int? // minutes
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  checklistItems      RepairTemplateCheckbox[]
+
+  @@index([unitId])
+}
+
+model RepairTemplateCheckbox {
+  id         String           @id @default(cuid())
+  templateId String
+  label      String
+  order      Int              @default(0)
+  isRequired Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  template   RepairTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+model Repair {
+  id                  String              @id @default(cuid())
+  orgId               String
+  masterId            String? // Теперь опциональный - может быть не назначен
+  unitId              String
+  bookingId           String?
+  taskId               String? // Связь с Task из ops-subgraph
+  status              RepairStatus        @default(PLANNED)
+  isPlannedInspection Boolean             @default(false) // Плановый осмотр (использует шаблон) или кастомный ремонт
+  scheduledAt         DateTime
+  startedAt           DateTime?
+  completedAt         DateTime?
+  notes               String?
+  assessedDifficulty  Int?                // 0..5 (коэффициент сложности)
+  assessedSize        Int?                 // 0..10 (размер в часах)
+  assessedAt          DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  master              Master?             @relation(fields: [masterId], references: [id])
+  checklistInstances  ChecklistInstance[] // Чек-листы ремонта (первичный осмотр и результат)
+  shoppingItems       RepairShoppingItem[] // Список покупок для ремонта
+
+  @@index([orgId])
+  @@index([masterId])
+  @@index([unitId])
+  @@index([bookingId])
+  @@index([taskId])
+  @@index([scheduledAt])
+}
+
+model RepairShoppingItem {
+  id          String   @id @default(cuid())
+  repairId    String
+  name        String   // Наименование
+  quantity    Float    @default(1) // Количество
+  amount      Int      // Сумма в копейках
+  currency    String   @default("RUB")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  repair      Repair   @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  photos      RepairShoppingItemPhoto[]
+
+  @@index([repairId])
+}
+
+model RepairShoppingItemPhoto {
+  id        String                @id @default(cuid())
+  itemId    String
+  url       String
+  caption   String?
+  order     Int                   @default(0)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  item      RepairShoppingItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
+
+enum RepairStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// Связь Unit ↔ Master (many-to-many)
+model UnitPreferredMaster {
+  id        String   @id @default(cuid())
+  unitId    String
+  masterId  String
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  master    Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([unitId, masterId])
+  @@index([unitId])
+  @@index([masterId])
+}
+
 // ===== Checklist Models (REFACTORED - Template → Instance → Promote) =====
 
 // Шаблоны (версионируемые)
@@ -717,16 +875,18 @@ model ChecklistInstance {
   unitId           String
   stage            ChecklistStage
   status           ChecklistStatus @default(DRAFT)
-  templateId       String
-  templateVersion  Int
+  templateId       String? // Опциональный для кастомных ремонтов
+  templateVersion  Int? // Опциональный для кастомных ремонтов
   cleaningId       String?
+  repairId         String? // Связь с ремонтом (для ремонтов)
   parentInstanceId String? // Для промоута
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
   unit           Unit                    @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  template       ChecklistTemplate       @relation(fields: [templateId], references: [id])
+  template       ChecklistTemplate?       @relation(fields: [templateId], references: [id])
   cleaning       Cleaning?               @relation(fields: [cleaningId], references: [id], onDelete: Cascade)
+  repair         Repair?                 @relation(fields: [repairId], references: [id], onDelete: Cascade)
   parentInstance ChecklistInstance?      @relation("InstancePromotion", fields: [parentInstanceId], references: [id])
   childInstances ChecklistInstance[]     @relation("InstancePromotion")
   items          ChecklistInstanceItem[] // Полная копия items (можно редактировать)
@@ -736,6 +896,7 @@ model ChecklistInstance {
   @@index([unitId, stage])
   @@index([templateId, templateVersion])
   @@index([cleaningId, stage])
+  @@index([repairId, stage])
   @@index([parentInstanceId])
 }
 
@@ -743,6 +904,8 @@ enum ChecklistStage {
   PRE_CLEANING
   CLEANING
   FINAL_REPORT
+  REPAIR_INSPECTION
+  REPAIR_RESULT
 }
 
 enum ChecklistStatus {
@@ -769,6 +932,7 @@ model ChecklistInstanceItem {
   instance    ChecklistInstance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   answers     ChecklistAnswer[]
   attachments ChecklistAttachment[]
+  tasks       Task[] // Связанные задачи
 
   @@unique([instanceId, key])
   @@index([instanceId])
@@ -1064,4 +1228,47 @@ model CleaningPricingRule {
   @@unique([orgId, unitId])
   @@index([orgId])
   @@index([unitId])
+}
+
+model RepairPricingRule {
+  id                    String   @id @default(cuid())
+  orgId                 String
+  unitId                String?
+  mode                  String   @default("BASIC") // "BASIC" | "INCREASED"
+  baseRepairPrice       Int      // в копейках
+  baseRepairCurrency    String   @default("RUB")
+  gradeStep             Float    @default(0.1) // для size (0-10)
+  difficultyStep        Float    @default(0.2) // для difficulty (0-5)
+  increasedDifficultyDelta Float @default(0.1)
+  extras                Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([orgId, unitId])
+  @@index([orgId])
+  @@index([unitId])
+}
+
+// ===== Source Models =====
+
+enum SourceType {
+  CLEANING  // Уборка
+  REPAIR    // Ремонт
+  BOOKING   // Бронирование
+  INSPECTION // Инспекция
+  OTHER     // Другое
+}
+
+model Source {
+  id        String     @id @default(cuid())
+  type      SourceType
+  entityId  String     // ID сущности (cleaning.id, repair.id и т.д.)
+  orgId     String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  tasks     Task[]
+
+  @@unique([type, entityId]) // Один источник = одна запись
+  @@index([type, entityId])
+  @@index([orgId])
 }

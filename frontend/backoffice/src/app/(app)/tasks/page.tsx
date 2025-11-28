@@ -14,7 +14,7 @@ import { Input } from '@/components/input'
 import { Dialog } from '@/components/dialog'
 import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
 import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon, ViewColumnsIcon } from '@heroicons/react/24/outline'
-import { GET_TASKS, GET_SERVICE_PROVIDERS, GET_CLEANERS, ASSIGN_TASK, UPDATE_TASK_STATUS, SCHEDULE_CLEANING } from '@/lib/graphql-queries'
+import { GET_TASKS, GET_SERVICE_PROVIDERS, GET_CLEANERS, GET_MASTERS, ASSIGN_TASK, UPDATE_TASK_STATUS, SCHEDULE_CLEANING } from '@/lib/graphql-queries'
 
 // Компонент карточки задачи
 function TaskCard({ task, onAssign, onUpdateStatus, onEdit }: { 
@@ -148,6 +148,7 @@ export default function TasksPage() {
   
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
+  const [assigneeType, setAssigneeType] = useState<'master' | 'provider'>('master')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [filters, setFilters] = useState({
@@ -193,6 +194,17 @@ export default function TasksPage() {
     enabled: !!orgId
   })
 
+  // Запрос мастеров (для задач MAINTENANCE)
+  const { data: mastersData } = useQuery<any>({
+    queryKey: ['masters', orgId],
+    queryFn: () => graphqlClient.request(GET_MASTERS, {
+      orgId: orgId!,
+      isActive: true,
+      first: 100
+    }),
+    enabled: !!orgId
+  })
+
   // Мутации
   const assignTaskMutation = useMutation<AssignTaskMutation, Error, any>({
     mutationFn: (input: any) => graphqlClient.request(ASSIGN_TASK, { input }),
@@ -218,7 +230,7 @@ export default function TasksPage() {
     }
   })
 
-  const handleAssignTask = async (taskId: string, assigneeId: string, taskType: string) => {
+  const handleAssignTask = async (taskId: string, assigneeId: string, taskType: string, assigneeType?: 'master' | 'provider') => {
     // Для задач типа CLEANING назначаем уборщика и сразу создаем запись Cleaning
     if (taskType === 'CLEANING') {
       // Сначала назначаем уборщика на задачу
@@ -263,6 +275,19 @@ export default function TasksPage() {
           console.error('Ошибка при создании уборки:', error)
           alert('⚠️ Уборщик назначен на задачу, но не удалось автоматически создать запись уборки.\n\nПожалуйста, создайте уборку вручную через страницу /cleanings или кнопку "Выполнить уборку".')
         }
+      }
+    } else if (taskType === 'MAINTENANCE') {
+      // Для задач типа MAINTENANCE можем назначить мастера или организацию
+      if (assigneeType === 'master') {
+        assignTaskMutation.mutate({
+          taskId,
+          masterId: assigneeId
+        })
+      } else {
+        assignTaskMutation.mutate({
+          taskId,
+          providerId: assigneeId
+        })
       }
     } else {
       // Для остальных типов задач просто назначаем провайдера
@@ -651,14 +676,33 @@ export default function TasksPage() {
       </div>
 
       {/* Диалог назначения задачи */}
-      <Dialog open={showAssignDialog} onClose={() => setShowAssignDialog(false)}>
+      <Dialog open={showAssignDialog} onClose={() => {
+        setShowAssignDialog(false)
+        setAssigneeType('master')
+      }}>
         <div className="p-6">
           <Heading level={2} className="mb-4">Назначить задачу</Heading>
           <Text className="mb-4">
             {selectedTask?.type === 'CLEANING' 
               ? 'Выберите уборщика для выполнения уборки' 
+              : selectedTask?.type === 'MAINTENANCE'
+              ? 'Выберите исполнителя для задачи'
               : 'Выберите поставщика услуг для задачи'}
           </Text>
+          
+          {selectedTask?.type === 'MAINTENANCE' && (
+            <div className="mb-4">
+              <Text className="mb-2 text-sm font-medium">Тип исполнителя:</Text>
+              <Select
+                value={assigneeType}
+                onChange={(e) => setAssigneeType(e.target.value as 'master' | 'provider')}
+              >
+                <option value="master">Мастер</option>
+                <option value="provider">Организация</option>
+              </Select>
+            </div>
+          )}
+          
           <div className="space-y-3">
             {selectedTask?.type === 'CLEANING' ? (
               // Показываем уборщиков для задач типа CLEANING
@@ -691,6 +735,62 @@ export default function TasksPage() {
                   </div>
                 )
               })
+            ) : selectedTask?.type === 'MAINTENANCE' ? (
+              // Для задач типа MAINTENANCE показываем мастеров или организации в зависимости от выбора
+              assigneeType === 'master' ? (
+                mastersData?.masters?.edges?.map((edge: any) => {
+                  const master = edge.node
+                  return (
+                    <div
+                      key={master.id}
+                      className="p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                      onClick={() => {
+                        if (selectedTask) {
+                          handleAssignTask(selectedTask.id, master.id, selectedTask.type, 'master')
+                          setShowAssignDialog(false)
+                          setAssigneeType('master')
+                        }
+                      }}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <Text className="font-medium">
+                            🔧 {master.firstName} {master.lastName}
+                          </Text>
+                          {master.phone && (
+                            <Text className="text-sm text-zinc-500">{master.phone}</Text>
+                          )}
+                        </div>
+                        {master.rating && (
+                          <Badge color="yellow">⭐ {master.rating.toFixed(1)}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                providersData?.serviceProviders?.map((provider) => (
+                  <div
+                    key={provider.id}
+                    className="p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                    onClick={() => {
+                      if (selectedTask) {
+                        handleAssignTask(selectedTask.id, provider.id, selectedTask.type, 'provider')
+                        setShowAssignDialog(false)
+                        setAssigneeType('master')
+                      }
+                    }}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <Text className="font-medium">{provider.name}</Text>
+                        <Text className="text-sm text-zinc-500">{provider.contact}</Text>
+                      </div>
+                      <Badge color="blue">Рейтинг: {provider.rating}</Badge>
+                    </div>
+                  </div>
+                ))
+              )
             ) : (
               // Показываем поставщиков услуг для остальных типов задач
               providersData?.serviceProviders?.map((provider) => (
@@ -721,7 +821,21 @@ export default function TasksPage() {
                 </Text>
               </div>
             )}
-            {selectedTask?.type !== 'CLEANING' && (!providersData?.serviceProviders || providersData.serviceProviders.length === 0) && (
+            {selectedTask?.type === 'MAINTENANCE' && assigneeType === 'master' && (!mastersData?.masters?.edges || mastersData.masters.edges.length === 0) && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <Text className="text-yellow-800 dark:text-yellow-200">
+                  Нет доступных мастеров. Добавьте мастеров на странице <Link href="/repairs/masters" className="underline">Ремонтники</Link>.
+                </Text>
+              </div>
+            )}
+            {selectedTask?.type === 'MAINTENANCE' && assigneeType === 'provider' && (!providersData?.serviceProviders || providersData.serviceProviders.length === 0) && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <Text className="text-yellow-800 dark:text-yellow-200">
+                  Нет доступных организаций для этого типа задачи.
+                </Text>
+              </div>
+            )}
+            {selectedTask?.type !== 'CLEANING' && selectedTask?.type !== 'MAINTENANCE' && (!providersData?.serviceProviders || providersData.serviceProviders.length === 0) && (
               <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                 <Text className="text-yellow-800 dark:text-yellow-200">
                   Нет доступных поставщиков услуг для этого типа задачи.

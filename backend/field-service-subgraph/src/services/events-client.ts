@@ -7,13 +7,23 @@ import {
 
 const logger = createGraphQLLogger('cleaning-events-client');
 const EVENT_TYPE_CLEANING_READY_FOR_REVIEW =
-  (EventType as any).EVENT_TYPE_CLEANING_READY_FOR_REVIEW ?? (15 as EventType);
+  (EventType as any).EVENT_TYPE_CLEANING_READY_FOR_REVIEW ?? (5 as EventType);
 const EVENT_TYPE_CLEANING_DIFFICULTY_SET =
   (EventType as any).EVENT_TYPE_CLEANING_DIFFICULTY_SET ?? (8 as EventType);
 const EVENT_TYPE_CLEANING_APPROVED =
   (EventType as any).EVENT_TYPE_CLEANING_APPROVED ?? (9 as EventType);
 const EVENT_TYPE_CLEANING_PRECHECK_COMPLETED =
   (EventType as any).EVENT_TYPE_CLEANING_PRECHECK_COMPLETED ?? (7 as EventType);
+const EVENT_TYPE_REPAIR_ASSIGNED =
+  (EventType as any).EVENT_TYPE_REPAIR_ASSIGNED ?? (15 as EventType);
+const EVENT_TYPE_REPAIR_INSPECTION_COMPLETED =
+  (EventType as any).EVENT_TYPE_REPAIR_INSPECTION_COMPLETED ?? (16 as EventType);
+const EVENT_TYPE_REPAIR_STARTED =
+  (EventType as any).EVENT_TYPE_REPAIR_STARTED ?? (17 as EventType);
+const EVENT_TYPE_REPAIR_COMPLETED =
+  (EventType as any).EVENT_TYPE_REPAIR_COMPLETED ?? (18 as EventType);
+const EVENT_TYPE_REPAIR_CANCELLED =
+  (EventType as any).EVENT_TYPE_REPAIR_CANCELLED ?? (19 as EventType);
 
 /**
  * Клиент для публикации событий в events-subgraph через gRPC.
@@ -155,7 +165,7 @@ export class EventsClient {
       
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_ASSIGNED,
-        sourceSubgraph: 'cleaning-subgraph',
+        sourceSubgraph: 'field-service-subgraph',
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
@@ -195,7 +205,7 @@ export class EventsClient {
       
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_STARTED,
-        sourceSubgraph: 'cleaning-subgraph',
+        sourceSubgraph: 'field-service-subgraph',
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
@@ -257,7 +267,7 @@ export class EventsClient {
       
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_COMPLETED,
-        sourceSubgraph: 'cleaning-subgraph',
+        sourceSubgraph: 'field-service-subgraph',
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
@@ -321,7 +331,7 @@ export class EventsClient {
 
       await this.grpcClient.publishEvent({
         eventType: EVENT_TYPE_CLEANING_PRECHECK_COMPLETED,
-        sourceSubgraph: 'cleaning-subgraph',
+        sourceSubgraph: 'field-service-subgraph',
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
@@ -380,7 +390,7 @@ export class EventsClient {
 
       await this.grpcClient.publishEvent({
         eventType: EVENT_TYPE_CLEANING_READY_FOR_REVIEW,
-        sourceSubgraph: 'cleaning-subgraph',
+        sourceSubgraph: 'field-service-subgraph',
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
@@ -432,7 +442,7 @@ export class EventsClient {
       
       await this.grpcClient.publishEvent({
         eventType: EventType.EVENT_TYPE_CLEANING_CANCELLED,
-        sourceSubgraph: 'cleaning-subgraph',
+        sourceSubgraph: 'field-service-subgraph',
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
@@ -489,7 +499,7 @@ export class EventsClient {
 
       await this.grpcClient.publishEvent({
         eventType: EVENT_TYPE_CLEANING_DIFFICULTY_SET,
-        sourceSubgraph: 'cleaning-subgraph',
+        sourceSubgraph: 'field-service-subgraph',
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
@@ -608,7 +618,7 @@ export class EventsClient {
       
       await this.grpcClient.publishEvent({
         eventType: eventTypeValue,
-        sourceSubgraph: 'cleaning-subgraph',
+        sourceSubgraph: 'field-service-subgraph',
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
@@ -654,7 +664,7 @@ export class EventsClient {
 
       await this.grpcClient.publishEvent({
         eventType: EVENT_TYPE_CLEANING_APPROVED,
-        sourceSubgraph: 'cleaning-subgraph',
+        sourceSubgraph: 'field-service-subgraph',
         entityType: 'Cleaning',
         entityId: params.cleaningId,
         orgId: params.orgId,
@@ -681,6 +691,286 @@ export class EventsClient {
       logger.error('Failed to publish CLEANING_APPROVED event', {
         error: error.message,
         params,
+      });
+    }
+  }
+  
+  /**
+   * Опубликовать событие REPAIR_ASSIGNED
+   */
+  async publishRepairAssigned(params: {
+    repairId: string;
+    masterId: string;
+    unitId: string;
+    unitName: string;
+    unitAddress?: string;
+    scheduledAt: string;
+    masterName?: string;
+    notes?: string;
+    orgId?: string;
+    targetUserId?: string;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      logger.info('Publishing REPAIR_ASSIGNED event', params);
+      
+      const targetUserIds = params.targetUserId ? [params.targetUserId] : [params.masterId];
+      
+      await this.grpcClient.publishEvent({
+        eventType: EVENT_TYPE_REPAIR_ASSIGNED,
+        sourceSubgraph: 'field-service-subgraph',
+        entityType: 'Repair',
+        entityId: params.repairId,
+        orgId: params.orgId,
+        targetUserIds,
+        payload: {
+          repairId: params.repairId,
+          masterId: params.masterId,
+          masterName: params.masterName,
+          unitId: params.unitId,
+          unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          notes: params.notes
+        }
+      });
+      
+      logger.info('✅ REPAIR_ASSIGNED event published', { repairId: params.repairId });
+    } catch (error: any) {
+      logger.error('Failed to publish REPAIR_ASSIGNED event', { 
+        error: error.message,
+        params 
+      });
+    }
+  }
+  
+  /**
+   * Опубликовать событие REPAIR_INSPECTION_COMPLETED
+   */
+  async publishRepairInspectionCompleted(params: {
+    repairId: string;
+    masterId?: string;
+    masterName?: string;
+    unitName: string;
+    unitAddress?: string;
+    submittedAt: string;
+    scheduledAt?: string;
+    notes?: string;
+    orgId?: string;
+    managerIds: string[];
+    checklistStats?: {
+      total: number;
+      completed: number;
+      incomplete: number;
+      incompleteItems?: Array<{ title: string; key: string }>;
+    };
+    photoUrls?: Array<{ url: string; caption?: string }>;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      if (params.managerIds.length === 0) {
+        logger.info('No managers to notify for REPAIR_INSPECTION_COMPLETED', {
+          repairId: params.repairId,
+        });
+        return;
+      }
+
+      logger.info('Publishing REPAIR_INSPECTION_COMPLETED event', params);
+
+      await this.grpcClient.publishEvent({
+        eventType: EVENT_TYPE_REPAIR_INSPECTION_COMPLETED,
+        sourceSubgraph: 'field-service-subgraph',
+        entityType: 'Repair',
+        entityId: params.repairId,
+        orgId: params.orgId,
+        targetUserIds: params.managerIds,
+        payload: {
+          repairId: params.repairId,
+          masterId: params.masterId,
+          masterName: params.masterName,
+          unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          submittedAt: params.submittedAt,
+          notes: params.notes,
+          checklistStats: params.checklistStats,
+          photoUrls: params.photoUrls,
+        },
+      });
+
+      logger.info('REPAIR_INSPECTION_COMPLETED event published', {
+        repairId: params.repairId,
+        managerIds: params.managerIds,
+      });
+    } catch (error: any) {
+      logger.error('Failed to publish REPAIR_INSPECTION_COMPLETED event', {
+        error: error.message,
+        params,
+      });
+    }
+  }
+  
+  /**
+   * Опубликовать событие REPAIR_STARTED
+   */
+  async publishRepairStarted(params: {
+    repairId: string;
+    masterId: string;
+    unitName: string;
+    unitAddress?: string;
+    masterName?: string;
+    scheduledAt?: string;
+    notes?: string;
+    orgId?: string;
+    targetUserId?: string;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      logger.info('Publishing REPAIR_STARTED event', params);
+      
+      const targetUserIds = params.targetUserId ? [params.targetUserId] : [params.masterId];
+      
+      await this.grpcClient.publishEvent({
+        eventType: EVENT_TYPE_REPAIR_STARTED,
+        sourceSubgraph: 'field-service-subgraph',
+        entityType: 'Repair',
+        entityId: params.repairId,
+        orgId: params.orgId,
+        targetUserIds,
+        payload: {
+          repairId: params.repairId,
+          masterId: params.masterId,
+          masterName: params.masterName,
+          unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          startedAt: new Date().toISOString(),
+          notes: params.notes
+        }
+      });
+      
+      logger.info('✅ REPAIR_STARTED event published', { repairId: params.repairId });
+    } catch (error: any) {
+      logger.error('Failed to publish REPAIR_STARTED event', { 
+        error: error.message,
+        params 
+      });
+    }
+  }
+  
+  /**
+   * Опубликовать событие REPAIR_COMPLETED
+   */
+  async publishRepairCompleted(params: {
+    repairId: string;
+    masterId: string;
+    unitName: string;
+    unitAddress?: string;
+    masterName?: string;
+    completedAt: string;
+    scheduledAt?: string;
+    startedAt?: string;
+    notes?: string;
+    orgId?: string;
+    targetUserId?: string;
+    targetUserIds?: string[];
+    checklistStats?: {
+      total: number;
+      completed: number;
+      incomplete: number;
+      incompleteItems?: Array<{ title: string; key: string }>;
+    };
+    photoUrls?: Array<{ url: string; caption?: string }>;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      logger.info('Publishing REPAIR_COMPLETED event', params);
+      
+      const targetUserIds = (params.targetUserIds && params.targetUserIds.length > 0)
+        ? params.targetUserIds
+        : params.targetUserId
+          ? [params.targetUserId]
+          : [params.masterId];
+      
+      await this.grpcClient.publishEvent({
+        eventType: EVENT_TYPE_REPAIR_COMPLETED,
+        sourceSubgraph: 'field-service-subgraph',
+        entityType: 'Repair',
+        entityId: params.repairId,
+        orgId: params.orgId,
+        targetUserIds,
+        payload: {
+          repairId: params.repairId,
+          masterId: params.masterId,
+          masterName: params.masterName,
+          unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          startedAt: params.startedAt,
+          completedAt: params.completedAt,
+          notes: params.notes,
+          checklistStats: params.checklistStats,
+          photoUrls: params.photoUrls,
+        }
+      });
+      
+      logger.info('✅ REPAIR_COMPLETED event published', { repairId: params.repairId });
+    } catch (error: any) {
+      logger.error('Failed to publish REPAIR_COMPLETED event', { 
+        error: error.message,
+        params 
+      });
+    }
+  }
+  
+  /**
+   * Опубликовать событие REPAIR_CANCELLED
+   */
+  async publishRepairCancelled(params: {
+    repairId: string;
+    masterId?: string;
+    masterName?: string;
+    unitName: string;
+    unitAddress?: string;
+    scheduledAt?: string;
+    reason?: string;
+    notes?: string;
+    orgId?: string;
+    targetUserId?: string;
+  }): Promise<void> {
+    try {
+      await this.ensureConnected();
+      logger.info('Publishing REPAIR_CANCELLED event', params);
+      
+      const targetUserIds = params.targetUserId 
+        ? [params.targetUserId] 
+        : (params.masterId ? [params.masterId] : []);
+      
+      await this.grpcClient.publishEvent({
+        eventType: EVENT_TYPE_REPAIR_CANCELLED,
+        sourceSubgraph: 'field-service-subgraph',
+        entityType: 'Repair',
+        entityId: params.repairId,
+        orgId: params.orgId,
+        targetUserIds,
+        payload: {
+          repairId: params.repairId,
+          masterId: params.masterId,
+          masterName: params.masterName,
+          unitName: params.unitName,
+          unitAddress: params.unitAddress,
+          scheduledAt: params.scheduledAt,
+          reason: params.reason,
+          notes: params.notes,
+          cancelledAt: new Date().toISOString()
+        }
+      });
+      
+      logger.info('✅ REPAIR_CANCELLED event published', { repairId: params.repairId });
+    } catch (error: any) {
+      logger.error('Failed to publish REPAIR_CANCELLED event', { 
+        error: error.message,
+        params 
       });
     }
   }

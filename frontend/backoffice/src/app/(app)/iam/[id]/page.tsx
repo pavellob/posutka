@@ -130,7 +130,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
     status: 'ACTIVE',
   })
   const [hasChanges, setHasChanges] = useState(false)
-  const [selectedRoles, setSelectedRoles] = useState<Array<'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR'>>([])
+  const [selectedRoles, setSelectedRoles] = useState<Array<'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'MASTER' | 'OPERATOR'>>([])
 
   const { data: userData, isLoading, error } = useQuery({
     queryKey: ['user', params.id],
@@ -160,7 +160,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
       const currentOrgMemberships = userData.memberships.filter(
         (m: any) => m.organization?.id === currentOrgId
       )
-      const roles = currentOrgMemberships.map((m: any) => m.role as 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR')
+      const roles = currentOrgMemberships.map((m: any) => m.role as 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'MASTER' | 'OPERATOR')
       setSelectedRoles(roles)
     } else {
       setSelectedRoles([])
@@ -180,7 +180,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
   })
 
   const addMemberMutation = useMutation({
-    mutationFn: async ({ userId, orgId, role }: { userId: string; orgId: string; role: 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR' }) => {
+    mutationFn: async ({ userId, orgId, role }: { userId: string; orgId: string; role: 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'MASTER' | 'OPERATOR' }) => {
       const response = await graphqlClient.request(ADD_MEMBER, {
         input: {
           userId,
@@ -199,7 +199,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
   })
 
   const updateMemberRoleMutation = useMutation({
-    mutationFn: async ({ membershipId, role }: { membershipId: string; role: 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR' }) => {
+    mutationFn: async ({ membershipId, role }: { membershipId: string; role: 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'MASTER' | 'OPERATOR' }) => {
       const response = await graphqlClient.request(UPDATE_MEMBER_ROLE, {
         input: {
           membershipId,
@@ -283,7 +283,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
     }
   }
 
-  const handleRoleToggle = (role: 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR') => {
+  const handleRoleToggle = (role: 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'MASTER' | 'OPERATOR') => {
     setSelectedRoles(prev => {
       if (prev.includes(role)) {
         return prev.filter(r => r !== role)
@@ -577,12 +577,13 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
                 Выберите роли для пользователя в организации &quot;{currentOrganization?.name || currentOrgId}&quot;.
               </Text>
               <div className="space-y-2">
-                {(['OWNER', 'MANAGER', 'STAFF', 'CLEANER', 'OPERATOR'] as const).map((role) => {
+                {(['OWNER', 'MANAGER', 'STAFF', 'CLEANER', 'MASTER', 'OPERATOR'] as const).map((role) => {
                   const roleLabels: Record<string, string> = {
                     OWNER: 'Владелец',
                     MANAGER: 'Менеджер',
                     STAFF: 'Сотрудник',
                     CLEANER: 'Уборщик',
+                    MASTER: 'Мастер',
                     OPERATOR: 'Оператор',
                   }
                   const roleDescriptions: Record<string, string> = {
@@ -590,6 +591,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
                     MANAGER: 'Управление операциями и утверждение уборок',
                     STAFF: 'Базовый доступ к функциям',
                     CLEANER: 'Доступ к задачам уборки',
+                    MASTER: 'Доступ к задачам ремонта',
                     OPERATOR: 'Мониторинг и поддержка',
                   }
                   const roleColors: Record<string, 'orange' | 'blue' | 'zinc' | 'lime' | 'amber'> = {
@@ -597,6 +599,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
                     MANAGER: 'blue',
                     STAFF: 'zinc',
                     CLEANER: 'lime',
+                    MASTER: 'orange',
                     OPERATOR: 'amber',
                   }
                   const isSelected = selectedRoles.includes(role)
@@ -682,7 +685,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
                     const currentOrgMemberships = userData.memberships.filter(
                       (m: any) => m.organization?.id === currentOrgId
                     )
-                    const roles = currentOrgMemberships.map((m: any) => m.role as 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'OPERATOR')
+                    const roles = currentOrgMemberships.map((m: any) => m.role as 'OWNER' | 'MANAGER' | 'STAFF' | 'CLEANER' | 'MASTER' | 'OPERATOR')
                     setSelectedRoles(roles)
                   } else {
                     setSelectedRoles([])

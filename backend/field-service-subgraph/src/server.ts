@@ -25,7 +25,7 @@ import { GrpcTransport } from './grpc/grpc.transport.js';
 import { ChecklistInstanceService } from './services/checklist-instance.service.js';
 import { CleaningService } from './services/cleaning.service.js';
 
-const logger = createGraphQLLogger('cleaning-subgraph');
+const logger = createGraphQLLogger('field-service-subgraph');
 
 // Отладка переменных окружения при старте
 const rawDbUrl = process.env.DATABASE_URL || '';

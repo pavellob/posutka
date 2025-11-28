@@ -19,7 +19,7 @@ export class OpsDLPrisma implements IOpsDL {
   async getTaskById(id: string): Promise<Task | null> {
     const task = await this.prisma.task.findUnique({
       where: { id },
-      include: { assignedProvider: true }
+      include: { assignedProvider: true, assignedMaster: true }
     });
     
     return task ? this.mapTaskFromPrisma(task) : null;
@@ -38,7 +38,7 @@ export class OpsDLPrisma implements IOpsDL {
     const [tasks, totalCount] = await Promise.all([
       this.prisma.task.findMany({
         where,
-        include: { assignedProvider: true },
+        include: { assignedProvider: true, assignedMaster: true },
         take: first + 1,
         skip,
         cursor,
@@ -71,13 +71,22 @@ export class OpsDLPrisma implements IOpsDL {
         orgId: input.orgId,
         unitId: input.unitId,
         bookingId: input.bookingId,
+        sourceId: input.sourceId,
+        checklistItemKey: input.checklistItemKey,
+        checklistItemInstanceId: input.checklistItemInstanceId,
+        authorId: input.authorId,
+        assignedProviderId: input.assignedProviderId,
+        assignedCleanerId: input.assignedCleanerId,
+        assignedMasterId: input.assignedMasterId,
+        plannedForNextChecklist: input.plannedForNextChecklist ?? false,
+        sourceCleaningId: input.sourceCleaningId,
         type: input.type,
         dueAt: input.dueAt ? new Date(input.dueAt) : null,
         checklist: input.checklist || [],
         note: input.note,
         status: 'TODO'
       },
-      include: { assignedProvider: true }
+      include: { assignedProvider: true, assignedMaster: true }
     });
 
     return this.mapTaskFromPrisma(task);
@@ -88,13 +97,14 @@ export class OpsDLPrisma implements IOpsDL {
     
     if (input.providerId) updateData.assignedProviderId = input.providerId;
     if (input.cleanerId) updateData.assignedCleanerId = input.cleanerId;
+    if (input.masterId) updateData.assignedMasterId = input.masterId;
     if (input.status) updateData.status = input.status;
     if (input.note) updateData.note = input.note;
 
     const task = await this.prisma.task.update({
       where: { id: input.taskId },
       data: updateData,
-      include: { assignedProvider: true }
+      include: { assignedProvider: true, assignedMaster: true }
     });
 
     return this.mapTaskFromPrisma(task);
@@ -104,7 +114,7 @@ export class OpsDLPrisma implements IOpsDL {
     const task = await this.prisma.task.update({
       where: { id },
       data: { status: status as any },
-      include: { assignedProvider: true }
+      include: { assignedProvider: true, assignedMaster: true }
     });
 
     return this.mapTaskFromPrisma(task);
@@ -121,7 +131,7 @@ export class OpsDLPrisma implements IOpsDL {
     const task = await this.prisma.task.update({
       where: { id },
       data: updateData,
-      include: { assignedProvider: true }
+      include: { assignedProvider: true, assignedMaster: true }
     });
 
     return this.mapTaskFromPrisma(task);
@@ -227,11 +237,18 @@ export class OpsDLPrisma implements IOpsDL {
       orgId: task.orgId,
       unitId: task.unitId,
       bookingId: task.bookingId,
+      sourceId: task.sourceId,
+      checklistItemKey: task.checklistItemKey,
+      checklistItemInstanceId: task.checklistItemInstanceId,
+      authorId: task.authorId,
       type: task.type,
       status: task.status,
       dueAt: task.dueAt?.toISOString(),
       assignedProviderId: task.assignedProviderId,
       assignedCleanerId: task.assignedCleanerId,
+      assignedMasterId: task.assignedMasterId,
+      plannedForNextChecklist: task.plannedForNextChecklist ?? false,
+      sourceCleaningId: task.sourceCleaningId,
       checklist: task.checklist,
       note: task.note,
       createdAt: task.createdAt.toISOString(),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef, FormEvent } from 'react';
+import { useState, useCallback, useMemo, useRef, FormEvent, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -15,6 +15,7 @@ import { graphqlClient } from '@/lib/graphql-client';
 import { 
   GET_CHECKLIST_INSTANCE,
   GET_CHECKLIST_BY_CLEANING_AND_STAGE,
+  GET_CHECKLIST_BY_REPAIR_AND_STAGE,
   ANSWER_CHECKLIST_ITEM,
   ATTACH_TO_CHECKLIST_ITEM,
   GET_CHECKLIST_ATTACHMENT_UPLOAD_URLS,
@@ -30,6 +31,7 @@ import {
   TrashIcon,
   Bars3Icon,
   PlusIcon,
+  ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline';
 import type { PresignedUploadUrl } from '@/hooks/useFileUpload';
 import { Input } from './input';
@@ -39,11 +41,13 @@ interface ChecklistInstanceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   unitId: string;
-  stage: 'PRE_CLEANING' | 'CLEANING' | 'FINAL_REPORT';
+  stage: 'PRE_CLEANING' | 'CLEANING' | 'FINAL_REPORT' | 'REPAIR_INSPECTION' | 'REPAIR_RESULT';
   instanceId?: string;
   cleaningId?: string;
+  repairId?: string;
   canEdit?: boolean;
   onStartCleaning?: () => void;
+  orgId?: string;
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -127,6 +131,7 @@ export function ChecklistInstanceDialog({
   cleaningId,
   canEdit = true,
   onStartCleaning,
+  orgId,
 }: ChecklistInstanceDialogProps) {
   const queryClient = useQueryClient();
   const sensors = useSensors(
@@ -144,9 +149,10 @@ export function ChecklistInstanceDialog({
   const [newItemError, setNewItemError] = useState<string | null>(null);
   const [selectedExampleImage, setSelectedExampleImage] = useState<{ url: string; caption?: string; index: number; total: number } | null>(null);
   const [exampleImageList, setExampleImageList] = useState<Array<{ url: string; caption?: string }>>([]);
+  const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
 
   // Получить инстанс чек-листа
-  const resolvedInstanceKey = instanceId || `${cleaningId ?? unitId}-${stage}`;
+  const resolvedInstanceKey = instanceId || `${repairId ?? cleaningId ?? unitId}-${stage}`;
 
   const { data: instanceData, isLoading } = useQuery<any>({
     queryKey: ['checklist-instance', resolvedInstanceKey],
@@ -154,15 +160,39 @@ export function ChecklistInstanceDialog({
       if (instanceId) {
         return graphqlClient.request(GET_CHECKLIST_INSTANCE, { id: instanceId });
       }
+      if (repairId) {
+        return graphqlClient.request(GET_CHECKLIST_BY_REPAIR_AND_STAGE, { repairId, stage });
+      }
+      if (!cleaningId) throw new Error('Either instanceId, cleaningId, or repairId must be provided');
       return graphqlClient.request(GET_CHECKLIST_BY_CLEANING_AND_STAGE, { cleaningId, stage });
     },
-    enabled: isOpen && !!unitId && (!!instanceId || !!cleaningId),
+    enabled: isOpen && !!unitId && (!!instanceId || !!cleaningId || !!repairId),
   });
 
-  const instance = instanceData?.checklistInstance || instanceData?.checklistByCleaning;
+  const instance = instanceData?.checklistInstance || instanceData?.checklistByCleaning || instanceData?.checklistByRepair;
   const items = instance?.items || [];
   const answers = instance?.answers || [];
   const attachments = useMemo(() => instance?.attachments || [], [instance?.attachments]);
+  
+  // Инициализируем itemNotes из существующих ответов
+  useEffect(() => {
+    if (answers && answers.length > 0) {
+      const notesMap: Record<string, string> = {};
+      answers.forEach((answer: any) => {
+        if (answer.note) {
+          notesMap[answer.itemKey] = answer.note;
+        }
+      });
+      setItemNotes((prev) => {
+        // Обновляем только если есть новые заметки, чтобы не перезаписывать пользовательский ввод
+        const hasNewNotes = Object.keys(notesMap).length > 0;
+        if (hasNewNotes) {
+          return { ...prev, ...notesMap };
+        }
+        return prev;
+      });
+    }
+  }, [answers]);
   const resetNewItemForm = () => {
     setNewItemTitle('');
     setNewItemDescription('');
@@ -268,14 +298,27 @@ export function ChecklistInstanceDialog({
     onStartCleaning();
   }, [canEdit, instance?.status, onStartCleaning, stage]);
 
-  const handleAnswer = (itemKey: string, value: any) => {
+  const handleAnswer = (itemKey: string, value: any, note?: string) => {
     if (!instance?.id) return;
     triggerStartCleaning();
+    const noteToSave = note !== undefined ? note : (itemNotes[itemKey] || undefined);
     answerMutation.mutate({
       instanceId: instance.id,
       itemKey,
       value,
+      note: noteToSave,
     });
+  };
+
+  const handleNoteChange = (itemKey: string, note: string) => {
+    setItemNotes((prev) => ({ ...prev, [itemKey]: note }));
+  };
+
+  const handleSaveNote = (itemKey: string) => {
+    const answer = getAnswer(itemKey);
+    if (answer && answer.value !== undefined && answer.value !== null) {
+      handleAnswer(itemKey, answer.value, itemNotes[itemKey]);
+    }
   };
 
   // Получить presigned URLs для загрузки фото
@@ -432,11 +475,13 @@ export function ChecklistInstanceDialog({
     const hasRequiredPhotos = item.requiresPhoto
       ? attachmentsForItem.length >= (item.photoMin || 1)
       : true
-    const hasValue = answer !== undefined && answer !== null
+    const hasValue = answer !== undefined && answer !== null && answer.value !== undefined && answer.value !== null
     const value = answer?.value
-    const isCompleted = item.requiresPhoto ? hasRequiredPhotos : !!value
+    // isCompleted: true если есть ответ (true или false) И выполнены требования по фото
+    const isCompleted = item.requiresPhoto ? (hasValue && hasRequiredPhotos) : hasValue
     const isNegative = value === false
-    const isMissingRequired = item.required && (!isCompleted || value === undefined)
+    // isMissingRequired: обязательный пункт не заполнен (нет ответа вообще)
+    const isMissingRequired = item.required && !hasValue
     return { item, answer, attachments: attachmentsForItem, isCompleted, isNegative, isMissingRequired }
   })
 
@@ -677,28 +722,100 @@ export function ChecklistInstanceDialog({
                           {item.description}
                         </Text>
                       )}
+                      {/* Задачи, связанные с этим пунктом */}
+                      {item.tasks && item.tasks.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <Text className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                            Связанные задачи:
+                          </Text>
+                          {item.tasks.map((task: any) => (
+                            <div
+                              key={task.id}
+                              className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-700"
+                            >
+                              <ClipboardDocumentListIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              <div className="flex-1 min-w-0">
+                                <Text className="text-xs font-medium text-blue-900 dark:text-blue-100 truncate">
+                                  {task.note || 'Задача'}
+                                </Text>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <Badge
+                                    color={
+                                      task.status === 'DONE'
+                                        ? 'green'
+                                        : task.status === 'IN_PROGRESS'
+                                          ? 'blue'
+                                          : 'orange'
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {task.status === 'DONE'
+                                      ? 'Завершена'
+                                      : task.status === 'IN_PROGRESS'
+                                        ? 'В работе'
+                                        : 'Ожидает'}
+                                  </Badge>
+                                  {task.assignedTo && (
+                                    <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                                      {task.assignedTo.name}
+                                    </Text>
+                                  )}
+                                  {task.assignedCleaner && (
+                                    <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                                      {task.assignedCleaner.firstName} {task.assignedCleaner.lastName}
+                                    </Text>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Answer */}
                   {item.type === 'BOOL' && (
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        onClick={() => handleAnswer(item.key, true)}
-                        color={answer?.value === true ? 'green' : 'zinc'}
-                        disabled={!canEdit || instance.status !== 'DRAFT'}
-                      >
-                        <CheckCircleIcon className="w-4 h-4 mr-1" />
-                        Да
-                      </Button>
-                      <Button
-                        onClick={() => handleAnswer(item.key, false)}
-                        color={answer?.value === false ? 'red' : 'zinc'}
-                        disabled={!canEdit || instance.status !== 'DRAFT'}
-                      >
-                        <XCircleIcon className="w-4 h-4 mr-1" />
-                        Нет
-                      </Button>
+                    <div className="space-y-3 mt-3">
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleAnswer(item.key, true)}
+                          color={answer?.value === true ? 'green' : 'zinc'}
+                          disabled={!canEdit || instance.status !== 'DRAFT'}
+                        >
+                          <CheckCircleIcon className="w-4 h-4 mr-1" />
+                          Выполнено
+                        </Button>
+                        <Button
+                          onClick={() => handleAnswer(item.key, false)}
+                          color={answer?.value === false ? 'red' : 'zinc'}
+                          disabled={!canEdit || instance.status !== 'DRAFT'}
+                        >
+                          <XCircleIcon className="w-4 h-4 mr-1" />
+                          Проблема
+                        </Button>
+                      </div>
+                      {/* Описание/комментарий к пункту */}
+                      {canEdit && instance.status === 'DRAFT' && (
+                        <div>
+                          <Textarea
+                            value={itemNotes[item.key] || answer?.note || ''}
+                            onChange={(e) => handleNoteChange(item.key, e.target.value)}
+                            onBlur={() => {
+                              // Сохраняем описание при потере фокуса, если есть ответ
+                              if (answer && answer.value !== undefined && answer.value !== null) {
+                                handleSaveNote(item.key);
+                              }
+                            }}
+                            placeholder="Добавить описание или комментарий (опционально)"
+                            rows={2}
+                            className="w-full"
+                          />
+                          <Text className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                            Описание сохраняется автоматически при потере фокуса
+                          </Text>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -827,9 +944,10 @@ export function ChecklistInstanceDialog({
                     )}
                   </div>
 
-                  {/* Note */}
-                  {answer?.note && (
+                  {/* Note - показываем только если чеклист не в режиме редактирования */}
+                  {answer?.note && (!canEdit || instance.status !== 'DRAFT') && (
                     <div className="mt-3 p-2 bg-gray-100 dark:bg-zinc-800 rounded">
+                      <Text className="text-sm font-medium mb-1">Описание:</Text>
                       <Text className="text-sm">{answer.note}</Text>
                     </div>
                   )}
@@ -873,6 +991,7 @@ export function ChecklistInstanceDialog({
         )}
       </DialogActions>
     </Dialog>
+
 
     {/* Dialog для просмотра увеличенного примера фото */}
     {selectedExampleImage && (

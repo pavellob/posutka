@@ -36,6 +36,13 @@ enum EventType {
   EVENT_TYPE_BOOKING_CHECKIN = 13;
   EVENT_TYPE_BOOKING_CHECKOUT = 14;
   
+  // Repair
+  EVENT_TYPE_REPAIR_ASSIGNED = 15; // Ремонт назначен мастеру
+  EVENT_TYPE_REPAIR_INSPECTION_COMPLETED = 16; // Осмотр ремонта завершен
+  EVENT_TYPE_REPAIR_STARTED = 17; // Ремонт начат
+  EVENT_TYPE_REPAIR_COMPLETED = 18; // Ремонт завершен
+  EVENT_TYPE_REPAIR_CANCELLED = 19; // Ремонт отменен
+  
   // Task
   EVENT_TYPE_TASK_CREATED = 20;
   EVENT_TYPE_TASK_ASSIGNED = 21;

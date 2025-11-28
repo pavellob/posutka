@@ -568,6 +568,9 @@ export const GET_TASKS = gql`
             rating
             isActive
           }
+          assignedMaster {
+            id
+          }
           checklist
         }
         cursor
@@ -632,7 +635,67 @@ export const GET_TASK_BY_ID = gql`
         rating
         isActive
       }
+      assignedMaster {
+        id
+      }
       checklist
+      source {
+        id
+        type
+        cleaning {
+          id
+          status
+          scheduledAt
+          completedAt
+          cleaner {
+            id
+            firstName
+            lastName
+          }
+        }
+      }
+  }
+}
+`
+
+export const GET_TASKS_BY_CLEANING = gql`
+  query GetTasksByCleaning($orgId: UUID!) {
+    tasks(orgId: $orgId, first: 100) {
+      edges {
+        node {
+          id
+          type
+          status
+          dueAt
+          note
+          createdAt
+          updatedAt
+          source {
+            id
+            type
+            entityId
+          }
+          assignedTo {
+            id
+            name
+            rating
+            contact
+          }
+          assignedCleaner {
+            id
+            firstName
+            lastName
+            phone
+            email
+            rating
+            isActive
+          }
+          assignedMaster {
+            id
+          }
+          checklist
+        }
+      }
     }
   }
 `
@@ -1069,6 +1132,47 @@ export const GENERATE_GRAPHQL_QUERY = gql`
 
 // ===== МУТАЦИИ ДЛЯ ЗАДАЧ =====
 
+export const CREATE_TASK_FROM_CHECKLIST_ITEM = gql`
+  mutation CreateTaskFromChecklistItem($input: CreateTaskInput!) {
+    createTask(input: $input) {
+      id
+      type
+      status
+      dueAt
+      note
+      checklistItemInstanceId
+      createdAt
+      updatedAt
+      org {
+        id
+        name
+      }
+      unit {
+        id
+        name
+        property {
+          id
+          title
+        }
+      }
+      assignedTo {
+        id
+        name
+        contact
+      }
+      assignedCleaner {
+        id
+        firstName
+        lastName
+        phone
+        email
+        rating
+        isActive
+      }
+    }
+  }
+`
+
 export const ASSIGN_TASK = gql`
   mutation AssignTask($input: AssignTaskInput!) {
     assignTask(input: $input) {
@@ -1090,6 +1194,52 @@ export const ASSIGN_TASK = gql`
         email
         rating
         isActive
+      }
+      assignedMaster {
+        id
+      }
+    }
+  }
+`
+
+export const CREATE_TASKS_FROM_CHECKLIST = gql`
+  mutation CreateTasksFromChecklist($input: CreateTasksFromChecklistInput!) {
+    createTasksFromChecklist(input: $input) {
+      id
+      type
+      status
+      dueAt
+      note
+      createdAt
+      updatedAt
+      org {
+        id
+        name
+      }
+      unit {
+        id
+        name
+        property {
+          id
+          title
+        }
+      }
+      assignedTo {
+        id
+        name
+        contact
+      }
+      assignedCleaner {
+        id
+        firstName
+        lastName
+        phone
+        email
+        rating
+        isActive
+      }
+      assignedMaster {
+        id
       }
     }
   }
@@ -2057,6 +2207,79 @@ export const DELETE_CLEANING_PRICING_RULE = gql`
   }
 `
 
+export const GET_REPAIR_PRICING_RULES = gql`
+  query GetRepairPricingRules($orgId: UUID!, $unitId: UUID) {
+    repairPricingRules(orgId: $orgId, unitId: $unitId) {
+      id
+      orgId
+      unitId
+      mode
+      baseRepairPrice {
+        amount
+        currency
+      }
+      gradeStep
+      difficultyStep
+      increasedDifficultyDelta
+      extras
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const UPSERT_REPAIR_PRICING_RULE = gql`
+  mutation UpsertRepairPricingRule($input: UpsertRepairPricingRuleInput!) {
+    upsertRepairPricingRule(input: $input) {
+      id
+      orgId
+      unitId
+      mode
+      baseRepairPrice {
+        amount
+        currency
+      }
+      gradeStep
+      difficultyStep
+      increasedDifficultyDelta
+      extras
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const DELETE_REPAIR_PRICING_RULE = gql`
+  mutation DeleteRepairPricingRule($id: UUID!) {
+    deleteRepairPricingRule(id: $id)
+  }
+`
+
+export const CALCULATE_REPAIR_COST = gql`
+  query CalculateRepairCost($unitId: UUID!, $repairId: UUID!, $size: RepairSize, $difficulty: RepairDifficulty, $mode: RepairCoeffMode) {
+    calculateRepairCost(unitId: $unitId, repairId: $repairId, size: $size, difficulty: $difficulty, mode: $mode) {
+      unitId
+      size
+      difficulty
+      mode
+      base {
+        amount
+        currency
+      }
+      sizeCoefficient
+      difficultyCoefficient
+      materialsCost {
+        amount
+        currency
+      }
+      total {
+        amount
+        currency
+      }
+    }
+  }
+`
+
 // ===== ЗАПРОСЫ ДЛЯ ЧЕКЛИСТОВ =====
 
 export const GET_CLEANING_TEMPLATES_BY_UNIT = gql`
@@ -2211,10 +2434,76 @@ export const GET_CHECKLIST_BY_CLEANING_AND_STAGE = gql`
   }
 `
 
+export const GET_CHECKLIST_BY_REPAIR_AND_STAGE = gql`
+  query GetChecklistByRepairAndStage($repairId: UUID!, $stage: ChecklistStage!) {
+    checklistByRepair(repairId: $repairId, stage: $stage) {
+      id
+      unitId
+      repairId
+      stage
+      status
+      templateId
+      templateVersion
+      parentInstanceId
+      createdAt
+      updatedAt
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
+        tasks {
+          id
+          type
+          status
+          note
+          dueAt
+          createdAt
+          assignedTo {
+            id
+            name
+          }
+          assignedCleaner {
+            id
+            firstName
+            lastName
+          }
+        }
+        exampleMedia {
+          id
+          url
+          objectKey
+          caption
+          order
+        }
+      }
+      answers {
+        id
+        itemKey
+        value
+        note
+        createdAt
+        updatedAt
+      }
+      attachments {
+        id
+        itemKey
+        url
+        caption
+      }
+    }
+  }
+`
+
 // Mutations
 export const CREATE_CHECKLIST_INSTANCE = gql`
-  mutation CreateChecklistInstance($unitId: UUID!, $stage: ChecklistStage!, $cleaningId: UUID) {
-    createChecklistInstance(unitId: $unitId, stage: $stage, cleaningId: $cleaningId) {
+  mutation CreateChecklistInstance($unitId: UUID!, $stage: ChecklistStage!, $cleaningId: UUID, $repairId: UUID) {
+    createChecklistInstance(unitId: $unitId, stage: $stage, cleaningId: $cleaningId, repairId: $repairId) {
       id
       unitId
       cleaningId
@@ -2582,5 +2871,395 @@ export const UPSERT_NOTIFICATION_TEMPLATE = gql`
 export const DELETE_NOTIFICATION_TEMPLATE = gql`
   mutation DeleteNotificationTemplate($id: UUID!) {
     deleteNotificationTemplate(id: $id)
+  }
+`
+
+// ===== Repair Queries =====
+
+export const GET_REPAIRS = gql`
+  query GetRepairs(
+    $orgId: UUID!
+    $unitId: UUID
+    $masterId: UUID
+    $status: RepairStatus
+    $from: DateTime
+    $to: DateTime
+    $first: Int
+    $after: String
+  ) {
+    repairs(
+      orgId: $orgId
+      unitId: $unitId
+      masterId: $masterId
+      status: $status
+      from: $from
+      to: $to
+      first: $first
+      after: $after
+    ) {
+      edges {
+        node {
+          id
+          status
+          scheduledAt
+          startedAt
+          completedAt
+          notes
+          createdAt
+          updatedAt
+          org {
+            id
+            name
+          }
+          master {
+            id
+            firstName
+            lastName
+            phone
+            email
+            rating
+          }
+          unit {
+            id
+            name
+            property {
+              id
+              title
+            }
+          }
+          booking {
+            id
+            guest {
+              name
+            }
+          }
+          taskId
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+        totalCount
+      }
+    }
+  }
+`
+
+export const GET_REPAIR = gql`
+  query GetRepair($id: UUID!) {
+    repair(id: $id) {
+      id
+      status
+      scheduledAt
+      startedAt
+      completedAt
+      notes
+      createdAt
+      updatedAt
+      org {
+        id
+        name
+      }
+      master {
+        id
+        firstName
+        lastName
+        phone
+        email
+        rating
+      }
+      unit {
+        id
+        name
+        property {
+          id
+          title
+          address
+        }
+      }
+      booking {
+        id
+        guest {
+          name
+        }
+        checkIn
+        checkOut
+      }
+      taskId
+      isPlannedInspection
+      assessedDifficulty
+      assessedSize
+      assessedAt
+      shoppingItems {
+        id
+        name
+        quantity
+        amount
+        currency
+        notes
+        createdAt
+        updatedAt
+        photos {
+          id
+          url
+          caption
+          order
+          createdAt
+        }
+      }
+      checklistInstances {
+        id
+        stage
+        status
+        createdAt
+        updatedAt
+        items {
+          id
+          key
+          title
+          description
+          type
+          required
+          requiresPhoto
+          tasks {
+            id
+            type
+            status
+            note
+            dueAt
+          }
+        }
+      }
+    }
+  }
+`
+
+export const GET_MASTERS = gql`
+  query GetMasters($orgId: UUID!, $isActive: Boolean, $first: Int, $after: String) {
+    masters(orgId: $orgId, isActive: $isActive, first: $first, after: $after) {
+      edges {
+        node {
+          id
+          type
+          firstName
+          lastName
+          phone
+          email
+          telegramUsername
+          rating
+          isActive
+          createdAt
+          updatedAt
+          org {
+            id
+          }
+          user {
+            id
+          }
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+        totalCount
+      }
+    }
+  }
+`
+
+export const GET_MASTER = gql`
+  query GetMaster($id: UUID!) {
+    master(id: $id) {
+      id
+      type
+      firstName
+      lastName
+      phone
+      email
+      telegramUsername
+      rating
+      isActive
+      createdAt
+      updatedAt
+      org {
+        id
+      }
+      user {
+        id
+      }
+    }
+  }
+`
+
+export const GET_REPAIR_TEMPLATES = gql`
+  query GetRepairTemplates($unitId: UUID!) {
+    repairTemplates(unitId: $unitId) {
+      id
+      name
+      description
+      estimatedDuration
+      checklistItems {
+        id
+        label
+        order
+        isRequired
+      }
+    }
+  }
+`
+
+export const SCHEDULE_REPAIR = gql`
+  mutation ScheduleRepair($input: ScheduleRepairInput!) {
+    scheduleRepair(input: $input) {
+      id
+      status
+      isPlannedInspection
+      scheduledAt
+      unit {
+        id
+        name
+      }
+      master {
+        id
+        firstName
+        lastName
+        phone
+        email
+        rating
+      }
+    }
+  }
+`
+
+export const START_REPAIR = gql`
+  mutation StartRepair($id: UUID!) {
+    startRepair(id: $id) {
+      id
+      status
+      startedAt
+    }
+  }
+`
+
+export const COMPLETE_REPAIR = gql`
+  mutation CompleteRepair($id: UUID!) {
+    completeRepair(id: $id) {
+      id
+      status
+      completedAt
+    }
+  }
+`
+
+export const CANCEL_REPAIR = gql`
+  mutation CancelRepair($id: UUID!, $reason: String) {
+    cancelRepair(id: $id, reason: $reason) {
+      id
+      status
+    }
+  }
+`
+
+export const ASSESS_REPAIR = gql`
+  mutation AssessRepair($id: UUID!, $input: AssessRepairInput!) {
+    assessRepair(id: $id, input: $input) {
+      id
+      assessedDifficulty
+      assessedSize
+      assessedAt
+    }
+  }
+`
+
+export const CREATE_REPAIR_SHOPPING_ITEM = gql`
+  mutation CreateRepairShoppingItem($repairId: UUID!, $input: CreateRepairShoppingItemInput!) {
+    createRepairShoppingItem(repairId: $repairId, input: $input) {
+      id
+      name
+      quantity
+      amount
+      currency
+      notes
+      photos {
+        id
+        url
+        caption
+        order
+      }
+    }
+  }
+`
+
+export const UPDATE_REPAIR_SHOPPING_ITEM = gql`
+  mutation UpdateRepairShoppingItem($itemId: UUID!, $input: UpdateRepairShoppingItemInput!) {
+    updateRepairShoppingItem(itemId: $itemId, input: $input) {
+      id
+      name
+      quantity
+      amount
+      currency
+      notes
+    }
+  }
+`
+
+export const DELETE_REPAIR_SHOPPING_ITEM = gql`
+  mutation DeleteRepairShoppingItem($itemId: UUID!) {
+    deleteRepairShoppingItem(itemId: $itemId)
+  }
+`
+
+export const ADD_PHOTO_TO_REPAIR_SHOPPING_ITEM = gql`
+  mutation AddPhotoToRepairShoppingItem($itemId: UUID!, $url: String!, $caption: String, $order: Int) {
+    addPhotoToRepairShoppingItem(itemId: $itemId, url: $url, caption: $caption, order: $order) {
+      id
+      photos {
+        id
+        url
+        caption
+        order
+      }
+    }
+  }
+`
+
+export const DELETE_PHOTO_FROM_REPAIR_SHOPPING_ITEM = gql`
+  mutation DeletePhotoFromRepairShoppingItem($photoId: UUID!) {
+    deletePhotoFromRepairShoppingItem(photoId: $photoId)
+  }
+`
+
+export const CREATE_MASTER = gql`
+  mutation CreateMaster($input: CreateMasterInput!) {
+    createMaster(input: $input) {
+      id
+      firstName
+      lastName
+      phone
+      email
+      rating
+      isActive
+    }
+  }
+`
+
+export const UPDATE_MASTER = gql`
+  mutation UpdateMaster($id: UUID!, $input: UpdateMasterInput!) {
+    updateMaster(id: $id, input: $input) {
+      id
+      firstName
+      lastName
+      phone
+      email
+      telegramUsername
+      rating
+      isActive
+    }
   }
 `

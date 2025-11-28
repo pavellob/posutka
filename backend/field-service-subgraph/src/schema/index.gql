@@ -1,5 +1,5 @@
-# Cleaning Subgraph - Управление уборками
-# Отвечает за создание уборщиков, шаблонов уборки, планирование и выполнение уборок
+# Field Service Subgraph - Управление уборками и ремонтами
+# Отвечает за создание уборщиков и мастеров, шаблонов уборки, планирование и выполнение уборок и ремонтов
 
 scalar UUID
 scalar DateTime
@@ -56,6 +56,15 @@ type Query {
     unitId: UUID!
   ): [CleaningTemplate!]!
   
+  """Получить шаблон планового осмотра по ID"""
+  repairTemplate(id: UUID!): RepairTemplate
+  
+  """Получить все шаблоны планового осмотра для единицы недвижимости"""
+  repairTemplates(
+    """ID единицы недвижимости"""
+    unitId: UUID!
+  ): [RepairTemplate!]!
+  
   """Получить уборку по ID"""
   cleaning(id: UUID!): Cleaning
   
@@ -99,8 +108,39 @@ type Query {
   """Получить инстанс чек-листа по уборке и стадии"""
   checklistByCleaning(cleaningId: UUID!, stage: ChecklistStage!): ChecklistInstance
   
+  """Получить чек-лист для ремонта по stage"""
+  checklistByRepair(repairId: UUID!, stage: ChecklistStage!): ChecklistInstance
+  
   """Получить шаблон чек-листа для юнита"""
   checklistTemplate(unitId: UUID!, version: Int): ChecklistTemplate
+  
+  # ===== Repair Queries =====
+  
+  """Получить ремонт по ID"""
+  repair(id: UUID!): Repair
+  
+  """Получить список ремонтов"""
+  repairs(
+    orgId: UUID
+    unitId: UUID
+    masterId: UUID
+    status: RepairStatus
+    from: DateTime
+    to: DateTime
+    first: Int
+    after: String
+  ): RepairConnection!
+  
+  """Получить мастера по ID"""
+  master(id: UUID!): Master
+  
+  """Получить список мастеров"""
+  masters(
+    orgId: UUID!
+    isActive: Boolean
+    first: Int
+    after: String
+  ): MasterConnection!
 }
 
 """
@@ -129,6 +169,15 @@ type Mutation {
   
   """Удалить шаблон уборки"""
   deleteCleaningTemplate(id: UUID!): Boolean!
+  
+  """Создать шаблон планового осмотра для квартиры"""
+  createRepairTemplate(input: CreateRepairTemplateInput!): RepairTemplate!
+  
+  """Обновить шаблон планового осмотра"""
+  updateRepairTemplate(id: UUID!, input: UpdateRepairTemplateInput!): RepairTemplate!
+  
+  """Удалить шаблон планового осмотра"""
+  deleteRepairTemplate(id: UUID!): Boolean!
   
   # Уборки
   """Запланировать уборку"""
@@ -191,7 +240,7 @@ type Mutation {
   # ===== Новая модель чек-листов (Template → Instance → Promote) =====
   
   """Создать инстанс чек-листа"""
-  createChecklistInstance(unitId: UUID!, stage: ChecklistStage!, cleaningId: UUID): ChecklistInstance!
+  createChecklistInstance(unitId: UUID!, stage: ChecklistStage!, cleaningId: UUID, repairId: UUID): ChecklistInstance!
   
   """Добавить пункт в инстанс"""
   addItem(input: AddItemInput!): ChecklistInstance!
@@ -248,6 +297,45 @@ type Mutation {
   
   """Получить presigned URLs для загрузки примеров фото"""
   getTemplateItemExampleMediaUploadUrls(input: GetTemplateItemExampleMediaUploadUrlsInput!): [PresignedUploadUrl!]!
+  
+  # ===== Repair Mutations =====
+  
+  """Создать мастера"""
+  createMaster(input: CreateMasterInput!): Master!
+  
+  """Обновить мастера"""
+  updateMaster(id: UUID!, input: UpdateMasterInput!): Master!
+  
+  """Запланировать ремонт"""
+  scheduleRepair(input: ScheduleRepairInput!): Repair!
+  
+  """Начать ремонт"""
+  startRepair(id: UUID!): Repair!
+  
+  """Оценить ремонт (сложность и размер)"""
+  assessRepair(id: UUID!, input: AssessRepairInput!): Repair!
+  
+  """Завершить ремонт"""
+  completeRepair(id: UUID!): Repair!
+  
+  """Отменить ремонт"""
+  cancelRepair(id: UUID!, reason: String): Repair!
+  
+  # Список покупок для ремонта
+  """Добавить товар в список покупок"""
+  createRepairShoppingItem(repairId: UUID!, input: CreateRepairShoppingItemInput!): RepairShoppingItem!
+  
+  """Обновить товар в списке покупок"""
+  updateRepairShoppingItem(itemId: UUID!, input: UpdateRepairShoppingItemInput!): RepairShoppingItem!
+  
+  """Удалить товар из списка покупок"""
+  deleteRepairShoppingItem(itemId: UUID!): Boolean!
+  
+  """Добавить фото к товару в списке покупок"""
+  addPhotoToRepairShoppingItem(itemId: UUID!, url: String!, caption: String, order: Int): RepairShoppingItem!
+  
+  """Удалить фото из товара в списке покупок"""
+  deletePhotoFromRepairShoppingItem(photoId: UUID!): Boolean!
 }
 
 # ===== Типы =====
@@ -373,6 +461,47 @@ type CleaningTemplate {
 Чек-бокс в шаблоне уборки.
 """
 type CleaningTemplateCheckbox {
+  """Уникальный идентификатор чек-бокса"""
+  id: UUID!
+  """Текст пункта"""
+  label: String!
+  """Порядок отображения"""
+  order: Int!
+  """Обязателен ли пункт"""
+  isRequired: Boolean!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Шаблон планового осмотра для квартиры.
+Содержит описание и чеклист для выполнения планового осмотра.
+"""
+type RepairTemplate {
+  """Уникальный идентификатор шаблона"""
+  id: UUID!
+  """Единица недвижимости"""
+  unit: Unit!
+  """Название шаблона"""
+  name: String!
+  """Текстовое описание"""
+  description: String
+  """Расчетная продолжительность в минутах"""
+  estimatedDuration: Int
+  """Чек-боксы для проверки"""
+  checklistItems: [RepairTemplateCheckbox!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Чек-бокс в шаблоне планового осмотра.
+"""
+type RepairTemplateCheckbox {
   """Уникальный идентификатор чек-бокса"""
   id: UUID!
   """Текст пункта"""
@@ -684,6 +813,36 @@ input ChecklistTemplateItemInput {
 }
 
 """
+Входные данные для создания шаблона планового осмотра.
+"""
+input CreateRepairTemplateInput {
+  """ID единицы недвижимости"""
+  unitId: UUID!
+  """Название шаблона"""
+  name: String!
+  """Текстовое описание"""
+  description: String
+  """Расчетная продолжительность в минутах"""
+  estimatedDuration: Int
+  """Чек-боксы"""
+  checklistItems: [ChecklistTemplateItemInput!]
+}
+
+"""
+Входные данные для обновления шаблона планового осмотра.
+"""
+input UpdateRepairTemplateInput {
+  """Название шаблона"""
+  name: String
+  """Текстовое описание"""
+  description: String
+  """Расчетная продолжительность в минутах"""
+  estimatedDuration: Int
+  """Чек-боксы"""
+  checklistItems: [ChecklistTemplateItemInput!]
+}
+
+"""
 Входные данные для планирования уборки.
 """
 input ScheduleCleaningInput {
@@ -835,6 +994,8 @@ enum ChecklistStage {
   PRE_CLEANING
   CLEANING
   FINAL_REPORT
+  REPAIR_INSPECTION
+  REPAIR_RESULT
 }
 
 enum ChecklistStatus {
@@ -934,16 +1095,20 @@ type ChecklistInstance {
   cleaningId: UUID
   """Уборка"""
   cleaning: Cleaning
+  """ID ремонта"""
+  repairId: UUID
+  """Ремонт"""
+  repair: Repair
   """Стадия чек-листа"""
   stage: ChecklistStage!
   """Статус чек-листа"""
   status: ChecklistStatus!
-  """ID шаблона"""
-  templateId: UUID!
-  """Шаблон"""
-  template: ChecklistTemplate!
-  """Версия шаблона"""
-  templateVersion: Int!
+  """ID шаблона (опционально для кастомных ремонтов)"""
+  templateId: UUID
+  """Шаблон (опционально для кастомных ремонтов)"""
+  template: ChecklistTemplate
+  """Версия шаблона (опционально для кастомных ремонтов)"""
+  templateVersion: Int
   """ID родительского инстанса (для промоута)"""
   parentInstanceId: UUID
   """Родительский инстанс"""
@@ -984,6 +1149,16 @@ type ChecklistInstanceItem {
   order: Int!
   """Примеры фото из шаблона"""
   exampleMedia: [ChecklistItemTemplateMedia!]!
+  """Связанные задачи"""
+  tasks: [Task!]!
+}
+
+"""
+Задача (ссылка на ops-subgraph).
+"""
+type Task {
+  """Уникальный идентификатор задачи"""
+  id: UUID!
 }
 
 """
@@ -1232,5 +1407,305 @@ input GetTemplateItemExampleMediaUploadUrlsInput {
   count: Int!
   """MIME типы файлов (по индексу)"""
   mimeTypes: [String!]
+}
+
+# ===== Repair Types =====
+
+"""
+Мастер - сотрудник, выполняющий ремонт.
+Может быть INTERNAL (сотрудник с User) или EXTERNAL (подрядчик без User).
+"""
+type Master {
+  """Уникальный идентификатор мастера"""
+  id: UUID!
+  """Тип мастера"""
+  type: MasterType!
+  """Пользователь системы (только для INTERNAL)"""
+  user: User
+  """Организация"""
+  org: Organization!
+  """Имя"""
+  firstName: String!
+  """Фамилия"""
+  lastName: String!
+  """Телефон"""
+  phone: String
+  """Email"""
+  email: String
+  """Telegram username (без @)"""
+  telegramUsername: String
+  """Рейтинг мастера"""
+  rating: Float
+  """Активен ли мастер"""
+  isActive: Boolean!
+  """Дата деактивации (soft delete)"""
+  deletedAt: DateTime
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+  """Выполненные ремонты"""
+  repairs: [Repair!]!
+}
+
+"""
+Тип мастера.
+"""
+enum MasterType {
+  """Сотрудник компании (связан с User)"""
+  INTERNAL
+  """Внешний подрядчик (не связан с User)"""
+  EXTERNAL
+}
+
+"""
+Ремонт - процесс ремонта квартиры.
+Обязательно привязан к объекту недвижимости.
+"""
+type Repair {
+  """Уникальный идентификатор ремонта"""
+  id: UUID!
+  """Организация"""
+  org: Organization!
+  """Мастер (опционально)"""
+  master: Master
+  """Единица недвижимости"""
+  unit: Unit!
+  """Бронирование (опционально)"""
+  booking: Booking
+  """Связанная задача (опционально)"""
+  taskId: UUID
+  """Статус ремонта"""
+  status: RepairStatus!
+  """Плановый осмотр (использует шаблон) или кастомный ремонт"""
+  isPlannedInspection: Boolean!
+  """Запланированное время"""
+  scheduledAt: DateTime!
+  """Время начала"""
+  startedAt: DateTime
+  """Время завершения"""
+  completedAt: DateTime
+  """Заметки"""
+  notes: String
+  """Коэффициент сложности (0-5)"""
+  assessedDifficulty: Int
+  """Размер в часах (0-10)"""
+  assessedSize: Int
+  """Дата оценки"""
+  assessedAt: DateTime
+  """Чек-листы ремонта"""
+  checklistInstances: [ChecklistInstance!]!
+  """Список покупок для ремонта"""
+  shoppingItems: [RepairShoppingItem!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Статус ремонта.
+"""
+enum RepairStatus {
+  """Запланирован"""
+  PLANNED
+  """В процессе выполнения"""
+  IN_PROGRESS
+  """Завершен"""
+  COMPLETED
+  """Отменен"""
+  CANCELLED
+}
+
+"""
+Соединение ремонтов с пагинацией.
+"""
+type RepairConnection {
+  """Список ремонтов с курсорами"""
+  edges: [RepairEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""
+Элемент списка ремонтов для пагинации.
+"""
+type RepairEdge {
+  """Ремонт"""
+  node: Repair!
+  """Курсор для пагинации"""
+  cursor: String!
+}
+
+"""
+Соединение мастеров с пагинацией.
+"""
+type MasterConnection {
+  """Список мастеров с курсорами"""
+  edges: [MasterEdge!]!
+  """Информация о пагинации"""
+  pageInfo: PageInfo!
+}
+
+"""
+Элемент списка мастеров для пагинации.
+"""
+type MasterEdge {
+  """Мастер"""
+  node: Master!
+  """Курсор для пагинации"""
+  cursor: String!
+}
+
+# ===== Repair Inputs =====
+
+"""
+Входные данные для создания мастера.
+"""
+input CreateMasterInput {
+  """ID пользователя системы"""
+  userId: UUID!
+  """ID организации"""
+  orgId: UUID!
+}
+
+"""
+Входные данные для обновления мастера.
+"""
+input UpdateMasterInput {
+  """Имя"""
+  firstName: String
+  """Фамилия"""
+  lastName: String
+  """Телефон"""
+  phone: String
+  """Email"""
+  email: String
+  """Рейтинг"""
+  rating: Float
+}
+
+"""
+Товар в списке покупок для ремонта.
+"""
+type RepairShoppingItem {
+  """Уникальный идентификатор товара"""
+  id: UUID!
+  """Ремонт"""
+  repair: Repair!
+  """Наименование"""
+  name: String!
+  """Количество"""
+  quantity: Float!
+  """Сумма в копейках"""
+  amount: Int!
+  """Валюта"""
+  currency: String!
+  """Заметки"""
+  notes: String
+  """Фото товара"""
+  photos: [RepairShoppingItemPhoto!]!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Фото товара в списке покупок.
+"""
+type RepairShoppingItemPhoto {
+  """Уникальный идентификатор фото"""
+  id: UUID!
+  """Товар"""
+  item: RepairShoppingItem!
+  """URL фото"""
+  url: String!
+  """Подпись"""
+  caption: String
+  """Порядок отображения"""
+  order: Int!
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Входные данные для оценки ремонта.
+"""
+input AssessRepairInput {
+  """Коэффициент сложности (0-5)"""
+  difficulty: Int!
+  """Размер в часах (0-10)"""
+  size: Int!
+}
+
+"""
+Входные данные для создания товара в списке покупок.
+"""
+input CreateRepairShoppingItemInput {
+  """Наименование"""
+  name: String!
+  """Количество"""
+  quantity: Float!
+  """Сумма в копейках"""
+  amount: Int!
+  """Валюта"""
+  currency: String = "RUB"
+  """Заметки"""
+  notes: String
+  """Фото товара"""
+  photos: [RepairShoppingItemPhotoInput!]
+}
+
+"""
+Входные данные для обновления товара в списке покупок.
+"""
+input UpdateRepairShoppingItemInput {
+  """Наименование"""
+  name: String
+  """Количество"""
+  quantity: Float
+  """Сумма в копейках"""
+  amount: Int
+  """Валюта"""
+  currency: String
+  """Заметки"""
+  notes: String
+}
+
+"""
+Входные данные для фото товара в списке покупок.
+"""
+input RepairShoppingItemPhotoInput {
+  """URL фото"""
+  url: String!
+  """Подпись"""
+  caption: String
+  """Порядок отображения"""
+  order: Int = 0
+}
+
+"""
+Входные данные для планирования ремонта.
+"""
+input ScheduleRepairInput {
+  """ID организации"""
+  orgId: UUID!
+  """ID мастера (опционально)"""
+  masterId: UUID
+  """ID единицы недвижимости"""
+  unitId: UUID!
+  """ID бронирования (опционально)"""
+  bookingId: UUID
+  """ID связанной задачи (опционально)"""
+  taskId: UUID
+  """Плановый осмотр (использует шаблон) или кастомный ремонт"""
+  isPlannedInspection: Boolean
+  """Запланированное время"""
+  scheduledAt: DateTime!
+  """Заметки"""
+  notes: String
 }
 

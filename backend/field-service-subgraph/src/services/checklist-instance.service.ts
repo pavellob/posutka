@@ -39,19 +39,51 @@ export class ChecklistInstanceService {
    */
   async createChecklistInstance(
     unitId: string,
-    stage: 'PRE_CLEANING' | 'CLEANING' | 'FINAL_REPORT',
-    cleaningId?: string
+    stage: 'PRE_CLEANING' | 'CLEANING' | 'FINAL_REPORT' | 'REPAIR_INSPECTION' | 'REPAIR_RESULT',
+    cleaningId?: string,
+    repairId?: string,
+    isPlannedInspection?: boolean
   ) {
-    // 1. Находим актуальную версию шаблона для юнита
-    const template = await this.prisma.checklistTemplate.findFirst({
-      where: { unitId },
-      orderBy: { version: 'desc' },
-      include: { items: true }
-    });
+    const isRepairStage = stage === 'REPAIR_INSPECTION' || stage === 'REPAIR_RESULT';
+    
+    let template = null;
+    let sourceItems: any[] = [];
 
-    if (!template) {
-      throw new Error(`No checklist template found for unit: ${unitId}`);
+    // Для уборок всегда используем шаблон
+    // Для ремонтов: если плановый осмотр - используем шаблон, если кастомный - пустой чеклист
+    const shouldUseTemplate = !isRepairStage || (isRepairStage && isPlannedInspection);
+
+    if (shouldUseTemplate) {
+      template = await this.prisma.checklistTemplate.findFirst({
+        where: { unitId },
+        orderBy: { version: 'desc' },
+        include: { items: true }
+      });
+
+      if (!template) {
+        if (isRepairStage && isPlannedInspection) {
+          throw new Error(`No checklist template found for unit: ${unitId}. Плановый осмотр требует шаблон чеклиста.`);
+        }
+        if (!isRepairStage) {
+          throw new Error(`No checklist template found for unit: ${unitId}`);
+        }
+      }
+
+      if (template) {
+        sourceItems = template.items.map(item => ({
+          key: item.key,
+          title: item.title,
+          description: item.description,
+          type: item.type,
+          required: item.required,
+          requiresPhoto: item.requiresPhoto,
+          photoMin: item.photoMin,
+          order: item.order,
+        }));
+      }
     }
+    
+    // Для кастомных ремонтов чеклист создается пустым - пункты добавляются вручную
 
     // 2. Создаем инстанс
     const instance = await this.prisma.checklistInstance.create({
@@ -59,25 +91,15 @@ export class ChecklistInstanceService {
         unitId,
         stage,
         status: 'DRAFT',
-        templateId: template.id,
-        templateVersion: template.version,
-        cleaningId
+        templateId: template?.id || null,
+        templateVersion: template?.version || null,
+        cleaningId: cleaningId || null,
+        repairId: repairId || null
       }
     });
 
-    // 3. Определяем источник пунктов: шаблон или предыдущая стадия
-    let sourceItems = template.items.map(item => ({
-      key: item.key,
-      title: item.title,
-      description: item.description,
-      type: item.type,
-      required: item.required,
-      requiresPhoto: item.requiresPhoto,
-      photoMin: item.photoMin,
-      order: item.order,
-    }));
-
-    if (stage === 'CLEANING' && cleaningId) {
+    // 3. Для уборок: определяем источник пунктов - шаблон или предыдущая стадия
+    if (!isRepairStage && stage === 'CLEANING' && cleaningId) {
       const preInstance = await this.prisma.checklistInstance.findFirst({
         where: {
           cleaningId,
@@ -102,6 +124,35 @@ export class ChecklistInstanceService {
         }));
       }
     }
+    
+    // 4. Для ремонтов: если это стадия результата, копируем пункты из стадии осмотра
+    if (isRepairStage && stage === 'REPAIR_RESULT' && repairId) {
+      const inspectionInstance = await this.prisma.checklistInstance.findFirst({
+        where: {
+          repairId,
+          stage: 'REPAIR_INSPECTION'
+        },
+        include: {
+          items: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (inspectionInstance?.items?.length) {
+        sourceItems = inspectionInstance.items.map(item => ({
+          key: item.key,
+          title: item.title,
+          description: item.description,
+          type: item.type,
+          required: item.required,
+          requiresPhoto: item.requiresPhoto,
+          photoMin: item.photoMin,
+          order: item.order,
+        }));
+      }
+    }
+    
+    // Для кастомных ремонтов без шаблона чеклист создается пустым - пункты добавляются вручную
 
     if (stage === 'FINAL_REPORT' && cleaningId) {
       const cleaningInstance = await this.prisma.checklistInstance.findFirst({
@@ -151,8 +202,9 @@ export class ChecklistInstanceService {
       unitId,
       stage,
       cleaningId,
-      templateVersion: template.version,
-      itemsCount: template.items.length
+      repairId,
+      templateVersion: template?.version || null,
+      itemsCount: sourceItems.length
     });
 
     return this.getChecklistInstance(instance.id);
@@ -165,11 +217,14 @@ export class ChecklistInstanceService {
 
     let existingKeys = new Set((instance.items ?? []).map((item: any) => item.key));
 
-    // Сначала синхронизируем с шаблоном
-    const template = await this.prisma.checklistTemplate.findUnique({
-      where: { id: instance.templateId },
-      include: { items: true },
-    });
+    // Сначала синхронизируем с шаблоном (только если templateId указан)
+    let template = null;
+    if (instance.templateId) {
+      template = await this.prisma.checklistTemplate.findUnique({
+        where: { id: instance.templateId },
+        include: { items: true },
+      });
+    }
 
     let updatedInstance = instance;
 
@@ -309,6 +364,31 @@ export class ChecklistInstanceService {
   ) {
     const instance = await this.prisma.checklistInstance.findFirst({
       where: { cleaningId, stage },
+      include: {
+        items: {
+          orderBy: { order: 'asc' }
+        },
+        answers: true,
+        attachments: {
+          orderBy: { createdAt: 'asc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!instance) {
+      return instance;
+    }
+
+    return this.syncDraftInstance(instance);
+  }
+
+  async getChecklistByRepairAndStage(
+    repairId: string,
+    stage: 'REPAIR_INSPECTION' | 'REPAIR_RESULT'
+  ) {
+    const instance = await this.prisma.checklistInstance.findFirst({
+      where: { repairId, stage },
       include: {
         items: {
           orderBy: { order: 'asc' }

@@ -20,11 +20,18 @@ export interface Task {
   orgId: UUID;
   unitId?: UUID;
   bookingId?: UUID;
+  sourceId?: UUID; // Связь с источником задачи (cleaning, repair, booking и т.д.)
+  checklistItemKey?: string; // Ключ пункта чек-листа, из которого создана задача (deprecated)
+  checklistItemInstanceId?: UUID; // Связь с конкретным пунктом чек-листа
+  authorId?: UUID; // ID пользователя/уборщика, который создал задачу
   type: TaskType;
   status: TaskStatus;
   dueAt?: DateTime;
   assignedProviderId?: UUID;
   assignedCleanerId?: UUID;
+  assignedMasterId?: UUID; // Для задач типа MAINTENANCE/ремонтов
+  plannedForNextChecklist?: boolean; // Задача для следующего чек-листа
+  sourceCleaningId?: UUID; // ID уборки, из которой создана задача для следующего чек-листа
   checklist: string[];
   createdAt: DateTime;
   updatedAt: DateTime;
@@ -63,6 +70,15 @@ export interface CreateTaskInput {
   type: TaskType;
   unitId?: UUID;
   bookingId?: UUID;
+  sourceId?: UUID; // Связь с источником задачи (cleaning, repair, booking и т.д.)
+  checklistItemKey?: string; // Ключ пункта чек-листа, из которого создана задача (deprecated)
+  checklistItemInstanceId?: UUID; // Связь с конкретным пунктом чек-листа
+  authorId?: UUID; // ID пользователя/уборщика, который создал задачу
+  assignedProviderId?: UUID; // ID поставщика услуг (для не-CLEANING задач)
+  assignedCleanerId?: UUID; // ID уборщика (для CLEANING задач)
+  assignedMasterId?: UUID; // ID мастера (для задач типа MAINTENANCE/ремонтов)
+  plannedForNextChecklist?: boolean; // Задача для следующего чек-листа
+  sourceCleaningId?: UUID; // ID уборки, из которой создана задача для следующего чек-листа
   dueAt?: DateTime;
   checklist?: string[];
   note?: string;
@@ -72,6 +88,7 @@ export interface AssignTaskInput {
   taskId: UUID;
   providerId?: UUID;
   cleanerId?: UUID;
+  masterId?: UUID; // ID мастера (для задач типа MAINTENANCE/ремонтов)
   status?: TaskStatus;
   note?: string;
 }

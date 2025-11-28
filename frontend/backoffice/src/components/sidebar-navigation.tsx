@@ -20,7 +20,8 @@ import {
   ShoppingCartIcon,
   CpuChipIcon,
   ListBulletIcon,
-  WrenchScrewdriverIcon
+  WrenchScrewdriverIcon,
+  UserIcon
 } from '@heroicons/react/24/outline'
 import { SparklesIcon as SparklesIconSolid } from '@heroicons/react/24/solid'
 
@@ -30,9 +31,10 @@ const navigationItems = [
   { name: 'Бронирования', href: '/bookings', icon: CalendarDaysIcon },
   { name: 'Задачи', href: '/tasks', icon: WrenchScrewdriverIcon },
   { name: 'Уборки', href: '/cleanings', icon: SparklesIconSolid },
+  { name: 'Ремонты', href: '/repairs', icon: CogIcon },
   { name: 'Пользователи', href: '/iam', icon: UserGroupIcon },
   { name: 'Уведомления', href: '/notifications', icon: BellIcon },
-  { name: 'Биллинг', href: '/billing', icon: CreditCardIcon },
+  { name: 'Деньги', href: '/billing', icon: CreditCardIcon },
   { name: 'Размещение', href: '/placement', icon: MapPinIcon },
   { name: 'Закупки', href: '/procurement', icon: ShoppingCartIcon },
   { name: 'Правовые', href: '/legal', icon: ScaleIcon },

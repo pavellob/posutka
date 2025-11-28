@@ -6,6 +6,109 @@ import { createPricingGrpcClient } from '@repo/grpc-sdk';
 
 const logger = createGraphQLLogger('cleaning-subgraph-resolvers');
 
+/**
+ * Подтягивает задачи для следующего чек-листа и привязывает их к ChecklistInstance уборки
+ */
+async function attachNextChecklistTasksToCleaning(
+  cleaningId: string,
+  unitId: string,
+  prisma: PrismaClient
+): Promise<void> {
+  // 1. Найти все задачи для этого unit с plannedForNextChecklist = true
+  const tasks = await (prisma.task as any).findMany({
+    where: {
+      unitId,
+      plannedForNextChecklist: true,
+      status: {
+        in: ['TODO', 'IN_PROGRESS'],
+      },
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+  });
+
+  if (tasks.length === 0) {
+    logger.debug('No tasks for next checklist found', { cleaningId, unitId });
+    return;
+  }
+
+  logger.info('Found tasks for next checklist', {
+    cleaningId,
+    unitId,
+    tasksCount: tasks.length,
+  });
+
+  // 2. Найти ChecklistInstance для этой уборки (стадия CLEANING)
+  const checklistInstance = await prisma.checklistInstance.findFirst({
+    where: {
+      cleaningId,
+      stage: 'CLEANING',
+    },
+    include: {
+      items: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  if (!checklistInstance) {
+    logger.warn('No ChecklistInstance found for cleaning, tasks will be attached later', {
+      cleaningId,
+    });
+    // Задачи останутся с plannedForNextChecklist = true, будут подтянуты позже
+    return;
+  }
+
+  // 3. Для каждой задачи создать пункт чек-листа или привязать к существующему
+  for (const task of tasks) {
+    try {
+      // Создаем или находим пункт чек-листа для задачи
+      const itemKey = `task-${task.id}`;
+      let checklistItem = checklistInstance.items.find((item: any) => item.key === itemKey);
+
+      if (!checklistItem) {
+        // Создаем новый пункт чек-листа из задачи
+        checklistItem = await prisma.checklistInstanceItem.create({
+          data: {
+            instanceId: checklistInstance.id,
+            key: itemKey,
+            title: task.note || `Задача #${task.id}`,
+            description: `Задача создана из предыдущей уборки`,
+            type: 'BOOL',
+            required: false,
+            requiresPhoto: false,
+            order: checklistInstance.items.length + 1,
+          },
+        });
+      }
+
+      // 4. Привязать задачу к пункту чек-листа и сбросить флаг
+      await (prisma.task as any).update({
+        where: { id: task.id },
+        data: {
+          checklistItemInstanceId: checklistItem.id,
+          plannedForNextChecklist: false,
+        },
+      });
+
+      logger.info('Task attached to checklist item', {
+        taskId: task.id,
+        checklistItemId: checklistItem.id,
+        cleaningId,
+      });
+    } catch (error) {
+      logger.error('Failed to attach task to checklist', {
+        taskId: task.id,
+        cleaningId,
+        error,
+      });
+      // Продолжаем с другими задачами
+    }
+  }
+}
+
 async function resolveManagerUserIds(prisma: PrismaClient, orgId?: string | null) {
   const managerIds = new Set<string>();
 
@@ -137,7 +240,7 @@ export const resolvers: any = {
     },
     
     // Cleaning mutations
-    scheduleCleaning: async (_: unknown, { input }: { input: any }, { cleaningService }: Context) => {
+    scheduleCleaning: async (_: unknown, { input }: { input: any }, { cleaningService, prisma }: Context) => {
       logger.info('Scheduling cleaning via GraphQL', { 
         input,
         hasCleaningService: !!cleaningService,
@@ -158,7 +261,21 @@ export const resolvers: any = {
       
       // Используем единый сервис для создания уборки и публикации событий
       const result = await cleaningService.scheduleCleaning(input);
-      return result.cleaning;
+      const cleaning = result.cleaning;
+      
+      // Подтягиваем задачи для следующего чек-листа
+      try {
+        await attachNextChecklistTasksToCleaning(cleaning.id, cleaning.unitId, prisma);
+      } catch (error) {
+        logger.error('Failed to attach next checklist tasks to cleaning', {
+          cleaningId: cleaning.id,
+          unitId: cleaning.unitId,
+          error,
+        });
+        // Не прерываем создание уборки, если не удалось подтянуть задачи
+      }
+      
+      return cleaning;
     },
     
     startCleaning: async (_: unknown, { id }: { id: string }, { dl, prisma }: Context) => {
@@ -1075,6 +1192,34 @@ export const resolvers: any = {
   },
   
   ChecklistInstanceItem: {
+    tasks: async (parent: any, _: unknown, { prisma }: Context) => {
+      if (!prisma?.task) {
+        logger.warn('Prisma task model not available for ChecklistInstanceItem.tasks');
+        return [];
+      }
+      try {
+        // Используем any для обхода проверки типов до применения миграции
+        const tasks = await (prisma.task as any).findMany({
+          where: {
+            checklistItemInstanceId: parent.id,
+          },
+          include: {
+            assignedProvider: true,
+            assignedCleaner: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+        return tasks.map((task: any) => ({ id: task.id }));
+      } catch (error) {
+        logger.error('Failed to load tasks for checklist item', {
+          itemId: parent.id,
+          error,
+        });
+        return [];
+      }
+    },
     exampleMedia: async (parent: any, _: unknown, { prisma }: Context) => {
       // Получаем templateId из parent (добавлен в резолвере ChecklistInstance.items)
       const templateId = parent.templateId;
@@ -1145,11 +1290,124 @@ export const resolvers: any = {
       }
       return parent.items || [];
     },
+    repair: (parent: any, _: unknown, { prisma }: Context) => {
+      if (!parent.repairId) return null;
+      // Базовый resolver - будет расширен позже
+      return { id: parent.repairId };
+    },
+  },
+  
+  Repair: {
+    org: (parent: any) => ({ id: parent.orgId }),
+    unit: (parent: any, _: unknown, { inventoryDL }: Context) => {
+      return { id: parent.unitId };
+    },
+    master: async (parent: any, _: unknown, { prisma }: Context) => {
+      if (!parent.masterId) return null;
+      try {
+        const master = await (prisma.master as any).findUnique({
+          where: { id: parent.masterId },
+        });
+        return master ? { id: master.id } : null;
+      } catch (error) {
+        logger.error('Failed to load master for repair', { repairId: parent.id, error });
+        return null;
+      }
+    },
+    booking: (parent: any) => parent.bookingId ? { id: parent.bookingId } : null,
+    checklistInstances: async (parent: any, _: unknown, { prisma }: Context) => {
+      try {
+        const instances = await (prisma.checklistInstance as any).findMany({
+          where: { repairId: parent.id },
+          include: {
+            items: true,
+            answers: true,
+            attachments: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        });
+        return instances || [];
+      } catch (error) {
+        logger.error('Failed to load checklist instances for repair', { repairId: parent.id, error });
+        return [];
+      }
+    },
+  },
+  
+  Master: {
+    org: (parent: any) => ({ id: parent.orgId }),
+    user: (parent: any) => parent.userId ? { id: parent.userId } : null,
+    repairs: async (parent: any, _: unknown, { prisma }: Context) => {
+      try {
+        const repairs = await (prisma.repair as any).findMany({
+          where: { masterId: parent.id },
+          orderBy: { createdAt: 'desc' },
+        });
+        return repairs || [];
+      } catch (error) {
+        logger.error('Failed to load repairs for master', { masterId: parent.id, error });
+        return [];
+      }
+    },
   },
 };
 
 // Extend existing resolvers
 Object.assign(resolvers.Query, {
+  // ===== Repair Queries =====
+  
+  repair: async (_: unknown, { id }: { id: string }, { dl }: Context) => {
+    return dl.getRepairById(id);
+  },
+  
+  repairs: async (
+    _: unknown,
+    params: {
+      orgId?: string;
+      unitId?: string;
+      masterId?: string;
+      status?: string;
+      from?: string;
+      to?: string;
+      first?: number;
+      after?: string;
+    },
+    { dl }: Context
+  ) => {
+    return dl.listRepairs({
+      orgId: params.orgId,
+      unitId: params.unitId,
+      masterId: params.masterId,
+      status: params.status as any,
+      from: params.from,
+      to: params.to,
+      first: params.first,
+      after: params.after,
+    });
+  },
+  
+  master: async (_: unknown, { id }: { id: string }, { dl }: Context) => {
+    return dl.getMasterById(id);
+  },
+  
+  masters: async (
+    _: unknown,
+    params: {
+      orgId: string;
+      isActive?: boolean;
+      first?: number;
+      after?: string;
+    },
+    { dl }: Context
+  ) => {
+    return dl.listMasters({
+      orgId: params.orgId,
+      isActive: params.isActive,
+      first: params.first,
+      after: params.after,
+    });
+  },
+  
   // Старые запросы для CleaningRun удалены - используем новую модель
   checklistsByUnit: async (
     _: unknown,
@@ -1534,6 +1792,62 @@ Object.assign(resolvers.Mutation, {
     ) => {
       logger.info('Getting example media upload URLs for template item', { templateId: input.templateId, itemKey: input.itemKey });
       return checklistInstanceService.getTemplateItemExampleMediaUploadUrls(input);
+    },
+    
+    // ===== Repair Mutations =====
+    
+    createMaster: async (
+      _: unknown,
+      { input }: { input: any },
+      { dl }: Context
+    ) => {
+      logger.info('Creating master', { input });
+      return dl.createMaster(input);
+    },
+    
+    updateMaster: async (
+      _: unknown,
+      { id, input }: { id: string; input: any },
+      { dl }: Context
+    ) => {
+      logger.info('Updating master', { id, input });
+      return dl.updateMaster(id, input);
+    },
+    
+    scheduleRepair: async (
+      _: unknown,
+      { input }: { input: any },
+      { dl }: Context
+    ) => {
+      logger.info('Scheduling repair', { input });
+      return dl.scheduleRepair(input);
+    },
+    
+    startRepair: async (
+      _: unknown,
+      { id }: { id: string },
+      { dl }: Context
+    ) => {
+      logger.info('Starting repair', { id });
+      return dl.startRepair(id);
+    },
+    
+    completeRepair: async (
+      _: unknown,
+      { id }: { id: string },
+      { dl }: Context
+    ) => {
+      logger.info('Completing repair', { id });
+      return dl.completeRepair(id);
+    },
+    
+    cancelRepair: async (
+      _: unknown,
+      { id, reason }: { id: string; reason?: string },
+      { dl }: Context
+    ) => {
+      logger.info('Cancelling repair', { id, reason });
+      return dl.cancelRepair(id, reason);
     },
 });
 

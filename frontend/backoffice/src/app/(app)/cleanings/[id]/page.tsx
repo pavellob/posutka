@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { graphqlClient } from '@/lib/graphql-client'
 import { Heading, Subheading } from '@/components/heading'
@@ -14,6 +15,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { Select } from '@/components/select'
 import { ChecklistInstanceDialog } from '@/components/checklist-instance-dialog'
+import { CreateTasksFromChecklist } from '@/components/create-tasks-from-checklist'
 import {
   GET_CLEANING,
   GET_CHECKLIST_BY_CLEANING_AND_STAGE,
@@ -26,6 +28,9 @@ import {
   SET_CLEANING_DIFFICULTY,
   CALCULATE_CLEANING_COST,
   GET_CLEANING_PRICING_RULE,
+  ASSIGN_TASK,
+  GET_MASTERS,
+  GET_TASKS_BY_CLEANING,
 } from '@/lib/graphql-queries'
 import {
   ArrowLeftIcon,
@@ -125,6 +130,23 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
       return response.checklistByCleaning ?? null
     },
     enabled: !!cleaningId,
+  })
+
+  // Получаем задачи, связанные с этой уборкой
+  const { data: tasksData } = useQuery({
+    queryKey: ['cleaning-tasks', cleaningId, currentOrgId],
+    queryFn: async () => {
+      if (!cleaningId || !currentOrgId) return null
+      const response = await graphqlClient.request(GET_TASKS_BY_CLEANING, { 
+        orgId: currentOrgId
+      }) as any
+      // Фильтруем задачи, которые связаны с этой уборкой через source
+      const allTasks = response.tasks?.edges?.map((edge: any) => edge.node) || []
+      return allTasks.filter((task: any) => 
+        task.source?.type === 'CLEANING' && task.source?.entityId === cleaningId
+      )
+    },
+    enabled: !!cleaningId && !!currentOrgId,
   })
 
   const instances: Record<Stage, any> = {
@@ -903,6 +925,78 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
           </div>
         )}
 
+        {/* Отображение задач, связанных с уборкой */}
+        {tasksData && tasksData.length > 0 && (
+          <div className="pt-6">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6">
+              <Heading level={4} className="mb-4">Задачи</Heading>
+              <div className="space-y-3">
+                {tasksData.map((task: any) => (
+                  <Link
+                    key={task.id}
+                    href={`/tasks/${task.id}`}
+                    className="block border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge color={task.status === 'DONE' ? 'green' : task.status === 'IN_PROGRESS' ? 'blue' : 'zinc'}>
+                            {task.status === 'TODO' ? 'К выполнению' : task.status === 'IN_PROGRESS' ? 'В работе' : task.status === 'DONE' ? 'Выполнено' : 'Отменено'}
+                          </Badge>
+                          <Badge color="zinc">
+                            {task.type === 'CLEANING' ? 'Уборка' : task.type === 'MAINTENANCE' ? 'Обслуживание' : task.type === 'INVENTORY' ? 'Инвентаризация' : task.type}
+                          </Badge>
+                        </div>
+                        {task.note && (
+                          <Text className="text-sm text-zinc-700 dark:text-zinc-300 mb-2">
+                            {task.note}
+                          </Text>
+                        )}
+                        <div className="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+                          {task.assignedCleaner && (
+                            <span>
+                              Уборщик: {task.assignedCleaner.firstName} {task.assignedCleaner.lastName}
+                            </span>
+                          )}
+                          {task.assignedMaster && (
+                            <span>Мастер</span>
+                          )}
+                          {task.assignedTo && (
+                            <span>Поставщик: {task.assignedTo.name}</span>
+                          )}
+                          {task.dueAt && (
+                            <span>
+                              Срок: {new Date(task.dueAt).toLocaleDateString('ru-RU')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Компонент для создания задач из неуспешных пунктов чек-листа и обычных задач - только после завершения уборки и если нет прикрепленных задач */}
+        {data && (data.status === 'COMPLETED' || data.status === 'APPROVED') && currentOrgId && (!tasksData || tasksData.length === 0) && (
+          <div className="pt-6">
+            <CreateTasksFromChecklist
+              cleaningId={data.id}
+              checklistInstance={cleaningData || { id: '', items: [], answers: [], attachments: [] }}
+              orgId={currentOrgId}
+              unitId={unitId}
+              cleaner={data.cleaner}
+              onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
+                queryClient.invalidateQueries({ queryKey: ['cleaning-tasks', cleaningId, currentOrgId] })
+              }}
+            />
+          </div>
+        )}
+
+
         {/* Проверка менеджера доступна только после завершения уборки */}
         {data.status === 'COMPLETED' || data.status === 'APPROVED' ? (
           <div className="space-y-4 pt-6">
@@ -1045,6 +1139,7 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
           instanceId={instances[dialogStage]?.id}
           canEdit={stageActive[dialogStage]}
           onStartCleaning={dialogStage === 'PRE_CLEANING' ? handleStartCleaning : undefined}
+          orgId={currentOrgId || undefined}
         />
       )}
 
@@ -1072,6 +1167,7 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
           </DialogActions>
         </Dialog>
       )}
+
  
     </div>
   )

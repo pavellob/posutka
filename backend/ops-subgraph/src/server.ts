@@ -32,7 +32,7 @@ async function startServer() {
 
     const yoga = createYoga({
       schema,
-      context: () => ({ dl }),
+      context: () => ({ dl, prisma }),
     });
 
     // Запускаем GraphQL сервер

@@ -279,7 +279,7 @@ const task = {
 
 ## Миграции
 
-Миграции для cleaning-subgraph:
+Миграции для field-service-subgraph:
 1. `20251011112041_add_cleaning_models` - создание всех моделей
 2. `20251012165916_add_task_id_to_cleaning` - добавление связи с Task
 

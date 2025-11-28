@@ -293,9 +293,11 @@ export default function IAMPage() {
                                   ? 'blue'
                                   : membership.role === 'CLEANER'
                                     ? 'green'
-                                    : membership.role === 'OPERATOR'
-                                      ? 'amber'
-                                      : 'zinc'
+                                    : membership.role === 'MASTER'
+                                      ? 'orange'
+                                      : membership.role === 'OPERATOR'
+                                        ? 'amber'
+                                        : 'zinc'
                             }
                             className="text-xs"
                           >
@@ -305,9 +307,11 @@ export default function IAMPage() {
                                 ? 'Менеджер'
                                 : membership.role === 'CLEANER'
                                   ? 'Уборщик'
-                                  : membership.role === 'OPERATOR'
-                                    ? 'Оператор'
-                                    : 'Сотрудник'}
+                                  : membership.role === 'MASTER'
+                                    ? 'Мастер'
+                                    : membership.role === 'OPERATOR'
+                                      ? 'Оператор'
+                                      : 'Сотрудник'}
                           </Badge>
                         ))
                       ) : (

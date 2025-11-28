@@ -24,28 +24,22 @@ import {
 } from '@heroicons/react/24/outline'
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
-import { GET_TASK_BY_ID, UPDATE_TASK_STATUS, ASSIGN_TASK, GET_CLEANING_BY_TASK } from '@/lib/graphql-queries'
+import { GET_TASK_BY_ID, UPDATE_TASK_STATUS, ASSIGN_TASK, GET_SERVICE_PROVIDERS, GET_CLEANERS, GET_MASTERS, SCHEDULE_CLEANING, SCHEDULE_REPAIR, GET_UNITS_BY_PROPERTY, GET_PROPERTIES_BY_ORG } from '@/lib/graphql-queries'
+import { Select } from '@/components/select'
 import type { GetTaskByIdQuery } from '@/lib/generated/graphql'
 
 type Task = NonNullable<GetTaskByIdQuery['task']>
 
-// Тип для ответа запроса уборки по задаче
-type CleaningByTaskResponse = {
-  cleaningByTask?: {
-    id: string
-    status: string
-    cleaner?: {
-      firstName: string
-      lastName: string
-    }
-  } | null
-}
 
 export default function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { currentOrgId, isLoading: orgLoading } = useCurrentOrganization()
   const [showAssignDialog, setShowAssignDialog] = useState(false)
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('')
+  const [assigneeType, setAssigneeType] = useState<'master' | 'provider'>('master')
+  const [showCreateCleaningDialog, setShowCreateCleaningDialog] = useState(false)
+  const [showCreateRepairDialog, setShowCreateRepairDialog] = useState(false)
 
   // Разворачиваем params с помощью React.use()
   const { id } = use(params)
@@ -57,11 +51,39 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     enabled: !!id
   })
 
-  // Запрос связанной уборки (только для задач типа CLEANING)
-  const { data: cleaningData } = useQuery<CleaningByTaskResponse>({
-    queryKey: ['cleaningByTask', id],
-    queryFn: () => graphqlClient.request(GET_CLEANING_BY_TASK, { taskId: id }),
-    enabled: !!id && taskData?.task?.type === 'CLEANING'
+  // Связь с уборкой теперь получается через task.source.cleaning
+
+  // Запрос поставщиков услуг (для не-CLEANING задач)
+  const { data: providersData } = useQuery({
+    queryKey: ['serviceProviders', taskData?.task?.type],
+    queryFn: () => graphqlClient.request(GET_SERVICE_PROVIDERS, {
+      serviceTypes: taskData?.task?.type && taskData.task.type !== 'CLEANING' 
+        ? [taskData.task.type] 
+        : undefined
+    }),
+    enabled: !!taskData?.task && taskData.task.type !== 'CLEANING'
+  })
+
+  // Запрос уборщиков (для CLEANING задач)
+  const { data: cleanersData } = useQuery({
+    queryKey: ['cleaners', currentOrgId],
+    queryFn: () => graphqlClient.request(GET_CLEANERS, {
+      orgId: currentOrgId!,
+      isActive: true,
+      first: 100
+    }),
+    enabled: !!currentOrgId && taskData?.task?.type === 'CLEANING'
+  })
+
+  // Запрос мастеров (для MAINTENANCE задач)
+  const { data: mastersData } = useQuery({
+    queryKey: ['masters', currentOrgId],
+    queryFn: () => graphqlClient.request(GET_MASTERS, {
+      orgId: currentOrgId!,
+      isActive: true,
+      first: 100
+    }),
+    enabled: !!currentOrgId && taskData?.task?.type === 'MAINTENANCE'
   })
 
   // Мутация обновления статуса
@@ -93,13 +115,31 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     }
   }
 
-  const handleAssignTask = async (assigneeId: string) => {
-    if (taskData?.task) {
-      await assignTaskMutation.mutateAsync({
-        taskId: taskData.task.id,
-        providerId: assigneeId
-      })
+  const handleAssignTask = async () => {
+    if (!taskData?.task || !selectedAssigneeId) {
+      return
     }
+
+    const input: any = {
+      taskId: taskData.task.id,
+    }
+
+    // В зависимости от типа задачи назначаем либо provider, либо cleaner, либо master
+    if (taskData.task.type === 'CLEANING') {
+      input.cleanerId = selectedAssigneeId
+    } else if (taskData.task.type === 'MAINTENANCE') {
+      if (assigneeType === 'master') {
+        input.masterId = selectedAssigneeId
+      } else {
+        input.providerId = selectedAssigneeId
+      }
+    } else {
+      input.providerId = selectedAssigneeId
+    }
+
+    await assignTaskMutation.mutateAsync({ input })
+    setSelectedAssigneeId('')
+    setAssigneeType('master')
   }
 
   const getStatusBadge = (status: string) => {
@@ -294,15 +334,13 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
               )}
 
-              {/* Информация о связи с уборкой для задач типа CLEANING */}
-              {task.type === 'CLEANING' && (
+              {/* Информация о связи с уборкой через source */}
+              {task.source?.type === 'CLEANING' && task.source.cleaning && (
                 <div 
                   className="flex items-start gap-3 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
                   onClick={() => {
-                    // Если есть связанная уборка, переходим к ней, иначе к списку уборок
-                    const cleaning = cleaningData?.cleaningByTask as CleaningByTaskResponse['cleaningByTask']
-                    if (cleaning?.id) {
-                      router.push(`/cleanings/${cleaning.id}`)
+                    if (task.source?.cleaning?.id) {
+                      router.push(`/cleanings/${task.source.cleaning.id}`)
                     } else {
                       router.push('/cleanings')
                     }
@@ -311,34 +349,35 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                   <SparklesIcon className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <Text className="font-medium text-gray-900 dark:text-white">
-                      {cleaningData?.cleaningByTask ? 'Уборка создана' : 'Уборка не создана'}
+                      Связанная уборка
                     </Text>
-                    {cleaningData?.cleaningByTask ? (
-                      <>
-                        <Text className="text-sm text-gray-500 dark:text-gray-400">
-                          Статус: {(cleaningData.cleaningByTask as CleaningByTaskResponse['cleaningByTask'])?.status === 'SCHEDULED' ? 'Запланирована' :
-                                   (cleaningData.cleaningByTask as CleaningByTaskResponse['cleaningByTask'])?.status === 'IN_PROGRESS' ? 'В процессе' :
-                                   (cleaningData.cleaningByTask as CleaningByTaskResponse['cleaningByTask'])?.status === 'COMPLETED' ? 'Завершена' : (cleaningData.cleaningByTask as CleaningByTaskResponse['cleaningByTask'])?.status}
-                        </Text>
-                        {(cleaningData.cleaningByTask as CleaningByTaskResponse['cleaningByTask'])?.cleaner && (
-                          <Text className="text-sm text-gray-500 dark:text-gray-400">
-                            Уборщик: {(cleaningData.cleaningByTask as CleaningByTaskResponse['cleaningByTask'])?.cleaner?.firstName} {(cleaningData.cleaningByTask as CleaningByTaskResponse['cleaningByTask'])?.cleaner?.lastName}
-                          </Text>
-                        )}
-                        <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                          🔗 Нажмите для перехода к уборке
-                        </Text>
-                      </>
-                    ) : (
-                      <>
-                        <Text className="text-sm text-gray-500 dark:text-gray-400">
-                          Уборка еще не создана для этой задачи
-                        </Text>
-                        <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                          🔗 Нажмите для перехода к уборкам
-                        </Text>
-                      </>
+                    {task.source.cleaning.status && (
+                      <Text className="text-sm text-gray-500 dark:text-gray-400">
+                        Статус: {task.source.cleaning.status === 'SCHEDULED' ? 'Запланирована' :
+                                 task.source.cleaning.status === 'IN_PROGRESS' ? 'В процессе' :
+                                 task.source.cleaning.status === 'COMPLETED' ? 'Завершена' :
+                                 task.source.cleaning.status === 'APPROVED' ? 'Одобрена' :
+                                 task.source.cleaning.status}
+                      </Text>
                     )}
+                    {task.source.cleaning.cleaner && (
+                      <Text className="text-sm text-gray-500 dark:text-gray-400">
+                        Уборщик: {task.source.cleaning.cleaner.firstName} {task.source.cleaning.cleaner.lastName}
+                      </Text>
+                    )}
+                    {task.source.cleaning.scheduledAt && (
+                      <Text className="text-sm text-gray-500 dark:text-gray-400">
+                        Запланирована: {new Date(task.source.cleaning.scheduledAt).toLocaleString('ru-RU')}
+                      </Text>
+                    )}
+                    {task.source.cleaning.completedAt && (
+                      <Text className="text-sm text-gray-500 dark:text-gray-400">
+                        Завершена: {new Date(task.source.cleaning.completedAt).toLocaleString('ru-RU')}
+                      </Text>
+                    )}
+                    <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      🔗 Нажмите для перехода к уборке
+                    </Text>
                   </div>
                 </div>
               )}
@@ -425,7 +464,41 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           {/* Исполнитель */}
           <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
             <Subheading className="mb-4">Исполнитель</Subheading>
-            {task.assignedTo ? (
+            {task.assignedCleaner ? (
+              <div className="flex items-center gap-3">
+                <UserIcon className="w-5 h-5 text-blue-600" />
+                <div>
+                  <Text className="font-medium">
+                    {task.assignedCleaner.firstName} {task.assignedCleaner.lastName}
+                  </Text>
+                  {task.assignedCleaner.phone && (
+                    <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                      {task.assignedCleaner.phone}
+                    </Text>
+                  )}
+                  {task.assignedCleaner.email && (
+                    <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                      {task.assignedCleaner.email}
+                    </Text>
+                  )}
+                  {task.assignedCleaner.rating && (
+                    <Text className="text-sm text-yellow-600">
+                      ⭐ {task.assignedCleaner.rating.toFixed(1)}
+                    </Text>
+                  )}
+                </div>
+              </div>
+            ) : task.assignedMaster ? (
+              <div className="flex items-center gap-3">
+                <UserIcon className="w-5 h-5 text-orange-600" />
+                <div>
+                  <Text className="font-medium">Мастер</Text>
+                  <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                    ID: {task.assignedMaster.id}
+                  </Text>
+                </div>
+              </div>
+            ) : task.assignedTo ? (
               <div className="flex items-center gap-3">
                 <UserIcon className="w-5 h-5 text-blue-600" />
                 <div>
@@ -444,10 +517,10 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
               <div className="text-center py-4">
                 <Text className="text-zinc-500 mb-3">Исполнитель не назначен</Text>
                 {task.status === 'TODO' && (
-            <Button 
-              onClick={() => setShowAssignDialog(true)}
-              className="text-sm px-3 py-1"
-            >
+                  <Button 
+                    onClick={() => setShowAssignDialog(true)}
+                    className="text-sm px-3 py-1"
+                  >
                     Назначить
                   </Button>
                 )}
@@ -484,28 +557,286 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                   Отменить задачу
                 </Button>
               )}
+              {/* Создать уборку из задачи */}
+              {task.type === 'CLEANING' && task.unit && task.status === 'TODO' && !task.source?.cleaning && (
+                <Button 
+                  onClick={() => setShowCreateCleaningDialog(true)}
+                  className="w-full"
+                  color="blue"
+                >
+                  Создать уборку
+                </Button>
+              )}
+              {/* Создать ремонт из задачи */}
+              {task.type === 'MAINTENANCE' && task.unit && task.status === 'TODO' && (
+                <Button 
+                  onClick={() => setShowCreateRepairDialog(true)}
+                  className="w-full"
+                  color="orange"
+                >
+                  Создать ремонт
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Диалог назначения исполнителя */}
-      <Dialog open={showAssignDialog} onClose={() => setShowAssignDialog(false)}>
-        <div className="p-6">
+      <Dialog open={showAssignDialog} onClose={() => {
+        setShowAssignDialog(false)
+        setSelectedAssigneeId('')
+        setAssigneeType('master')
+      }}>
+        <div className="p-6 space-y-4">
           <Heading level={2} className="mb-4">Назначить исполнителя</Heading>
           <Text className="mb-4">
             Выберите исполнителя для этой задачи
           </Text>
-          <div className="space-y-3">
-            {/* Здесь можно добавить список доступных исполнителей */}
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-              <Text className="text-yellow-800 dark:text-yellow-200">
-                Функция назначения исполнителей будет добавлена в следующих версиях.
-              </Text>
+          
+          {task.type === 'CLEANING' ? (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Уборщик
+              </label>
+              <Select
+                value={selectedAssigneeId}
+                onChange={(e) => setSelectedAssigneeId(e.target.value)}
+                className="w-full"
+              >
+                <option value="">Выберите уборщика</option>
+                {cleanersData?.cleaners?.edges?.map((edge: any) => {
+                  const cleaner = edge.node
+                  return (
+                    <option key={cleaner.id} value={cleaner.id}>
+                      {cleaner.firstName} {cleaner.lastName}
+                      {cleaner.phone && ` - ${cleaner.phone}`}
+                      {cleaner.rating && ` (⭐ ${cleaner.rating.toFixed(1)})`}
+                    </option>
+                  )
+                })}
+              </Select>
+              {cleanersData?.cleaners?.edges?.length === 0 && (
+                <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Нет доступных уборщиков
+                </Text>
+              )}
             </div>
+          ) : task.type === 'MAINTENANCE' ? (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Тип исполнителя
+              </label>
+              <Select
+                value={assigneeType}
+                onChange={(e) => {
+                  setAssigneeType(e.target.value as 'master' | 'provider')
+                  setSelectedAssigneeId('')
+                }}
+                className="w-full"
+              >
+                <option value="master">Мастер</option>
+                <option value="provider">Организация</option>
+              </Select>
+              
+              {assigneeType === 'master' ? (
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Мастер
+                  </label>
+                  <Select
+                    value={selectedAssigneeId}
+                    onChange={(e) => setSelectedAssigneeId(e.target.value)}
+                    className="w-full"
+                  >
+                    <option value="">Выберите мастера</option>
+                    {mastersData?.masters?.edges?.map((edge: any) => {
+                      const master = edge.node
+                      return (
+                        <option key={master.id} value={master.id}>
+                          {master.firstName} {master.lastName}
+                          {master.phone && ` - ${master.phone}`}
+                        </option>
+                      )
+                    })}
+                  </Select>
+                  {mastersData?.masters?.edges?.length === 0 && (
+                    <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Нет доступных мастеров
+                    </Text>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Поставщик услуг
+                  </label>
+                  <Select
+                    value={selectedAssigneeId}
+                    onChange={(e) => setSelectedAssigneeId(e.target.value)}
+                    className="w-full"
+                  >
+                    <option value="">Выберите поставщика</option>
+                    {providersData?.serviceProviders?.map((provider: any) => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.name}
+                        {provider.contact && ` - ${provider.contact}`}
+                        {provider.rating && ` (⭐ ${provider.rating.toFixed(1)})`}
+                      </option>
+                    ))}
+                  </Select>
+                  {providersData?.serviceProviders?.length === 0 && (
+                    <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Нет доступных поставщиков услуг
+                    </Text>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Поставщик услуг
+              </label>
+              <Select
+                value={selectedAssigneeId}
+                onChange={(e) => setSelectedAssigneeId(e.target.value)}
+                className="w-full"
+              >
+                <option value="">Выберите поставщика</option>
+                {providersData?.serviceProviders?.map((provider: any) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.name}
+                    {provider.contact && ` - ${provider.contact}`}
+                    {provider.rating && ` (⭐ ${provider.rating.toFixed(1)})`}
+                  </option>
+                ))}
+              </Select>
+              {providersData?.serviceProviders?.length === 0 && (
+                <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Нет доступных поставщиков услуг
+                </Text>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              outline
+              onClick={() => {
+                setShowAssignDialog(false)
+                setSelectedAssigneeId('')
+              }}
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={handleAssignTask}
+              disabled={!selectedAssigneeId || assignTaskMutation.isPending}
+            >
+              {assignTaskMutation.isPending ? 'Назначаем...' : 'Назначить'}
+            </Button>
           </div>
         </div>
       </Dialog>
+
+      {/* Диалог создания уборки из задачи */}
+      {showCreateCleaningDialog && task.unit && currentOrgId && (
+        <Dialog open={showCreateCleaningDialog} onClose={() => setShowCreateCleaningDialog(false)}>
+          <DialogTitle>Создать уборку из задачи</DialogTitle>
+          <DialogDescription>
+            Создать уборку для задачи: {task.note || 'Без описания'}
+          </DialogDescription>
+          <DialogBody>
+            <div className="space-y-4">
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                Квартира: {task.unit.property?.title} · {task.unit.name}
+              </Text>
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                Уборка будет создана и привязана к этой задаче.
+              </Text>
+            </div>
+          </DialogBody>
+          <DialogActions>
+            <Button outline onClick={() => setShowCreateCleaningDialog(false)}>
+              Отмена
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  const scheduledAt = new Date().toISOString()
+                  await graphqlClient.request(SCHEDULE_CLEANING, {
+                    input: {
+                      orgId: currentOrgId,
+                      unitId: task.unit.id,
+                      scheduledAt,
+                      taskId: task.id,
+                      notes: task.note || undefined,
+                    }
+                  })
+                  queryClient.invalidateQueries({ queryKey: ['task', id] })
+                  queryClient.invalidateQueries({ queryKey: ['cleanings'] })
+                  setShowCreateCleaningDialog(false)
+                  router.push('/cleanings')
+                } catch (error: any) {
+                  alert(`Ошибка: ${error.message || 'Не удалось создать уборку'}`)
+                }
+              }}
+            >
+              Создать уборку
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Диалог создания ремонта из задачи */}
+      {showCreateRepairDialog && task.unit && currentOrgId && (
+        <Dialog open={showCreateRepairDialog} onClose={() => setShowCreateRepairDialog(false)}>
+          <DialogTitle>Создать ремонт из задачи</DialogTitle>
+          <DialogDescription>
+            Создать ремонт для задачи: {task.note || 'Без описания'}
+          </DialogDescription>
+          <DialogBody>
+            <div className="space-y-4">
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                Квартира: {task.unit.property?.title} · {task.unit.name}
+              </Text>
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                Ремонт будет создан и привязан к этой задаче.
+              </Text>
+            </div>
+          </DialogBody>
+          <DialogActions>
+            <Button outline onClick={() => setShowCreateRepairDialog(false)}>
+              Отмена
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  const scheduledAt = new Date().toISOString()
+                  await graphqlClient.request(SCHEDULE_REPAIR, {
+                    input: {
+                      orgId: currentOrgId,
+                      unitId: task.unit.id,
+                      scheduledAt,
+                      taskId: task.id,
+                      notes: task.note || undefined,
+                    }
+                  })
+                  queryClient.invalidateQueries({ queryKey: ['task', id] })
+                  queryClient.invalidateQueries({ queryKey: ['repairs'] })
+                  setShowCreateRepairDialog(false)
+                  router.push('/repairs')
+                } catch (error: any) {
+                  alert(`Ошибка: ${error.message || 'Не удалось создать ремонт'}`)
+                }
+              }}
+            >
+              Создать ремонт
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </div>
   )
 }

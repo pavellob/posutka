@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query'
 interface CreateTaskDialogProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (taskId?: string) => void | Promise<void>
   orgId: string
 }
 
@@ -169,8 +169,9 @@ export function CreateTaskDialog({ isOpen, onClose, onSuccess, orgId }: CreateTa
       console.log('📋 Form data:', formData)
       console.log('🏢 Org ID:', orgId)
 
-      const result = await graphqlClient.request(mutation, { input })
+      const result = await graphqlClient.request(mutation, { input }) as any
       console.log('✅ Task created successfully:', result)
+      const taskId = result.createTask?.id
 
       // Сброс формы
       setFormData({
@@ -184,7 +185,7 @@ export function CreateTaskDialog({ isOpen, onClose, onSuccess, orgId }: CreateTa
       setSelectedPropertyId('')
       setCurrentChecklistItem('')
       
-      onSuccess()
+      await onSuccess(taskId)
       onClose()
     } catch (err) {
       console.error('❌ Error creating task:', err)

@@ -181,12 +181,29 @@ type ServiceProvider {
 }
 
 """
-Уборщик (ссылка на cleaning-subgraph).
+Уборщик (ссылка на field-service-subgraph).
 """
 type Cleaner {
   """Уникальный идентификатор уборщика"""
   id: UUID!
 }
+
+"""
+Мастер (ссылка на field-service-subgraph).
+"""
+type Master {
+  """Уникальный идентификатор мастера"""
+  id: UUID!
+}
+
+"""
+Уборка (ссылка на field-service-subgraph).
+"""
+type Cleaning {
+  """Уникальный идентификатор уборки"""
+  id: UUID!
+}
+
 
 """
 Операционная задача.
@@ -201,6 +218,16 @@ type Task {
   unit: Unit
   """Бронирование, связанное с задачей (опционально)"""
   booking: Booking
+  """Источник задачи (опционально)"""
+  source: Source
+  """Ключ пункта чек-листа, из которого создана задача (опционально, deprecated)"""
+  checklistItemKey: String
+  """ID пункта чек-листа, к которому привязана задача (опционально)"""
+  checklistItemInstanceId: UUID
+  """Задача для следующего чек-листа"""
+  plannedForNextChecklist: Boolean!
+  """ID уборки, из которой создана задача для следующего чек-листа (опционально)"""
+  sourceCleaningId: UUID
   """Тип задачи"""
   type: TaskType!
   """Текущий статус задачи"""
@@ -211,6 +238,8 @@ type Task {
   assignedTo: ServiceProvider
   """Уборщик, назначенный на задачу уборки (опционально, только для CLEANING)"""
   assignedCleaner: Cleaner
+  """Мастер, назначенный на задачу (опционально, для ремонтов)"""
+  assignedMaster: Master
   """Чек-лист для выполнения задачи"""
   checklist: [String!]!
   """Дата и время создания задачи"""
@@ -310,6 +339,22 @@ input CreateTaskInput {
   unitId: UUID
   """ID бронирования (опционально)"""
   bookingId: UUID
+  """ID источника задачи (опционально)"""
+  sourceId: UUID
+  """Ключ пункта чек-листа, из которого создана задача (опционально, deprecated)"""
+  checklistItemKey: String
+  """ID пункта чек-листа, к которому привязана задача (опционально)"""
+  checklistItemInstanceId: UUID
+  """ID поставщика услуг (опционально, для не-CLEANING задач)"""
+  assignedProviderId: UUID
+  """Задача для следующего чек-листа"""
+  plannedForNextChecklist: Boolean
+  """ID уборки, из которой создана задача для следующего чек-листа (опционально)"""
+  sourceCleaningId: UUID
+  """ID уборщика (опционально, для CLEANING задач)"""
+  assignedCleanerId: UUID
+  """ID мастера (опционально, для ремонтов)"""
+  assignedMasterId: UUID
   """Дата и время выполнения задачи (опционально)"""
   dueAt: DateTime
   """Чек-лист для выполнения задачи (опционально)"""
@@ -328,6 +373,8 @@ input AssignTaskInput {
   providerId: UUID
   """ID уборщика (опционально, используется для CLEANING задач)"""
   cleanerId: UUID
+  """ID мастера (опционально, используется для ремонтов)"""
+  masterId: UUID
   """Новый статус задачи (опционально)"""
   status: TaskStatus
   """Дополнительные заметки (опционально)"""
@@ -376,6 +423,102 @@ input CreateServiceProviderInput {
   contact: String
 }
 
+"""
+Входные данные для создания задачи из пункта чек-листа.
+"""
+input ChecklistTaskItemInput {
+  """Ключ пункта чек-листа"""
+  itemKey: String!
+  """Описание задачи (что нужно сделать)"""
+  description: String!
+  """ID исполнителя (assignee) - может быть providerId или cleanerId"""
+  assigneeId: UUID!
+  """Тип исполнителя (PROVIDER или CLEANER)"""
+  assigneeType: TaskAssigneeType!
+  """Дата исполнения (опционально)"""
+  dueAt: DateTime
+}
+
+"""
+Тип исполнителя задачи.
+"""
+enum TaskAssigneeType {
+  """Поставщик услуг"""
+  PROVIDER
+  """Уборщик"""
+  CLEANER
+  """Мастер"""
+  MASTER
+}
+
+"""
+Входные данные для создания задач из чек-листа.
+"""
+input CreateTasksFromChecklistInput {
+  """ID уборки, из которой берём неуспешные пункты"""
+  cleaningId: UUID!
+  """Список пунктов для создания задач"""
+  items: [ChecklistTaskItemInput!]!
+}
+
+"""
+Входные данные для создания задачи для следующего чек-листа.
+"""
+input CreateTaskForNextChecklistInput {
+  """ID организации"""
+  orgId: UUID!
+  """ID единицы недвижимости (обязательно)"""
+  unitId: UUID!
+  """ID уборки, из которой создается задача"""
+  sourceCleaningId: UUID!
+  """Тип задачи"""
+  type: TaskType!
+  """ID уборщика (опционально, для CLEANING задач)"""
+  assignedCleanerId: UUID
+  """ID поставщика услуг (опционально, для не-CLEANING задач)"""
+  assignedProviderId: UUID
+  """Дата и время выполнения задачи (опционально)"""
+  dueAt: DateTime
+  """Дополнительные заметки (опционально)"""
+  note: String
+}
+
+"""
+Источник задачи.
+Может быть уборка, ремонт, бронирование и т.д.
+"""
+type Source {
+  """Уникальный идентификатор источника"""
+  id: UUID!
+  """Тип источника"""
+  type: SourceType!
+  """ID сущности (cleaning.id, repair.id и т.д.)"""
+  entityId: UUID!
+  """Организация"""
+  org: Organization!
+  """Уборка (если type = CLEANING)"""
+  cleaning: Cleaning
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
+Тип источника задачи.
+"""
+enum SourceType {
+  """Уборка"""
+  CLEANING
+  """Ремонт"""
+  REPAIR
+  """Бронирование"""
+  BOOKING
+  """Инспекция"""
+  INSPECTION
+  """Другое"""
+  OTHER
+}
 
 """
 Мутации для управления задачами, заказами и поставщиками услуг.
@@ -383,6 +526,10 @@ input CreateServiceProviderInput {
 type Mutation {
   """Создать новую задачу"""
   createTask(input: CreateTaskInput!): Task!
+  """Создать задачи из неуспешных пунктов чек-листа уборки"""
+  createTasksFromChecklist(input: CreateTasksFromChecklistInput!): [Task!]!
+  """Создать задачу для следующего чек-листа"""
+  createTaskForNextChecklist(input: CreateTaskForNextChecklistInput!): Task!
   """Назначить задачу поставщику услуг"""
   assignTask(input: AssignTaskInput!): Task!
   """Обновить статус задачи"""
