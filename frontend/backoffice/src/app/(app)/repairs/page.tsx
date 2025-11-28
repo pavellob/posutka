@@ -32,7 +32,7 @@ function RepairsPageContent() {
   const orgId = currentOrgId
 
   // Запрос ремонтов
-  const { data: repairsData, isLoading: repairsLoading } = useQuery({
+  const { data: repairsData, isLoading: repairsLoading } = useQuery<any>({
     queryKey: ['repairs', orgId, filters.status, filters.masterId],
     queryFn: () => graphqlClient.request(GET_REPAIRS, {
       orgId: orgId!,

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphqlClient } from '@/lib/graphql-client'
-import { CREATE_TASK_FOR_NEXT_CHECKLIST, GET_CLEANERS } from '@/lib/graphql-queries'
+import { CREATE_TASK_FROM_CHECKLIST_ITEM, GET_CLEANERS } from '@/lib/graphql-queries'
 import { Dialog, DialogTitle, DialogBody, DialogActions, DialogDescription } from '@/components/dialog'
 import { Button } from '@/components/button'
 import { Text } from '@/components/text'
@@ -50,7 +50,7 @@ export function CreateTaskForNextCleaning({
 
   const createTaskMutation = useMutation({
     mutationFn: async (input: any) => {
-      return graphqlClient.request(CREATE_TASK_FOR_NEXT_CHECKLIST, { input }) as any
+      return graphqlClient.request(CREATE_TASK_FROM_CHECKLIST_ITEM, { input }) as any
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })

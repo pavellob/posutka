@@ -8,7 +8,7 @@ import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
 import { Button } from '@/components/button'
 import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@/components/table'
-import { Dialog } from '@/components/dialog'
+import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/dialog'
 import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
 import { 
   ArrowLeftIcon,
@@ -54,7 +54,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   // Связь с уборкой теперь получается через task.source.cleaning
 
   // Запрос поставщиков услуг (для не-CLEANING задач)
-  const { data: providersData } = useQuery({
+  const { data: providersData } = useQuery<any>({
     queryKey: ['serviceProviders', taskData?.task?.type],
     queryFn: () => graphqlClient.request(GET_SERVICE_PROVIDERS, {
       serviceTypes: taskData?.task?.type && taskData.task.type !== 'CLEANING' 
@@ -65,7 +65,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   })
 
   // Запрос уборщиков (для CLEANING задач)
-  const { data: cleanersData } = useQuery({
+  const { data: cleanersData } = useQuery<any>({
     queryKey: ['cleaners', currentOrgId],
     queryFn: () => graphqlClient.request(GET_CLEANERS, {
       orgId: currentOrgId!,
@@ -76,7 +76,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   })
 
   // Запрос мастеров (для MAINTENANCE задач)
-  const { data: mastersData } = useQuery({
+  const { data: mastersData } = useQuery<any>({
     queryKey: ['masters', currentOrgId],
     queryFn: () => graphqlClient.request(GET_MASTERS, {
       orgId: currentOrgId!,
@@ -335,12 +335,13 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
               )}
 
               {/* Информация о связи с уборкой через source */}
-              {task.source?.type === 'CLEANING' && task.source.cleaning && (
+              {(taskData?.task as any)?.source?.type === 'CLEANING' && (taskData?.task as any)?.source?.cleaning && (
                 <div 
                   className="flex items-start gap-3 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
                   onClick={() => {
-                    if (task.source?.cleaning?.id) {
-                      router.push(`/cleanings/${task.source.cleaning.id}`)
+                    const source = (taskData?.task as any)?.source
+                    if (source?.cleaning?.id) {
+                      router.push(`/cleanings/${source.cleaning.id}`)
                     } else {
                       router.push('/cleanings')
                     }
@@ -351,28 +352,28 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                     <Text className="font-medium text-gray-900 dark:text-white">
                       Связанная уборка
                     </Text>
-                    {task.source.cleaning.status && (
+                    {(taskData?.task as any)?.source?.cleaning?.status && (
                       <Text className="text-sm text-gray-500 dark:text-gray-400">
-                        Статус: {task.source.cleaning.status === 'SCHEDULED' ? 'Запланирована' :
-                                 task.source.cleaning.status === 'IN_PROGRESS' ? 'В процессе' :
-                                 task.source.cleaning.status === 'COMPLETED' ? 'Завершена' :
-                                 task.source.cleaning.status === 'APPROVED' ? 'Одобрена' :
-                                 task.source.cleaning.status}
+                        Статус: {(taskData?.task as any)?.source?.cleaning?.status === 'SCHEDULED' ? 'Запланирована' :
+                                 (taskData?.task as any)?.source?.cleaning?.status === 'IN_PROGRESS' ? 'В процессе' :
+                                 (taskData?.task as any)?.source?.cleaning?.status === 'COMPLETED' ? 'Завершена' :
+                                 (taskData?.task as any)?.source?.cleaning?.status === 'APPROVED' ? 'Одобрена' :
+                                 (taskData?.task as any)?.source?.cleaning?.status}
                       </Text>
                     )}
-                    {task.source.cleaning.cleaner && (
+                    {(taskData?.task as any)?.source?.cleaning?.cleaner && (
                       <Text className="text-sm text-gray-500 dark:text-gray-400">
-                        Уборщик: {task.source.cleaning.cleaner.firstName} {task.source.cleaning.cleaner.lastName}
+                        Уборщик: {(taskData?.task as any)?.source?.cleaning?.cleaner?.firstName} {(taskData?.task as any)?.source?.cleaning?.cleaner?.lastName}
                       </Text>
                     )}
-                    {task.source.cleaning.scheduledAt && (
+                    {(taskData?.task as any)?.source?.cleaning?.scheduledAt && (
                       <Text className="text-sm text-gray-500 dark:text-gray-400">
-                        Запланирована: {new Date(task.source.cleaning.scheduledAt).toLocaleString('ru-RU')}
+                        Запланирована: {new Date((taskData?.task as any)?.source?.cleaning?.scheduledAt).toLocaleString('ru-RU')}
                       </Text>
                     )}
-                    {task.source.cleaning.completedAt && (
+                    {(taskData?.task as any)?.source?.cleaning?.completedAt && (
                       <Text className="text-sm text-gray-500 dark:text-gray-400">
-                        Завершена: {new Date(task.source.cleaning.completedAt).toLocaleString('ru-RU')}
+                        Завершена: {new Date((taskData?.task as any)?.source?.cleaning?.completedAt).toLocaleString('ru-RU')}
                       </Text>
                     )}
                     <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
@@ -488,13 +489,13 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                   )}
                 </div>
               </div>
-            ) : task.assignedMaster ? (
+            ) : (taskData?.task as any)?.assignedMaster ? (
               <div className="flex items-center gap-3">
                 <UserIcon className="w-5 h-5 text-orange-600" />
                 <div>
                   <Text className="font-medium">Мастер</Text>
                   <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                    ID: {task.assignedMaster.id}
+                    ID: {(taskData?.task as any)?.assignedMaster?.id}
                   </Text>
                 </div>
               </div>
@@ -558,7 +559,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                 </Button>
               )}
               {/* Создать уборку из задачи */}
-              {task.type === 'CLEANING' && task.unit && task.status === 'TODO' && !task.source?.cleaning && (
+              {task.type === 'CLEANING' && task.unit && task.status === 'TODO' && !(taskData?.task as any)?.source?.cleaning && (
                 <Button 
                   onClick={() => setShowCreateCleaningDialog(true)}
                   className="w-full"
@@ -764,6 +765,10 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
             <Button
               onClick={async () => {
                 try {
+                  if (!task.unit) {
+                    alert('Юнит не указан для этой задачи')
+                    return
+                  }
                   const scheduledAt = new Date().toISOString()
                   await graphqlClient.request(SCHEDULE_CLEANING, {
                     input: {
@@ -813,6 +818,10 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
             <Button
               onClick={async () => {
                 try {
+                  if (!task.unit) {
+                    alert('Юнит не указан для этой задачи')
+                    return
+                  }
                   const scheduledAt = new Date().toISOString()
                   await graphqlClient.request(SCHEDULE_REPAIR, {
                     input: {

@@ -67,21 +67,21 @@ export function CreateTaskDialogWithAssignee({
   const [error, setError] = useState<string | null>(null)
 
   // Получаем объекты недвижимости
-  const { data: propertiesData, isLoading: propertiesLoading } = useQuery({
+  const { data: propertiesData, isLoading: propertiesLoading } = useQuery<any>({
     queryKey: ['properties', orgId],
     queryFn: () => graphqlClient.request(GET_PROPERTIES_BY_ORG, { orgId }),
     enabled: !!orgId
   })
 
   // Получаем единицы для выбранного объекта
-  const { data: unitsData, isLoading: unitsLoading } = useQuery({
+  const { data: unitsData, isLoading: unitsLoading } = useQuery<any>({
     queryKey: ['units', selectedPropertyId],
     queryFn: () => graphqlClient.request(GET_UNITS_BY_PROPERTY, { propertyId: selectedPropertyId }),
     enabled: !!selectedPropertyId
   })
 
   // Получаем бронирования для выбранной единицы
-  const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
+  const { data: bookingsData, isLoading: bookingsLoading } = useQuery<any>({
     queryKey: ['bookings', formData.unitId],
     queryFn: () => graphqlClient.request(GET_BOOKINGS, { 
       orgId,

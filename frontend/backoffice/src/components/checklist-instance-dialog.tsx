@@ -129,6 +129,7 @@ export function ChecklistInstanceDialog({
   stage,
   instanceId,
   cleaningId,
+  repairId,
   canEdit = true,
   onStartCleaning,
   orgId,

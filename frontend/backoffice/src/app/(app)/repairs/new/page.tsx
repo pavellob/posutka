@@ -63,9 +63,9 @@ function NewRepairPageContent() {
   // Мутация для создания ремонта
   const scheduleRepairMutation = useMutation({
     mutationFn: (input: any) => graphqlClient.request(SCHEDULE_REPAIR, { input }),
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['repairs'] })
-      const repairId = data.scheduleRepair?.id
+      const repairId = data?.scheduleRepair?.id
       if (repairId) {
         router.push(`/repairs/${repairId}`)
       } else {
