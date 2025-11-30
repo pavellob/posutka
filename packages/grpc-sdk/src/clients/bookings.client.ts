@@ -3,8 +3,10 @@ import { BookingsServiceDefinition } from '../generated/bookings.js';
 import type { 
   CreateBookingRequest,
   GetBookingRequest,
+  GetBookingByExternalRefRequest,
   CancelBookingRequest,
   ChangeBookingDatesRequest,
+  UpdateBookingRequest,
   BookingResponse
 } from '../generated/bookings.js';
 
@@ -67,6 +69,20 @@ export class BookingsGrpcClient {
       throw new Error('Client not connected');
     }
     return this.client.changeBookingDates(request);
+  }
+
+  async getBookingByExternalRef(request: GetBookingByExternalRefRequest): Promise<BookingResponse> {
+    if (!this.isConnected) {
+      throw new Error('Client not connected');
+    }
+    return this.client.getBookingByExternalRef(request);
+  }
+
+  async updateBooking(request: UpdateBookingRequest): Promise<BookingResponse> {
+    if (!this.isConnected) {
+      throw new Error('Client not connected');
+    }
+    return this.client.updateBooking(request);
   }
 }
 

@@ -2077,16 +2077,19 @@ Object.assign(resolvers.Mutation, {
     startRepair: async (
       _: unknown,
       { id }: { id: string },
-      { dl, prisma }: Context
+      { dl, prisma, checklistInstanceService }: Context
     ) => {
       logger.info('Starting repair', { id });
       
-      // Проверяем, что осмотр ремонта завершен (REPAIR_INSPECTION должен быть SUBMITTED)
       const repair = await dl.getRepairById(id);
       if (!repair) {
         throw new Error(`Repair with id ${id} not found`);
       }
       
+      // Начинаем ремонт (берем в работу)
+      const startedRepair = await dl.startRepair(id);
+      
+      // После начала работ создаем чеклист осмотра, если его еще нет
       const inspectionInstance = await prisma.checklistInstance.findFirst({
         where: {
           repairId: id,
@@ -2095,15 +2098,29 @@ Object.assign(resolvers.Mutation, {
         orderBy: { createdAt: 'desc' }
       });
       
+      // Если чеклист осмотра не существует, создаем его автоматически после начала работ
       if (!inspectionInstance) {
-        throw new Error('Необходимо завершить осмотр ремонта перед началом работ. Сначала создайте и завершите чеклист осмотра.');
+        logger.info('Creating inspection checklist after repair start', { repairId: id, unitId: repair.unitId });
+        try {
+          await checklistInstanceService.createChecklistInstance(
+            repair.unitId,
+            'REPAIR_INSPECTION',
+            undefined, // cleaningId
+            id, // repairId
+            false // isPlannedInspection - создаем кастомный чеклист
+          );
+          logger.info('Inspection checklist created automatically after repair start', { 
+            repairId: id
+          });
+        } catch (error: any) {
+          logger.error('Failed to create inspection checklist automatically', { 
+            repairId: id, 
+            error: error.message 
+          });
+          // Не прерываем процесс, так как ремонт уже начат
+          // Чеклист можно создать вручную позже
+        }
       }
-      
-      if (inspectionInstance.status !== 'SUBMITTED') {
-        throw new Error('Осмотр ремонта должен быть завершен (SUBMITTED) перед началом работ. Текущий статус: ' + inspectionInstance.status);
-      }
-      
-      const startedRepair = await dl.startRepair(id);
       
       // Публикуем событие REPAIR_STARTED через Event Bus
       try {

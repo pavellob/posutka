@@ -1,12 +1,15 @@
 // Экспорт клиентов
 export * from './clients/ops.client.js';
 export * from './clients/bookings.client.js';
+export * from './clients/inventory.client.js';
 export * from './clients/notifications.client.js';
 export * from './clients/cleaning.client.js';
 export * from './clients/events.client.js';
 export * from './clients/pricing.client.js';
 
 // Экспорт фабрик для создания клиентов
+export { createBookingsGrpcClient } from './clients/bookings.client.js';
+export { createInventoryGrpcClient } from './clients/inventory.client.js';
 export { createNotificationsGrpcClient } from './clients/notifications.client.js';
 export { createEventsGrpcClient } from './clients/events.client.js';
 export { createPricingGrpcClient } from './clients/pricing.client.js';
@@ -34,11 +37,32 @@ export {
   BookingStatus,
   CreateBookingRequest,
   GetBookingRequest,
+  GetBookingByExternalRefRequest,
   CancelBookingRequest,
   ChangeBookingDatesRequest,
+  UpdateBookingRequest,
   BookingResponse,
   BookingsServiceDefinition
 } from './generated/bookings.js';
+
+// Экспорт сгенерированных типов для inventory
+export {
+  Property,
+  Unit,
+  GetPropertyRequest,
+  GetPropertyByExternalRefRequest,
+  SearchPropertyByAddressRequest,
+  CreatePropertyRequest,
+  GetUnitRequest,
+  GetUnitByExternalRefRequest,
+  GetUnitsByPropertyRequest,
+  CreateUnitRequest,
+  PropertyResponse,
+  UnitResponse,
+  UnitsResponse,
+  PropertiesResponse,
+  InventoryServiceDefinition
+} from './generated/inventory.js';
 
 // Экспорт сгенерированных типов для notifications
 export {

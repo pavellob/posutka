@@ -1,0 +1,26 @@
+{
+  "name": "realty-calendar-adapter",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx --watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "mock": "tsx src/mock-server.ts",
+    "mock:dev": "tsx --watch src/mock-server.ts"
+  },
+  "dependencies": {
+    "@repo/grpc-sdk": "workspace:*",
+    "@repo/shared-logger": "workspace:*",
+    "pino": "^8.17.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
+

@@ -1,0 +1,140 @@
+syntax = "proto3";
+
+package inventory;
+
+// Property (объект недвижимости)
+message Property {
+  string id = 1;
+  string org_id = 2;
+  string title = 3;
+  string address = 4;
+  repeated string amenities = 5;
+  // Универсальные external references
+  optional string external_source = 6;  // "REALTY_CALENDAR", "YANDEX_REALTY", etc.
+  optional string external_id = 7;      // ID из внешней системы
+  // Дополнительные поля (опционально)
+  optional string property_type = 8;
+  optional double latitude = 9;
+  optional double longitude = 10;
+}
+
+// Unit (юнит/комната)
+message Unit {
+  string id = 1;
+  string property_id = 2;
+  string name = 3;
+  int32 capacity = 4;
+  int32 beds = 5;
+  int32 bathrooms = 6;
+  repeated string amenities = 7;
+  // Универсальные external references
+  optional string external_source = 8;
+  optional string external_id = 9;
+  optional int32 grade = 10;  // 0..10
+  optional int32 cleaning_difficulty = 11;  // 0..5
+}
+
+// Запрос на получение property по ID
+message GetPropertyRequest {
+  string id = 1;
+}
+
+// Запрос на получение property по external reference
+message GetPropertyByExternalRefRequest {
+  string external_source = 1;
+  string external_id = 2;
+  optional string org_id = 3;  // опционально: для фильтрации по организации. Если не указан - поиск по всем организациям
+}
+
+// Запрос на поиск property по адресу
+message SearchPropertyByAddressRequest {
+  string address = 1;
+  optional string org_id = 2;  // опционально: для фильтрации по организации. Если не указан - поиск по всем организациям
+}
+
+// Запрос на создание property
+message CreatePropertyRequest {
+  string org_id = 1;
+  string title = 2;
+  string address = 3;
+  repeated string amenities = 4;
+  optional string external_source = 5;
+  optional string external_id = 6;
+  optional double latitude = 7;
+  optional double longitude = 8;
+}
+
+// Запрос на получение unit по ID
+message GetUnitRequest {
+  string id = 1;
+}
+
+// Запрос на получение unit по external reference
+message GetUnitByExternalRefRequest {
+  string external_source = 1;
+  string external_id = 2;
+  string property_id = 3;  // для фильтрации
+}
+
+// Запрос на получение units по property_id
+message GetUnitsByPropertyRequest {
+  string property_id = 1;
+}
+
+// Запрос на создание unit
+message CreateUnitRequest {
+  string property_id = 1;
+  string name = 2;
+  int32 capacity = 3;
+  int32 beds = 4;
+  int32 bathrooms = 5;
+  repeated string amenities = 6;
+  optional string external_source = 7;
+  optional string external_id = 8;
+  optional int32 grade = 9;
+  optional int32 cleaning_difficulty = 10;
+}
+
+// Ответ с property
+message PropertyResponse {
+  Property property = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Ответ с unit
+message UnitResponse {
+  Unit unit = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Ответ со списком units
+message UnitsResponse {
+  repeated Unit units = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Ответ со списком properties (для поиска)
+message PropertiesResponse {
+  repeated Property properties = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Сервис для управления недвижимостью
+service InventoryService {
+  // Property методы
+  rpc GetProperty(GetPropertyRequest) returns (PropertyResponse);
+  rpc GetPropertyByExternalRef(GetPropertyByExternalRefRequest) returns (PropertyResponse);
+  rpc SearchPropertyByAddress(SearchPropertyByAddressRequest) returns (PropertiesResponse);
+  rpc CreateProperty(CreatePropertyRequest) returns (PropertyResponse);
+  
+  // Unit методы
+  rpc GetUnit(GetUnitRequest) returns (UnitResponse);
+  rpc GetUnitByExternalRef(GetUnitByExternalRefRequest) returns (UnitResponse);
+  rpc GetUnitsByProperty(GetUnitsByPropertyRequest) returns (UnitsResponse);
+  rpc CreateUnit(CreateUnitRequest) returns (UnitResponse);
+}
+

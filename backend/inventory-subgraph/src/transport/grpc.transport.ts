@@ -1,8 +1,10 @@
 import { createServer } from 'nice-grpc';
-import { BookingsGrpcService } from '../grpc/bookings.grpc.service.js';
-import { BookingService } from '../services/booking.service.js';
+import { InventoryGrpcService } from '../grpc/inventory.grpc.service.js';
+import type { IDataLayerInventory } from '@repo/datalayer';
 import { createGraphQLLogger } from '@repo/shared-logger';
-import { BookingsServiceDefinition } from '@repo/grpc-sdk';
+import { InventoryServiceDefinition } from '@repo/grpc-sdk';
+// @ts-ignore - PrismaClient is available at runtime but linter has cache issues
+import type { PrismaClient } from '@prisma/client';
 
 const logger = createGraphQLLogger('grpc-transport');
 
@@ -13,7 +15,8 @@ export class GrpcTransport {
   constructor(
     private readonly host: string,
     private readonly port: number,
-    private readonly bookingService: BookingService
+    private readonly dl: IDataLayerInventory,
+    private readonly prisma: PrismaClient
   ) {}
 
   async start(): Promise<void> {
@@ -23,20 +26,22 @@ export class GrpcTransport {
         port: this.port 
       });
 
-      // Создаем GRPC сервис
-      const grpcService = new BookingsGrpcService(this.bookingService);
+      // Создаем GRPC сервис с datalayer и Prisma
+      const grpcService = new InventoryGrpcService(this.dl, this.prisma);
       
       // Создаем GRPC сервер с использованием сгенерированного определения сервиса
       this.server = createServer();
       
-      // Регистрируем сервис с методами (используем camelCase, как в определении)
-      this.server.add(BookingsServiceDefinition, {
-        createBooking: grpcService.CreateBooking.bind(grpcService),
-        getBooking: grpcService.GetBooking.bind(grpcService),
-        getBookingByExternalRef: grpcService.GetBookingByExternalRef.bind(grpcService),
-        cancelBooking: grpcService.CancelBooking.bind(grpcService),
-        changeBookingDates: grpcService.ChangeBookingDates.bind(grpcService),
-        updateBooking: grpcService.UpdateBooking.bind(grpcService),
+      // Регистрируем сервис с методами
+      this.server.add(InventoryServiceDefinition, {
+        getProperty: grpcService.GetProperty.bind(grpcService),
+        getPropertyByExternalRef: grpcService.GetPropertyByExternalRef.bind(grpcService),
+        searchPropertyByAddress: grpcService.SearchPropertyByAddress.bind(grpcService),
+        createProperty: grpcService.CreateProperty.bind(grpcService),
+        getUnit: grpcService.GetUnit.bind(grpcService),
+        getUnitByExternalRef: grpcService.GetUnitByExternalRef.bind(grpcService),
+        getUnitsByProperty: grpcService.GetUnitsByProperty.bind(grpcService),
+        createUnit: grpcService.CreateUnit.bind(grpcService),
       });
       
       // Запускаем сервер
@@ -65,3 +70,4 @@ export class GrpcTransport {
     return this.isServerRunning;
   }
 }
+

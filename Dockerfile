@@ -109,7 +109,9 @@ EXPOSE 4011
 # Notifications Subgraph (gRPC)
 EXPOSE 4111
 # Notifications WebSocket
-EXPOSE 4020  
+EXPOSE 4020
+# Realty Calendar Adapter
+EXPOSE 4201
 
 # Запускаем скрипт
 CMD ["./start.sh"]

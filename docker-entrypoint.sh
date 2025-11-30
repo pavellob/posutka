@@ -62,6 +62,16 @@ export MINIO_URL
 export MINIO_ACCESS_KEY
 export MINIO_SECRET_KEY
 export MINIO_BUCKET
+# Realty Calendar Adapter
+export REALTY_CALENDAR_ADAPTER_PORT
+export REALTY_CALENDAR_DEFAULT_ORG_ID
+export BOOKINGS_GRPC_HOST
+export BOOKINGS_GRPC_PORT
+export INVENTORY_GRPC_HOST
+export INVENTORY_GRPC_PORT
+export GRPC_TIMEOUT
+export GRPC_RETRY_ATTEMPTS
+export GRPC_RETRY_DELAY
 
 # Запускаем подграфы через turbo (правильно передает env vars)
 echo "📦 Запуск подграфов..."

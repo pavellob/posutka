@@ -201,6 +201,18 @@ async function main() {
     },
   })
 
+  // 3) Создаем организацию default-org для realty-calendar-adapter
+  await prisma.organization.upsert({
+    where: { id: 'default-org' },
+    update: {},
+    create: {
+      id: 'default-org',
+      name: 'Default Organization',
+      timezone: 'Europe/Moscow',
+      currency: 'RUB',
+    },
+  })
+
   // Helpers
   const allUnits = org.properties.flatMap((p) => p.units)
   const unitA = allUnits[0]

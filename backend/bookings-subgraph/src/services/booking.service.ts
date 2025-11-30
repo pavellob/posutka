@@ -76,11 +76,66 @@ export class BookingService {
     try {
       logger.info('Creating booking', { bookingData });
 
+      // Преобразуем запрос в формат datalayer
+      // Если передан guestId и guestName, но нет объекта guest, создаем его
+      const createBookingInput: any = {
+        orgId: bookingData.orgId,
+        unitId: bookingData.unitId,
+        propertyId: bookingData.propertyId,
+        checkIn: bookingData.checkIn,
+        checkOut: bookingData.checkOut,
+        guestsCount: bookingData.guestsCount || 1,
+        priceBreakdown: bookingData.priceBreakdown || {
+          basePrice: {
+            amount: bookingData.basePriceAmount || 0,
+            currency: bookingData.basePriceCurrency || 'RUB',
+          },
+          total: {
+            amount: bookingData.totalAmount || bookingData.basePriceAmount || 0,
+            currency: bookingData.totalCurrency || bookingData.basePriceCurrency || 'RUB',
+          },
+        },
+        notes: bookingData.notes,
+        source: bookingData.source || 'DIRECT',
+        // Создаем объект guest из доступных данных
+        guest: bookingData.guest || {
+          name: bookingData.guestName || 'Гость',
+          email: bookingData.guestEmail || `guest_${bookingData.guestId}@temp.local`,
+          phone: bookingData.guestPhone,
+        },
+      };
+
       // Создаем бронирование
-      const booking = await this.dl.createBooking(bookingData);
+      const booking = await this.dl.createBooking(createBookingInput);
 
       // Получаем полную информацию о госте и объекте для события
-      const guest = await this.dl.getGuestById(booking.guestId);
+      let guest: any = null;
+      try {
+        guest = await this.dl.getGuestById(booking.guestId);
+        logger.debug('Guest retrieved', {
+          bookingId: booking.id,
+          guestId: booking.guestId,
+          hasGuest: !!guest,
+          guestEmail: guest?.email,
+        });
+      } catch (guestError: any) {
+        logger.warn('Failed to get guest', {
+          bookingId: booking.id,
+          guestId: booking.guestId,
+          error: guestError.message,
+        });
+        guest = null;
+      }
+      
+      // Если гость не найден, логируем предупреждение (бронирование уже создано)
+      if (!guest) {
+        logger.warn('Guest not found after booking creation', {
+          bookingId: booking.id,
+          guestId: booking.guestId,
+          hint: 'Guest may need to be created before booking creation'
+        });
+      }
+      
       const unit = await this.inventoryDL.getUnitById(booking.unitId);
       const property = unit ? await this.inventoryDL.getPropertyById(unit.propertyId) : null;
 
@@ -323,22 +378,29 @@ export class BookingService {
       const targetUserIds: string[] = [];
       
       // 1. Пытаемся найти пользователя по email гостя
-      if (guest?.email && this.identityDL) {
+      if (guest && guest.email && this.identityDL) {
         try {
-          const user = await this.identityDL.getUserByEmail(guest.email);
+          const guestEmail = guest.email; // Сохраняем в переменную для безопасности
+          const user = await this.identityDL.getUserByEmail(guestEmail);
           if (user?.id) {
             targetUserIds.push(user.id);
             logger.info('Found user for guest email', {
-              guestEmail: guest.email,
+              guestEmail: guestEmail,
               userId: user.id,
             });
           }
         } catch (error: any) {
           logger.warn('Failed to find user by guest email', {
-            guestEmail: guest.email,
+            guestEmail: guest?.email,
             error: error.message,
           });
         }
+      } else {
+        logger.debug('Skipping user lookup by email', {
+          hasGuest: !!guest,
+          hasGuestEmail: !!(guest && guest.email),
+          hasIdentityDL: !!this.identityDL,
+        });
       }
       
       // 2. Добавляем менеджеров организации, чтобы уведомление было отправлено даже если гость не зарегистрирован
@@ -502,6 +564,67 @@ export class BookingService {
         bookingId: booking.id,
       });
       // Не прерываем создание бронирования, если событие не опубликовалось
+    }
+  }
+
+  async getBookingByExternalRef(externalSource: string, externalId: string): Promise<any | null> {
+    try {
+      logger.info('Getting booking by externalRef', { externalSource, externalId });
+      
+      // Временная реализация: ищем через dl.listBookings с фильтрацией
+      // TODO: Добавить метод в datalayer для поиска по externalRef
+      const bookings = await this.dl.listBookings({ limit: 1000 });
+      
+      // Ищем бронь с нужным externalRef
+      // Пока что проверяем через JSON поля, если они есть
+      for (const booking of bookings.edges || []) {
+        const bookingNode = booking.node;
+        // Проверяем, есть ли externalSource и externalId в booking
+        if ((bookingNode as any).externalSource === externalSource && 
+            (bookingNode as any).externalId === externalId) {
+          return bookingNode;
+        }
+      }
+      
+      return null;
+    } catch (error: any) {
+      logger.error('Failed to get booking by externalRef', { error: error.message });
+      throw error;
+    }
+  }
+
+  async updateBooking(request: {
+    id: string;
+    guestName?: string;
+    checkIn?: Date;
+    checkOut?: Date;
+    guestsCount?: number;
+    status?: any;
+  }): Promise<any> {
+    try {
+      logger.info('Updating booking', { request });
+      
+      // Получаем текущую бронь
+      const existing = await this.dl.getBookingById(request.id);
+      if (!existing) {
+        throw new Error('Booking not found');
+      }
+      
+      // Обновляем поля
+      if (request.checkIn && request.checkOut) {
+        return await this.dl.changeBookingDates(
+          request.id,
+          request.checkIn.toISOString(),
+          request.checkOut.toISOString()
+        );
+      }
+      
+      // TODO: Добавить метод updateBooking в datalayer для обновления других полей
+      // Пока возвращаем существующую бронь
+      return existing;
+    } catch (error: any) {
+      logger.error('Failed to update booking', { error: error.message });
+      throw error;
     }
   }
 

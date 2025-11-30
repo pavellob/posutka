@@ -10,39 +10,41 @@ services:
     resources:
       memory: 1Gi
       cpu: 500m
-           ports:
-             - port: 4000  # Gateway (основной порт)
-               protocol: http
-             - port: 4001  # Inventory Subgraph
-               protocol: http
-             - port: 4002  # Bookings Subgraph (GraphQL)
-               protocol: http
-             - port: 4102  # Bookings Subgraph (gRPC)
-               protocol: http
-             - port: 4003  # Ops Subgraph (GraphQL)
-               protocol: http
-             - port: 4103  # Ops Subgraph (gRPC)
-               protocol: http
-             - port: 4004  # Billing Subgraph
-               protocol: http
-             - port: 4005  # Identity Subgraph
-               protocol: http
-             - port: 4006  # Listings Subgraph
-               protocol: http
-             - port: 4007  # Legal Subgraph
-               protocol: http
-             - port: 4008  # AI Subgraph
-               protocol: http
-             - port: 4009  # IAM Subgraph
-               protocol: http
-             - port: 4010  # Field Service Subgraph
-               protocol: http
-             - port: 4011  # Notifications Subgraph (GraphQL)
-               protocol: http
-             - port: 4111  # Notifications Subgraph (gRPC)
-               protocol: http
-             - port: 4020  # Notifications WebSocket
-               protocol: http
+    ports:
+      - port: 4000  # Gateway (основной порт)
+        protocol: http
+      - port: 4001  # Inventory Subgraph
+        protocol: http
+      - port: 4002  # Bookings Subgraph (GraphQL)
+        protocol: http
+      - port: 4102  # Bookings Subgraph (gRPC)
+        protocol: http
+      - port: 4003  # Ops Subgraph (GraphQL)
+        protocol: http
+      - port: 4103  # Ops Subgraph (gRPC)
+        protocol: http
+      - port: 4004  # Billing Subgraph
+        protocol: http
+      - port: 4005  # Identity Subgraph
+        protocol: http
+      - port: 4006  # Listings Subgraph
+        protocol: http
+      - port: 4007  # Legal Subgraph
+        protocol: http
+      - port: 4008  # AI Subgraph
+        protocol: http
+      - port: 4009  # IAM Subgraph
+        protocol: http
+      - port: 4010  # Field Service Subgraph
+        protocol: http
+      - port: 4011  # Notifications Subgraph (GraphQL)
+        protocol: http
+      - port: 4111  # Notifications Subgraph (gRPC)
+        protocol: http
+      - port: 4020  # Notifications WebSocket
+        protocol: http
+      - port: 4201  # Realty Calendar Adapter
+        protocol: http
     environment:
       - name: NODE_ENV
         value: production
@@ -66,9 +68,76 @@ services:
       - name: MINIO_ACCESS_KEY
       - name: MINIO_SECRET_KEY
       - name: MINIO_BUCKET
+      # Realty Calendar Adapter
+      - name: REALTY_CALENDAR_ADAPTER_PORT
+        value: "4201"
+      - name: REALTY_CALENDAR_DEFAULT_ORG_ID
+        value: "petroga"
+      # gRPC настройки для адаптера
+      - name: BOOKINGS_GRPC_HOST
+        value: localhost
+      - name: BOOKINGS_GRPC_PORT
+        value: "4102"
+      - name: INVENTORY_GRPC_HOST
+        value: localhost
+      - name: INVENTORY_GRPC_PORT
+        value: "4101"
+      - name: GRPC_TIMEOUT
+        value: "5000"
+      - name: GRPC_RETRY_ATTEMPTS
+        value: "3"
+      - name: GRPC_RETRY_DELAY
+        value: "1000"
     healthCheck:
       path: /graphql
       port: 4000
       initialDelaySeconds: 180  # Даем время на запуск всех сервисов
       periodSeconds: 20
       timeoutSeconds: 120
+
+  # Realty Calendar Adapter (отдельный сервис - опционально)
+  # ⚠️ ПРИМЕЧАНИЕ: realty-calendar-adapter также запускается внутри posutka-federation
+  # Этот отдельный сервис нужен только если вы хотите масштабировать его отдельно
+  # Для большинства случаев достаточно запуска внутри federation
+  realty-calendar-adapter:
+    source:
+      type: image
+      dockerfile: backend/realty-calendar-adapter/Dockerfile
+      context: .
+    resources:
+      memory: 512Mi
+      cpu: 250m
+    ports:
+      - port: 4201
+        protocol: http
+    environment:
+      - name: NODE_ENV
+        value: production
+      - name: REALTY_CALENDAR_ADAPTER_PORT
+        value: "4201"
+      - name: REALTY_CALENDAR_DEFAULT_ORG_ID
+        value: "petroga"
+      # gRPC настройки для подключения к другим сервисам
+      - name: BOOKINGS_GRPC_HOST
+        # ⚠️ ВАЖНО: Замените на внутренний адрес bookings-subgraph в Northflank
+        # Например: posutka-federation или внутренний DNS
+        value: posutka-federation
+      - name: BOOKINGS_GRPC_PORT
+        value: "4102"
+      - name: INVENTORY_GRPC_HOST
+        # ⚠️ ВАЖНО: Замените на внутренний адрес inventory-subgraph в Northflank
+        value: posutka-federation
+      - name: INVENTORY_GRPC_PORT
+        value: "4101"
+      - name: GRPC_TIMEOUT
+        value: "5000"
+      - name: GRPC_RETRY_ATTEMPTS
+        value: "3"
+      - name: GRPC_RETRY_DELAY
+        value: "1000"
+    healthCheck:
+      path: /health
+      port: 4201
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5

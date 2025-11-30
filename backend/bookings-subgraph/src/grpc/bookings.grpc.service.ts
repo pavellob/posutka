@@ -3,8 +3,10 @@ import { BookingService } from '../services/booking.service.js';
 import type { 
   CreateBookingRequest,
   GetBookingRequest,
+  GetBookingByExternalRefRequest,
   CancelBookingRequest,
   ChangeBookingDatesRequest,
+  UpdateBookingRequest,
   BookingResponse
 } from '@repo/grpc-sdk';
 
@@ -91,6 +93,53 @@ export class BookingsGrpcService {
       };
     } catch (error: any) {
       logger.error('GRPC ChangeBookingDates failed', { error: error.message });
+      throw error;
+    }
+  }
+
+  async GetBookingByExternalRef(request: GetBookingByExternalRefRequest): Promise<BookingResponse> {
+    try {
+      logger.info('GRPC GetBookingByExternalRef called', request);
+      
+      // Получаем бронирование по externalRef через сервис
+      const booking = await this.bookingService.getBookingByExternalRef(
+        request.externalSource,
+        request.externalId
+      );
+      
+      if (!booking) {
+        return {
+          booking: undefined as any,
+          success: false,
+          message: 'Booking not found by external reference'
+        };
+      }
+      
+      return {
+        booking,
+        success: true,
+        message: 'Booking retrieved successfully'
+      };
+    } catch (error: any) {
+      logger.error('GRPC GetBookingByExternalRef failed', { error: error.message });
+      throw error;
+    }
+  }
+
+  async UpdateBooking(request: UpdateBookingRequest): Promise<BookingResponse> {
+    try {
+      logger.info('GRPC UpdateBooking called', request);
+      
+      // Обновляем бронирование через сервис
+      const booking = await this.bookingService.updateBooking(request);
+      
+      return {
+        booking,
+        success: true,
+        message: 'Booking updated successfully'
+      };
+    } catch (error: any) {
+      logger.error('GRPC UpdateBooking failed', { error: error.message });
       throw error;
     }
   }

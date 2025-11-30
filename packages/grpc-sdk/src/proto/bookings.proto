@@ -27,6 +27,9 @@ message Booking {
   optional string cancellation_reason = 11;
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
+  // Универсальные external references для интеграций
+  optional string external_source = 14;  // "REALTY_CALENDAR", "AIRBNB", "BOOKING_COM", etc.
+  optional string external_id = 15;      // ID из внешней системы
 }
 
 // Запрос на создание бронирования
@@ -39,6 +42,9 @@ message CreateBookingRequest {
   google.protobuf.Timestamp check_in = 6;
   google.protobuf.Timestamp check_out = 7;
   int32 guests_count = 8;
+  // Универсальные external references
+  optional string external_source = 9;
+  optional string external_id = 10;
 }
 
 // Запрос на получение бронирования
@@ -52,11 +58,27 @@ message CancelBookingRequest {
   optional string reason = 2;
 }
 
+// Запрос на получение бронирования по external reference
+message GetBookingByExternalRefRequest {
+  string external_source = 1;
+  string external_id = 2;
+}
+
 // Запрос на изменение дат бронирования
 message ChangeBookingDatesRequest {
   string id = 1;
   google.protobuf.Timestamp check_in = 2;
   google.protobuf.Timestamp check_out = 3;
+}
+
+// Запрос на обновление бронирования
+message UpdateBookingRequest {
+  string id = 1;
+  optional string guest_name = 2;
+  optional google.protobuf.Timestamp check_in = 3;
+  optional google.protobuf.Timestamp check_out = 4;
+  optional int32 guests_count = 5;
+  optional BookingStatus status = 6;
 }
 
 // Ответ с бронированием
@@ -74,9 +96,15 @@ service BookingsService {
   // Получить бронирование по ID
   rpc GetBooking(GetBookingRequest) returns (BookingResponse);
   
+  // Получить бронирование по external reference
+  rpc GetBookingByExternalRef(GetBookingByExternalRefRequest) returns (BookingResponse);
+  
   // Отменить бронирование
   rpc CancelBooking(CancelBookingRequest) returns (BookingResponse);
   
   // Изменить даты бронирования
   rpc ChangeBookingDates(ChangeBookingDatesRequest) returns (BookingResponse);
+  
+  // Обновить бронирование
+  rpc UpdateBooking(UpdateBookingRequest) returns (BookingResponse);
 }
