@@ -1653,45 +1653,45 @@ type Master @join__type(graph: FIELD_SERVICE_SUBGRAPH, key: "id") @join__type(gr
 Ремонт - процесс ремонта квартиры.
 Обязательно привязан к объекту недвижимости.
 """
-type Repair @join__type(graph: FIELD_SERVICE_SUBGRAPH, key: "id") {
+type Repair @join__type(graph: FIELD_SERVICE_SUBGRAPH, key: "id") @join__type(graph: OPS_SUBGRAPH) {
   """Уникальный идентификатор ремонта"""
   id: UUID!
   """Организация"""
-  org: Organization!
+  org: Organization! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Мастер (опционально)"""
   master: Master
   """Единица недвижимости"""
-  unit: Unit!
+  unit: Unit! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Бронирование (опционально)"""
-  booking: Booking
+  booking: Booking @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Связанная задача (опционально)"""
-  taskId: UUID
+  taskId: UUID @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Статус ремонта"""
   status: RepairStatus!
   """Плановый осмотр (использует шаблон) или кастомный ремонт"""
-  isPlannedInspection: Boolean!
+  isPlannedInspection: Boolean! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Запланированное время"""
   scheduledAt: DateTime!
   """Время начала"""
-  startedAt: DateTime
+  startedAt: DateTime @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Время завершения"""
   completedAt: DateTime
   """Заметки"""
-  notes: String
+  notes: String @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Коэффициент сложности (0-5)"""
-  assessedDifficulty: Int
+  assessedDifficulty: Int @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Размер в часах (0-10)"""
-  assessedSize: Int
+  assessedSize: Int @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Дата оценки"""
-  assessedAt: DateTime
+  assessedAt: DateTime @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Чек-листы ремонта"""
-  checklistInstances: [ChecklistInstance!]!
+  checklistInstances: [ChecklistInstance!]! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Список покупок для ремонта"""
-  shoppingItems: [RepairShoppingItem!]!
+  shoppingItems: [RepairShoppingItem!]! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Дата создания"""
-  createdAt: DateTime!
+  createdAt: DateTime! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Дата обновления"""
-  updatedAt: DateTime!
+  updatedAt: DateTime! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
 }
 
 """Соединение ремонтов с пагинацией."""
@@ -2295,6 +2295,8 @@ type Source @join__type(graph: OPS_SUBGRAPH) {
   org: Organization!
   """Уборка (если type = CLEANING)"""
   cleaning: Cleaning
+  """Ремонт (если type = REPAIR)"""
+  repair: Repair
   """Дата создания"""
   createdAt: DateTime!
   """Дата обновления"""
@@ -2500,15 +2502,15 @@ enum ChecklistStage @join__type(graph: FIELD_SERVICE_SUBGRAPH) {
 }
 
 """Статус ремонта."""
-enum RepairStatus @join__type(graph: FIELD_SERVICE_SUBGRAPH) {
+enum RepairStatus @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) {
   """Запланирован"""
-  PLANNED @join__enumValue(graph: FIELD_SERVICE_SUBGRAPH)
+  PLANNED @join__enumValue(graph: FIELD_SERVICE_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
   """В процессе выполнения"""
-  IN_PROGRESS @join__enumValue(graph: FIELD_SERVICE_SUBGRAPH)
+  IN_PROGRESS @join__enumValue(graph: FIELD_SERVICE_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
   """Завершен"""
-  COMPLETED @join__enumValue(graph: FIELD_SERVICE_SUBGRAPH)
+  COMPLETED @join__enumValue(graph: FIELD_SERVICE_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
   """Отменен"""
-  CANCELLED @join__enumValue(graph: FIELD_SERVICE_SUBGRAPH)
+  CANCELLED @join__enumValue(graph: FIELD_SERVICE_SUBGRAPH) @join__enumValue(graph: OPS_SUBGRAPH)
 }
 
 """Тип уборщика."""
@@ -3820,8 +3822,14 @@ input ChecklistTaskItemInput @join__type(graph: OPS_SUBGRAPH) {
 
 """Входные данные для создания задач из чек-листа."""
 input CreateTasksFromChecklistInput @join__type(graph: OPS_SUBGRAPH) {
-  """ID уборки, из которой берём неуспешные пункты"""
-  cleaningId: UUID!
+  """
+  ID уборки, из которой берём неуспешные пункты (опционально, если указан repairId)
+  """
+  cleaningId: UUID
+  """
+  ID ремонта, из которого берём неуспешные пункты (опционально, если указан cleaningId)
+  """
+  repairId: UUID
   """Список пунктов для создания задач"""
   items: [ChecklistTaskItemInput!]!
 }

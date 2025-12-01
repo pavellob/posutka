@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useCallback, useState } from 'react'
+import { use, useCallback, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { graphqlClient } from '@/lib/graphql-client'
@@ -15,6 +15,7 @@ import { Select } from '@/components/select'
 import { Input } from '@/components/input'
 import { ChecklistInstanceDialog } from '@/components/checklist-instance-dialog'
 import { CreateTaskFromChecklistItem } from '@/components/create-task-from-checklist-item'
+import { CreateTasksFromChecklist } from '@/components/create-tasks-from-checklist'
 import {
   GET_REPAIR,
   GET_CHECKLIST_BY_CLEANING_AND_STAGE,
@@ -31,6 +32,7 @@ import {
   ADD_PHOTO_TO_REPAIR_SHOPPING_ITEM,
   DELETE_PHOTO_FROM_REPAIR_SHOPPING_ITEM,
   CALCULATE_REPAIR_COST,
+  GET_TASKS_BY_CLEANING,
 } from '@/lib/graphql-queries'
 import {
   ArrowLeftIcon,
@@ -80,7 +82,7 @@ function RepairCostCalculation({ unitId, repairId, size, difficulty, shoppingIte
 
   if (isCostLoading) {
     return (
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6">
         <Subheading>Расчет стоимости</Subheading>
         <Text className="text-zinc-500">Загрузка...</Text>
       </div>
@@ -92,14 +94,14 @@ function RepairCostCalculation({ unitId, repairId, size, difficulty, shoppingIte
   }
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
+    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6">
       <div className="flex items-center gap-2 mb-4">
         <CurrencyDollarIcon className="w-5 h-5 text-green-600" />
         <Subheading>Расчет стоимости</Subheading>
       </div>
       
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
             <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">Базовая цена</Text>
             <Text className="text-xl font-bold">
@@ -151,7 +153,7 @@ function RepairCostCalculation({ unitId, repairId, size, difficulty, shoppingIte
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">
               Коэффициент размера
@@ -214,6 +216,12 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
   const [editingShoppingItem, setEditingShoppingItem] = useState<any>(null)
   const [assessmentForm, setAssessmentForm] = useState({ difficulty: 0, size: 0 })
   const [shoppingItemForm, setShoppingItemForm] = useState({ name: '', quantity: 1, amount: '', currency: 'RUB', notes: '' })
+  const [expandedStages, setExpandedStages] = useState<Record<'REPAIR_INSPECTION' | 'REPAIR_RESULT', boolean>>({
+    REPAIR_INSPECTION: true,
+    REPAIR_RESULT: true,
+  })
+  const [photoPreview, setPhotoPreview] = useState<Array<{ url: string; caption?: string }>>([])
+  const [photoPreviewIndex, setPhotoPreviewIndex] = useState(0)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['repair', params.id],
@@ -252,17 +260,46 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
     enabled: !!repairId,
   })
 
-  const { data: resultData } = useQuery({
+  const { data: resultData, isLoading: resultDataLoading, error: resultDataError } = useQuery({
     queryKey: ['checklist-instance', repairId, 'REPAIR_RESULT'],
     queryFn: async () => {
-      if (!repairId) return null
-      const response = await graphqlClient.request(GET_CHECKLIST_BY_REPAIR_AND_STAGE, { 
-        repairId, 
-        stage: 'REPAIR_RESULT' 
-      }) as any
-      return response.checklistByRepair ?? null
+      if (!repairId) {
+        console.log('[RepairDetails] No repairId, skipping checklist query')
+        return null
+      }
+      console.log('[RepairDetails] Fetching checklist for repair:', repairId, 'stage: REPAIR_RESULT')
+      try {
+        const response = await graphqlClient.request(GET_CHECKLIST_BY_REPAIR_AND_STAGE, { 
+          repairId, 
+          stage: 'REPAIR_RESULT' 
+        }) as any
+        console.log('[RepairDetails] Checklist response:', response)
+        const checklist = response.checklistByRepair ?? null
+        console.log('[RepairDetails] Checklist data:', checklist)
+        return checklist
+      } catch (error) {
+        console.error('[RepairDetails] Error fetching checklist:', error)
+        throw error
+      }
     },
     enabled: !!repairId,
+  })
+
+  // Получаем задачи, связанные с этим ремонтом
+  const { data: tasksData } = useQuery({
+    queryKey: ['repair-tasks', repairId, currentOrgId],
+    queryFn: async () => {
+      if (!repairId || !currentOrgId) return null
+      const response = await graphqlClient.request(GET_TASKS_BY_CLEANING, { 
+        orgId: currentOrgId
+      }) as any
+      // Фильтруем задачи, которые связаны с этим ремонтом через source
+      const allTasks = response.tasks?.edges?.map((edge: any) => edge.node) || []
+      return allTasks.filter((task: any) => 
+        task.source?.type === 'REPAIR' && task.source?.entityId === repairId
+      )
+    },
+    enabled: !!repairId && !!currentOrgId,
   })
 
   const createChecklistMutation = useMutation({
@@ -420,6 +457,148 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
     setDialogStage(null)
   }, [])
 
+  const openPhotoPreview = useCallback((attachments: Array<{ url: string; caption?: string }>, index = 0) => {
+    if (!attachments.length) return
+    setPhotoPreview(attachments)
+    setPhotoPreviewIndex(Math.min(index, attachments.length - 1))
+  }, [])
+
+  const closePhotoPreview = useCallback(() => {
+    setPhotoPreview([])
+    setPhotoPreviewIndex(0)
+  }, [])
+
+  const showPrevPhoto = useCallback(() => {
+    setPhotoPreviewIndex((prev) => (prev > 0 ? prev - 1 : prev))
+  }, [])
+
+  const showNextPhoto = useCallback(() => {
+    setPhotoPreviewIndex((prev) => (photoPreview && prev < photoPreview.length - 1 ? prev + 1 : prev))
+  }, [photoPreview])
+
+  const isPhotoPreviewOpen = photoPreview.length > 0
+
+  const toggleStageExpansion = useCallback((stage: 'REPAIR_INSPECTION' | 'REPAIR_RESULT') => {
+    setExpandedStages((prev) => ({
+      ...prev,
+      [stage]: !prev[stage],
+    }))
+  }, [])
+
+  const renderChecklistCell = useCallback(
+    (cell: { item: any; answer?: any; attachments: any[] } | undefined, emptyText: string) => {
+      if (!cell) {
+        return (
+          <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40 p-4 text-sm text-zinc-500">
+            {emptyText}
+          </div>
+        )
+      }
+
+      const { item, answer, attachments } = cell
+      const title = item?.title ?? item?.label ?? 'Без названия'
+      const description = item?.description
+      const requiresPhoto = item?.requiresPhoto
+      const photosCount = attachments?.length ?? 0
+      const hasAnswerValue = answer?.value !== undefined && answer?.value !== null
+      const isBool = item?.type === 'BOOL'
+      const isNegative = isBool && answer?.value === false
+      const displayedAnswer = (() => {
+        if (hasAnswerValue) {
+          if (isBool) {
+            return answer?.value ? 'Да' : 'Нет'
+          }
+          if (typeof answer?.value === 'string') {
+            return answer.value
+          }
+          if (typeof answer?.value === 'number') {
+            return answer.value.toString()
+          }
+          if (typeof answer?.value === 'object') {
+            try {
+              return JSON.stringify(answer?.value)
+            } catch (error) {
+              return String(answer?.value)
+            }
+          }
+          return String(answer?.value)
+        }
+
+        if (answer?.note) {
+          return answer.note
+        }
+
+        if (requiresPhoto && photosCount > 0) {
+          return `${photosCount} фото`
+        }
+
+        return null
+      })()
+      const previewItems = (attachments ?? []).map((attachment: any) => ({
+        url: attachment.url,
+        caption: attachment.caption,
+      }))
+
+      return (
+        <div
+          className={`rounded-xl border p-4 space-y-2 transition-colors ${
+            isNegative
+              ? 'border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20'
+              : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <Heading level={6} className="mb-0">
+              {title}
+            </Heading>
+            {item?.required && <Badge color="red">Обязательно</Badge>}
+          </div>
+          {description && (
+            <Text className="text-sm text-zinc-600 dark:text-zinc-400">{description}</Text>
+          )}
+          <div className="text-sm text-zinc-700 dark:text-zinc-200 space-y-1">
+            {displayedAnswer ? (
+              <p className="whitespace-pre-wrap break-words">{displayedAnswer}</p>
+            ) : (
+              <p className="text-zinc-500 dark:text-zinc-400">
+                {requiresPhoto ? 'Фото не загружены' : 'Ответ не заполнен'}
+              </p>
+            )}
+            {photosCount > 0 && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Фото: {photosCount}
+              </p>
+            )}
+          </div>
+          {answer?.note && hasAnswerValue && (
+            <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300">
+              Комментарий: {answer.note}
+            </div>
+          )}
+          {photosCount > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {previewItems.map((attachment, idx) => (
+                <button
+                  key={attachment.url}
+                  type="button"
+                  onClick={() => openPhotoPreview(previewItems, idx)}
+                  className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg"
+                >
+                  <img
+                    src={attachment.url}
+                    alt={attachment.caption || 'Фото'}
+                    className="w-20 h-20 object-cover rounded-lg border border-zinc-200 dark:border-zinc-700"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    },
+    [openPhotoPreview]
+  )
+
   const statusColor =
     data?.status === 'COMPLETED'
       ? 'green'
@@ -452,7 +631,7 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-8 space-y-8">
+    <div className="max-w-6xl mx-auto py-4 sm:py-8 px-4 sm:px-0 space-y-6 sm:space-y-8">
       <div className="flex items-center gap-2 text-sm text-zinc-500">
         <button 
           onClick={() => router.push('/repairs')}
@@ -463,7 +642,7 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
         </button>
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="space-y-2">
             <Heading level={3}>
@@ -540,23 +719,75 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
         <Subheading>Чек-листы ремонта</Subheading>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Чек-лист осмотра */}
-          <div className="p-6 rounded-2xl border-2 border-blue-400 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
+          <div className="p-4 sm:p-6 rounded-2xl border-2 border-blue-400 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
             <div className="space-y-3">
-              <Heading level={5} className="mb-1">
-                Осмотр
-              </Heading>
-              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                Первичный осмотр перед ремонтом
-              </Text>
+              <div>
+                <Heading level={5} className="mb-1">
+                  Осмотр
+                </Heading>
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Первичный осмотр перед ремонтом
+                </Text>
+              </div>
               {inspectionData ? (
                 <div className="space-y-3">
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Обновлён: {new Date(inspectionData.updatedAt).toLocaleString('ru-RU')}
+                  </div>
                   <Button
                     plain
                     className="px-0 justify-start text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
-                    onClick={() => handleOpenDialog('REPAIR_INSPECTION')}
+                    onClick={() => toggleStageExpansion('REPAIR_INSPECTION')}
                   >
-                    Открыть
+                    {expandedStages.REPAIR_INSPECTION ? 'Скрыть детали' : 'Показать детали'}
                   </Button>
+                  {expandedStages.REPAIR_INSPECTION && (
+                    <div className="space-y-3">
+                      {(() => {
+                        const answers = new Map(
+                          (inspectionData.answers ?? []).map((answer: any) => [
+                            answer.itemKey ?? answer.itemId ?? answer.id,
+                            answer,
+                          ])
+                        )
+                        const attachmentsMap = new Map<string, any[]>();
+                        (inspectionData.attachments ?? []).forEach((attachment: any) => {
+                          const itemKey = attachment.itemKey
+                          if (!itemKey) return
+                          if (!attachmentsMap.has(itemKey)) {
+                            attachmentsMap.set(itemKey, [])
+                          }
+                          attachmentsMap.get(itemKey)!.push(attachment)
+                        })
+                        if (!inspectionData.items?.length) {
+                          return (
+                            <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40 p-4 text-sm text-zinc-500">
+                              Пункты чек-листа отсутствуют
+                            </div>
+                          )
+                        }
+                        return inspectionData.items.map((item: any, index: number) => {
+                          const key = item.key ?? item.id ?? `REPAIR_INSPECTION-${index}`
+                          const cell = {
+                            item,
+                            answer: answers.get(item.key ?? item.id),
+                            attachments: attachmentsMap.get(item.key ?? item.id) ?? [],
+                          }
+                          return (
+                            <div key={key}>
+                              {renderChecklistCell(cell, 'Пункт ещё не заполнен')}
+                            </div>
+                          )
+                        })
+                      })()}
+                      <Button
+                        color="blue"
+                        onClick={() => handleOpenDialog('REPAIR_INSPECTION')}
+                      >
+                        Открыть
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <Button 
@@ -574,23 +805,75 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
           </div>
 
           {/* Чек-лист результата */}
-          <div className="p-6 rounded-2xl border-2 border-green-400 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
+          <div className="p-4 sm:p-6 rounded-2xl border-2 border-green-400 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
             <div className="space-y-3">
-              <Heading level={5} className="mb-1">
-                Результат
-              </Heading>
-              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                Финальный чек-лист после ремонта
-              </Text>
+              <div>
+                <Heading level={5} className="mb-1">
+                  Результат
+                </Heading>
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Финальный чек-лист после ремонта
+                </Text>
+              </div>
               {resultData ? (
                 <div className="space-y-3">
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Обновлён: {new Date(resultData.updatedAt).toLocaleString('ru-RU')}
+                  </div>
                   <Button
                     plain
                     className="px-0 justify-start text-green-600 hover:text-green-800 dark:text-green-300 dark:hover:text-green-200"
-                    onClick={() => handleOpenDialog('REPAIR_RESULT')}
+                    onClick={() => toggleStageExpansion('REPAIR_RESULT')}
                   >
-                    Открыть
+                    {expandedStages.REPAIR_RESULT ? 'Скрыть детали' : 'Показать детали'}
                   </Button>
+                  {expandedStages.REPAIR_RESULT && (
+                    <div className="space-y-3">
+                      {(() => {
+                        const answers = new Map(
+                          (resultData.answers ?? []).map((answer: any) => [
+                            answer.itemKey ?? answer.itemId ?? answer.id,
+                            answer,
+                          ])
+                        )
+                        const attachmentsMap = new Map<string, any[]>();
+                        (resultData.attachments ?? []).forEach((attachment: any) => {
+                          const itemKey = attachment.itemKey
+                          if (!itemKey) return
+                          if (!attachmentsMap.has(itemKey)) {
+                            attachmentsMap.set(itemKey, [])
+                          }
+                          attachmentsMap.get(itemKey)!.push(attachment)
+                        })
+                        if (!resultData.items?.length) {
+                          return (
+                            <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40 p-4 text-sm text-zinc-500">
+                              Пункты чек-листа отсутствуют
+                            </div>
+                          )
+                        }
+                        return resultData.items.map((item: any, index: number) => {
+                          const key = item.key ?? item.id ?? `REPAIR_RESULT-${index}`
+                          const cell = {
+                            item,
+                            answer: answers.get(item.key ?? item.id),
+                            attachments: attachmentsMap.get(item.key ?? item.id) ?? [],
+                          }
+                          return (
+                            <div key={key}>
+                              {renderChecklistCell(cell, 'Пункт ещё не заполнен')}
+                            </div>
+                          )
+                        })
+                      })()}
+                      <Button
+                        color="green"
+                        onClick={() => handleOpenDialog('REPAIR_RESULT')}
+                      >
+                        Открыть
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <Button 
@@ -610,20 +893,20 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
       </div>
 
       {/* Оценка ремонта */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <Subheading>Оценка ремонта</Subheading>
           {data.status === 'IN_PROGRESS' && (
             <Button onClick={() => {
               setAssessmentForm({ difficulty: data.assessedDifficulty ?? 0, size: data.assessedSize ?? 0 })
               setAssessmentDialogOpen(true)
-            }} outline>
+            }} outline className="w-full sm:w-auto">
               {data.assessedDifficulty !== null ? 'Изменить оценку' : 'Оценить ремонт'}
             </Button>
           )}
         </div>
         {data.assessedDifficulty !== null && data.assessedSize !== null ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">Коэффициент сложности</Text>
               <Text className="text-2xl font-bold">{data.assessedDifficulty} / 5</Text>
@@ -655,15 +938,15 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
       )}
 
       {/* Список покупок */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <Subheading>Список покупок</Subheading>
           {data.status === 'IN_PROGRESS' && (
             <Button onClick={() => {
               setEditingShoppingItem(null)
               setShoppingItemForm({ name: '', quantity: 1, amount: '', currency: 'RUB', notes: '' })
               setShoppingItemDialogOpen(true)
-            }}>
+            }} className="w-full sm:w-auto">
               Добавить товар
             </Button>
           )}
@@ -671,18 +954,18 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
         {data.shoppingItems && data.shoppingItems.length > 0 ? (
           <div className="space-y-3">
             {data.shoppingItems.map((item: any) => (
-              <div key={item.id} className="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <Text className="font-medium">{item.name}</Text>
+              <div key={item.id} className="p-3 sm:p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg">
+                <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <Text className="font-medium break-words">{item.name}</Text>
                     <Text className="text-sm text-zinc-600 dark:text-zinc-400">
                       {item.quantity} шт. × {(item.amount / 100).toFixed(2)} {item.currency} = {((item.amount * item.quantity) / 100).toFixed(2)} {item.currency}
                     </Text>
                     {item.notes && (
-                      <Text className="text-sm text-zinc-500 mt-1">{item.notes}</Text>
+                      <Text className="text-sm text-zinc-500 mt-1 break-words">{item.notes}</Text>
                     )}
                     {item.photos && item.photos.length > 0 && (
-                      <div className="flex gap-2 mt-2">
+                      <div className="flex flex-wrap gap-2 mt-2">
                         {item.photos.map((photo: any) => (
                           <img key={photo.id} src={photo.url} alt={photo.caption || item.name} className="w-16 h-16 object-cover rounded" />
                         ))}
@@ -690,7 +973,7 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
                     )}
                   </div>
                   {data.status === 'IN_PROGRESS' && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                       <Button
                         outline
                         onClick={() => {
@@ -803,6 +1086,94 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Компонент для создания задач из неуспешных пунктов чек-листа - когда ремонт в процессе или завершен, и есть чек-лист результата, и еще нет созданных задач */}
+      {data && (data.status === 'IN_PROGRESS' || data.status === 'COMPLETED') && currentOrgId && (!tasksData || tasksData.length === 0) && (
+        <div className="pt-6">
+          {resultDataLoading ? (
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6">
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">Загрузка чек-листа...</Text>
+            </div>
+          ) : resultDataError ? (
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6">
+              <Text className="text-sm text-red-600 dark:text-red-400">Ошибка загрузки чек-листа: {String(resultDataError)}</Text>
+            </div>
+          ) : resultData ? (
+            <CreateTasksFromChecklist
+              repairId={data.id}
+              checklistInstance={resultData}
+              orgId={currentOrgId}
+              unitId={unitId}
+              master={data.master ? { id: data.master.id, firstName: data.master.firstName, lastName: data.master.lastName } : null}
+              onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ['repair', params.id] })
+                queryClient.invalidateQueries({ queryKey: ['repair-tasks', repairId, currentOrgId] })
+                queryClient.invalidateQueries({ queryKey: ['tasks'] })
+              }}
+            />
+          ) : (
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6">
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">Чек-лист результата еще не создан. Создайте его, чтобы иметь возможность создавать задачи из неуспешных пунктов.</Text>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Отображение задач, связанных с ремонтом */}
+      {tasksData && tasksData.length > 0 && (
+        <div className="pt-6">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-6">
+            <Heading level={4} className="mb-4">Задачи</Heading>
+            <div className="space-y-3">
+              {tasksData.map((task: any) => (
+                <div
+                  key={task.id}
+                  onClick={() => router.push(`/tasks/${task.id}`)}
+                  className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge color={task.status === 'DONE' ? 'green' : task.status === 'IN_PROGRESS' ? 'blue' : 'zinc'}>
+                          {task.status === 'TODO' ? 'К выполнению' : task.status === 'IN_PROGRESS' ? 'В работе' : task.status === 'DONE' ? 'Выполнено' : 'Отменено'}
+                        </Badge>
+                        <Badge color="zinc">
+                          {task.type === 'CLEANING' ? 'Уборка' : task.type === 'MAINTENANCE' ? 'Обслуживание' : task.type === 'INVENTORY' ? 'Инвентаризация' : task.type}
+                        </Badge>
+                      </div>
+                      {task.note && (
+                        <Text className="text-sm text-zinc-700 dark:text-zinc-300 mb-2">
+                          {task.note}
+                        </Text>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+                        {task.assignedMaster && (
+                          <span>
+                            Мастер: {task.assignedMaster.firstName} {task.assignedMaster.lastName}
+                          </span>
+                        )}
+                        {task.assignedCleaner && (
+                          <span>
+                            Уборщик: {task.assignedCleaner.firstName} {task.assignedCleaner.lastName}
+                          </span>
+                        )}
+                        {task.assignedTo && (
+                          <span>Поставщик: {task.assignedTo.name}</span>
+                        )}
+                        {task.dueAt && (
+                          <span>
+                            Срок: {new Date(task.dueAt).toLocaleDateString('ru-RU')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Диалог товара в списке покупок */}
       <Dialog open={shoppingItemDialogOpen} onClose={() => {
@@ -960,6 +1331,48 @@ export default function RepairDetailsPage(props: RepairDetailsPageProps) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {isPhotoPreviewOpen && photoPreview[photoPreviewIndex] && (
+        <Dialog open onClose={closePhotoPreview} size="4xl">
+          <DialogTitle>Просмотр фото</DialogTitle>
+          <DialogBody className="space-y-4">
+            <div className="flex flex-col items-center gap-3">
+              <img
+                src={photoPreview[photoPreviewIndex].url}
+                alt={photoPreview[photoPreviewIndex].caption || 'Фото чек-листа'}
+                className="max-h-[70vh] w-auto rounded-xl border border-zinc-200 dark:border-zinc-700 object-contain"
+              />
+              {photoPreview[photoPreviewIndex].caption && (
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {photoPreview[photoPreviewIndex].caption}
+                </Text>
+              )}
+            </div>
+            {photoPreview.length > 1 && (
+              <div className="flex items-center justify-between gap-3">
+                <Button onClick={showPrevPhoto} disabled={photoPreviewIndex === 0} plain>
+                  ← Предыдущее
+                </Button>
+                <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                  {photoPreviewIndex + 1} из {photoPreview.length}
+                </Text>
+                <Button
+                  onClick={showNextPhoto}
+                  disabled={photoPreviewIndex === photoPreview.length - 1}
+                  plain
+                >
+                  Следующее →
+                </Button>
+              </div>
+            )}
+            <div className="flex justify-end">
+              <Button onClick={closePhotoPreview} plain>
+                Закрыть
+              </Button>
+            </div>
+          </DialogBody>
+        </Dialog>
+      )}
     </div>
   )
 }

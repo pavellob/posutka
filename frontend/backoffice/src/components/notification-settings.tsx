@@ -66,8 +66,9 @@ const EVENT_GROUPS = {
   repairs: {
     name: 'Ремонты',
     events: [
+      { id: 'REPAIR_CREATED', name: 'Ремонт создан' },
       { id: 'REPAIR_ASSIGNED', name: 'Ремонт назначен' },
-      { id: 'REPAIR_INSPECTION_COMPLETED', name: 'Осмотр ремонта завершен' },
+      { id: 'REPAIR_INSPECTION_COMPLETED', name: 'Осмотр завершен' },
       { id: 'REPAIR_STARTED', name: 'Ремонт начат' },
       { id: 'REPAIR_COMPLETED', name: 'Ремонт завершен' },
       { id: 'REPAIR_CANCELLED', name: 'Ремонт отменен' },

@@ -296,6 +296,47 @@ export class NotificationEventHandler {
         logger.info('Auto-subscribed user to BOOKING_CREATED', { userId });
       }
       
+      // Автоподписка на события ремонта
+      if (event.type === 'REPAIR_ASSIGNED' && !settings.subscribedEvents.includes('REPAIR_ASSIGNED')) {
+        const updatedEvents = [...settings.subscribedEvents, 'REPAIR_ASSIGNED'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to REPAIR_ASSIGNED', { userId });
+      }
+      
+      if (event.type === 'REPAIR_INSPECTION_COMPLETED' && !settings.subscribedEvents.includes('REPAIR_INSPECTION_COMPLETED')) {
+        const updatedEvents = [...settings.subscribedEvents, 'REPAIR_INSPECTION_COMPLETED'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to REPAIR_INSPECTION_COMPLETED', { userId });
+      }
+      
+      if (event.type === 'REPAIR_STARTED' && !settings.subscribedEvents.includes('REPAIR_STARTED')) {
+        const updatedEvents = [...settings.subscribedEvents, 'REPAIR_STARTED'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to REPAIR_STARTED', { userId });
+      }
+      
+      if (event.type === 'REPAIR_COMPLETED' && !settings.subscribedEvents.includes('REPAIR_COMPLETED')) {
+        const updatedEvents = [...settings.subscribedEvents, 'REPAIR_COMPLETED'];
+        await this.prisma.userNotificationSettings.update({
+          where: { userId },
+          data: { subscribedEvents: updatedEvents },
+        });
+        settings.subscribedEvents = updatedEvents as any;
+        logger.info('Auto-subscribed user to REPAIR_COMPLETED', { userId });
+      }
+      
       // Проверяем подписку на событие
       // Для CLEANING_AVAILABLE, CLEANING_READY_FOR_REVIEW, CLEANING_PRECHECK_COMPLETED, CLEANING_STARTED, CLEANING_COMPLETED уже сделана автоподписка выше
       if (!settings.subscribedEvents.includes(event.type)) {
@@ -462,6 +503,13 @@ export class NotificationEventHandler {
         'CLEANING_PRECHECK_COMPLETED': NotificationEventType.EVENT_TYPE_CLEANING_PRECHECK_COMPLETED,
         'CLEANING_DIFFICULTY_SET': (NotificationEventType as any).EVENT_TYPE_CLEANING_DIFFICULTY_SET ?? (17 as NotificationEventType),
         'CLEANING_APPROVED': (NotificationEventType as any).EVENT_TYPE_CLEANING_APPROVED ?? (18 as NotificationEventType),
+        // Repair events
+        'REPAIR_CREATED': (NotificationEventType as any).EVENT_TYPE_REPAIR_CREATED ?? (14 as NotificationEventType),
+        'REPAIR_ASSIGNED': (NotificationEventType as any).EVENT_TYPE_REPAIR_ASSIGNED ?? (15 as NotificationEventType),
+        'REPAIR_INSPECTION_COMPLETED': (NotificationEventType as any).EVENT_TYPE_REPAIR_INSPECTION_COMPLETED ?? (16 as NotificationEventType),
+        'REPAIR_STARTED': (NotificationEventType as any).EVENT_TYPE_REPAIR_STARTED ?? (17 as NotificationEventType),
+        'REPAIR_COMPLETED': (NotificationEventType as any).EVENT_TYPE_REPAIR_COMPLETED ?? (18 as NotificationEventType),
+        'REPAIR_CANCELLED': (NotificationEventType as any).EVENT_TYPE_REPAIR_CANCELLED ?? (19 as NotificationEventType),
         // Task events
         'TASK_CREATED': NotificationEventType.EVENT_TYPE_TASK_CREATED,
         'TASK_ASSIGNED': NotificationEventType.EVENT_TYPE_TASK_ASSIGNED,
@@ -757,6 +805,9 @@ export class NotificationEventHandler {
     
     if (payload.cleaningId) {
       return `${frontendUrl}/cleanings/${payload.cleaningId}`;
+    }
+    if (payload.repairId) {
+      return `${frontendUrl}/repairs/${payload.repairId}`;
     }
     if (payload.bookingId) {
       return `${frontendUrl}/bookings/${payload.bookingId}`;
@@ -1427,6 +1478,339 @@ export class NotificationEventHandler {
           actionUrl: `${frontendUrl}/invoices/${payload.invoiceId}`
         };
       
+      // Repair events
+      case 'REPAIR_CREATED':
+        const repairCreatedScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        let repairCreatedMessage = `Создан ремонт в "${payload.unitName || 'квартире'}"`;
+        
+        if (payload.scheduledAt) {
+          repairCreatedMessage += `\n\n📅 Дата и время: ${repairCreatedScheduledDate}`;
+        }
+        
+        if (payload.unitAddress) {
+          repairCreatedMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        if (payload.masterName) {
+          repairCreatedMessage += `\n👤 Мастер: ${payload.masterName}`;
+        }
+        
+        if (payload.notes) {
+          repairCreatedMessage += `\n📝 Примечания: ${payload.notes}`;
+        }
+        
+        return {
+          title: '🔧 Ремонт создан',
+          message: repairCreatedMessage,
+          actionUrl: `${frontendUrl}/repairs/${payload.repairId}`
+        };
+      
+      case 'REPAIR_ASSIGNED':
+        const repairAssignedScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        let repairAssignedMessage = `Вам назначен ремонт в "${payload.unitName || 'квартире'}"`;
+        
+        if (payload.scheduledAt) {
+          repairAssignedMessage += `\n\n📅 Дата и время: ${repairAssignedScheduledDate}`;
+        }
+        
+        if (payload.unitAddress) {
+          repairAssignedMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        if (payload.masterName) {
+          repairAssignedMessage += `\n👤 Мастер: ${payload.masterName}`;
+        }
+        
+        if (payload.notes) {
+          repairAssignedMessage += `\n📝 Примечания: ${payload.notes}`;
+        }
+        
+        repairAssignedMessage += `\n\n💡 Подготовьтесь к ремонту и не забудьте взять все необходимое`;
+        
+        return {
+          title: '🔧 Ремонт назначен!',
+          message: repairAssignedMessage,
+          actionUrl: `${frontendUrl}/repairs/${payload.repairId}`
+        };
+      
+      case 'REPAIR_INSPECTION_COMPLETED':
+        const inspectionScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        const inspectionSubmittedDate = payload.submittedAt 
+          ? new Date(payload.submittedAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        let inspectionMessage = `Осмотр ремонта в "${payload.unitName || 'квартире'}" завершен`;
+        
+        if (payload.masterName) {
+          inspectionMessage += `\n\n👤 Мастер: ${payload.masterName}`;
+        }
+        
+        if (payload.scheduledAt) {
+          inspectionMessage += `\n📅 Запланировано: ${inspectionScheduledDate}`;
+        }
+        
+        if (payload.unitAddress) {
+          inspectionMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        inspectionMessage += `\n⏰ Осмотр завершен: ${inspectionSubmittedDate}`;
+        
+        // Статистика чеклиста
+        if (payload.checklistStats) {
+          const { total, completed, incomplete } = payload.checklistStats;
+          const completionPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+          
+          inspectionMessage += `\n\n📋 Чеклист: ${completed}/${total} выполнено (${completionPercent}%)`;
+          
+          if (incomplete > 0 && payload.checklistStats.incompleteItems && payload.checklistStats.incompleteItems.length > 0) {
+            inspectionMessage += `\n\n⚠️ Не выполнено (${incomplete}):`;
+            payload.checklistStats.incompleteItems.slice(0, 5).forEach((item: any, index: number) => {
+              inspectionMessage += `\n   ${index + 1}. ${item.title}`;
+            });
+            if (incomplete > 5) {
+              inspectionMessage += `\n   ... и ещё ${incomplete - 5}`;
+            }
+          } else if (incomplete === 0) {
+            inspectionMessage += `\n✅ Все пункты выполнены`;
+          }
+        }
+        
+        // Фото
+        if (payload.photoUrls && payload.photoUrls.length > 0) {
+          inspectionMessage += `\n\n📸 Фотографии (${payload.photoUrls.length}):`;
+          payload.photoUrls.slice(0, 3).forEach((photo: any, index: number) => {
+            const caption = photo.caption ? ` - ${photo.caption}` : '';
+            inspectionMessage += `\n   ${index + 1}. ${photo.url}${caption}`;
+          });
+          if (payload.photoUrls.length > 3) {
+            inspectionMessage += `\n   ... и ещё ${payload.photoUrls.length - 3}`;
+          }
+        }
+        
+        return {
+          title: '🔍 Осмотр ремонта завершен',
+          message: inspectionMessage,
+          actionUrl: `${frontendUrl}/repairs/${payload.repairId}`
+        };
+      
+      case 'REPAIR_STARTED':
+        const repairStartedScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        let repairStartedMessage = `Ремонт в "${payload.unitName || 'квартире'}" начат`;
+        
+        if (payload.masterName) {
+          repairStartedMessage += `\n\n👤 Мастер: ${payload.masterName}`;
+        }
+        
+        if (payload.scheduledAt) {
+          repairStartedMessage += `\n📅 Запланировано: ${repairStartedScheduledDate}`;
+        }
+        
+        if (payload.unitAddress) {
+          repairStartedMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        repairStartedMessage += `\n▶️ Начато: ${new Date().toLocaleString('ru-RU', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })}`;
+        
+        return {
+          title: '▶️ Ремонт начат',
+          message: repairStartedMessage,
+          actionUrl: `${frontendUrl}/repairs/${payload.repairId}`
+        };
+      
+      case 'REPAIR_COMPLETED':
+        const repairCompletedScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        const repairCompletedStartedDate = payload.startedAt 
+          ? new Date(payload.startedAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : null;
+        
+        const repairCompletedFinishedDate = payload.completedAt 
+          ? new Date(payload.completedAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        // Вычисляем длительность
+        let repairDurationText = '';
+        if (payload.startedAt && payload.completedAt) {
+          const start = new Date(payload.startedAt);
+          const end = new Date(payload.completedAt);
+          const durationMs = end.getTime() - start.getTime();
+          const durationMinutes = Math.floor(durationMs / 60000);
+          const hours = Math.floor(durationMinutes / 60);
+          const minutes = durationMinutes % 60;
+          repairDurationText = hours > 0 ? `${hours}ч ${minutes}мин` : `${minutes}мин`;
+        }
+        
+        let repairCompletedMessage = `Ремонт в "${payload.unitName || 'квартире'}" успешно завершен`;
+        
+        if (payload.masterName) {
+          repairCompletedMessage += `\n\n👤 Мастер: ${payload.masterName}`;
+        }
+        
+        if (payload.scheduledAt) {
+          repairCompletedMessage += `\n📅 Запланировано: ${repairCompletedScheduledDate}`;
+        }
+        
+        if (payload.startedAt) {
+          repairCompletedMessage += `\n▶️ Начато: ${repairCompletedStartedDate}`;
+        }
+        
+        repairCompletedMessage += `\n✅ Завершено: ${repairCompletedFinishedDate}`;
+        
+        if (repairDurationText) {
+          repairCompletedMessage += `\n⏱️ Длительность: ${repairDurationText}`;
+        }
+        
+        if (payload.unitAddress) {
+          repairCompletedMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        // Статистика чеклиста
+        if (payload.checklistStats) {
+          const { total, completed, incomplete } = payload.checklistStats;
+          const completionPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+          
+          repairCompletedMessage += `\n\n📋 Чеклист: ${completed}/${total} выполнено (${completionPercent}%)`;
+          
+          if (incomplete > 0 && payload.checklistStats.incompleteItems && payload.checklistStats.incompleteItems.length > 0) {
+            repairCompletedMessage += `\n\n⚠️ Не выполнено (${incomplete}):`;
+            payload.checklistStats.incompleteItems.slice(0, 5).forEach((item: any, index: number) => {
+              repairCompletedMessage += `\n   ${index + 1}. ${item.title}`;
+            });
+            if (incomplete > 5) {
+              repairCompletedMessage += `\n   ... и ещё ${incomplete - 5}`;
+            }
+          } else if (incomplete === 0) {
+            repairCompletedMessage += `\n✅ Все пункты выполнены`;
+          }
+        }
+        
+        // Фото
+        if (payload.photoUrls && payload.photoUrls.length > 0) {
+          repairCompletedMessage += `\n\n📸 Фотографии (${payload.photoUrls.length}):`;
+          payload.photoUrls.slice(0, 3).forEach((photo: any, index: number) => {
+            const caption = photo.caption ? ` - ${photo.caption}` : '';
+            repairCompletedMessage += `\n   ${index + 1}. ${photo.url}${caption}`;
+          });
+          if (payload.photoUrls.length > 3) {
+            repairCompletedMessage += `\n   ... и ещё ${payload.photoUrls.length - 3}`;
+          }
+        }
+        
+        repairCompletedMessage += `\n\n🎉 Спасибо за качественную работу!`;
+        
+        return {
+          title: '✅ Ремонт завершен',
+          message: repairCompletedMessage,
+          actionUrl: `${frontendUrl}/repairs/${payload.repairId}`
+        };
+      
+      case 'REPAIR_CANCELLED':
+        const repairCancelledScheduledDate = payload.scheduledAt 
+          ? new Date(payload.scheduledAt).toLocaleString('ru-RU', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'не указана';
+        
+        let repairCancelledMessage = `Ремонт в "${payload.unitName || 'квартире'}" был отменен`;
+        
+        if (payload.masterName) {
+          repairCancelledMessage += `\n\n👤 Мастер: ${payload.masterName}`;
+        }
+        
+        if (payload.scheduledAt) {
+          repairCancelledMessage += `\n📅 Запланировано было: ${repairCancelledScheduledDate}`;
+        }
+        
+        if (payload.unitAddress) {
+          repairCancelledMessage += `\n📍 Адрес: ${payload.unitAddress}`;
+        }
+        
+        if (payload.reason) {
+          repairCancelledMessage += `\n\n❌ Причина отмены: ${payload.reason}`;
+        }
+        
+        if (payload.notes) {
+          repairCancelledMessage += `\n📝 Примечания: ${payload.notes}`;
+        }
+        
+        return {
+          title: '❌ Ремонт отменен',
+          message: repairCancelledMessage,
+          actionUrl: `${frontendUrl}/repairs`
+        };
+      
       // System events
       case 'USER_REGISTERED':
         return {
@@ -1463,6 +1847,8 @@ export class NotificationEventHandler {
       // High priority - urgent actions required
       case 'CLEANING_ASSIGNED':
       case 'CLEANING_AVAILABLE':
+      case 'REPAIR_ASSIGNED':
+      case 'REPAIR_INSPECTION_COMPLETED':
       case 'TASK_ASSIGNED':
       case 'PAYMENT_FAILED':
       case 'INVOICE_OVERDUE':
@@ -1473,6 +1859,9 @@ export class NotificationEventHandler {
       case 'CLEANING_PRECHECK_COMPLETED':
       case 'CLEANING_DIFFICULTY_SET':
       case 'CLEANING_CANCELLED':
+      case 'REPAIR_CREATED':
+      case 'REPAIR_STARTED':
+      case 'REPAIR_CANCELLED':
       case 'BOOKING_CREATED':
       case 'BOOKING_CONFIRMED':
       case 'BOOKING_CANCELLED':
@@ -1486,6 +1875,7 @@ export class NotificationEventHandler {
       
       // Low priority - informational events
       case 'CLEANING_COMPLETED':
+      case 'REPAIR_COMPLETED':
       case 'TASK_COMPLETED':
       case 'USER_REGISTERED':
       case 'USER_LOGIN':

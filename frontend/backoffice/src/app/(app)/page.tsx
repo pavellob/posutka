@@ -27,7 +27,8 @@ import {
   BellIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  WrenchScrewdriverIcon
 } from '@heroicons/react/24/outline'
 
 export default function Dashboard() {
@@ -201,62 +202,137 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <WrenchScrewdriverIcon className="h-8 w-8 text-red-600" />
+              </div>
+              <div className="ml-4">
+                <Text className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Ремонты сегодня</Text>
+                <div className="text-2xl font-bold text-red-600">
+                  {(dashboardData as any)?.todayRepairs?.pageInfo?.totalCount || 0}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Детальная информация об уборках */}
-      {(dashboardData as any)?.todayCleanings?.edges && (dashboardData as any).todayCleanings.edges.length > 0 && (
-        <div>
-          <Subheading className="mb-4">Уборки на сегодня</Subheading>
-          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
-            <Table>
-        <TableHead>
-          <TableRow>
-                  <TableHeader>Время</TableHeader>
-                  <TableHeader>Объект</TableHeader>
-                  <TableHeader>Уборщик</TableHeader>
-                  <TableHeader>Статус</TableHeader>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-                {(dashboardData as any).todayCleanings.edges.map(({ node: cleaning }: { node: any }) => (
-                  <TableRow 
-                    key={cleaning.id}
-                    onClick={() => router.push(`/cleanings/${cleaning.id}`)}
-                    className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                  >
-                    <TableCell>
-                      {new Date(cleaning.scheduledAt).toLocaleTimeString('ru-RU', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </TableCell>
-              <TableCell>
-                      <div>
-                        <Text className="font-medium">{cleaning.unit.name}</Text>
-                        <Text className="text-sm text-zinc-500">{cleaning.unit.property.title}</Text>
-                </div>
-              </TableCell>
-                    <TableCell>
-                      {cleaning.cleaner ? (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-6 h-6" />
-                          <Text>{cleaning.cleaner.firstName} {cleaning.cleaner.lastName}</Text>
+      {/* Детальная информация об уборках и ремонтах */}
+      <div className="grid gap-8 lg:grid-cols-2">
+        {/* Уборки на сегодня */}
+        {(dashboardData as any)?.todayCleanings?.edges && (dashboardData as any).todayCleanings.edges.length > 0 && (
+          <div>
+            <Subheading className="mb-4">Уборки на сегодня</Subheading>
+            <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableHeader>Время</TableHeader>
+                    <TableHeader>Объект</TableHeader>
+                    <TableHeader>Уборщик</TableHeader>
+                    <TableHeader>Статус</TableHeader>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(dashboardData as any).todayCleanings.edges.map(({ node: cleaning }: { node: any }) => (
+                    <TableRow 
+                      key={cleaning.id}
+                      onClick={() => router.push(`/cleanings/${cleaning.id}`)}
+                      className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <TableCell>
+                        {new Date(cleaning.scheduledAt).toLocaleTimeString('ru-RU', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <Text className="font-medium">{cleaning.unit.name}</Text>
+                          <Text className="text-sm text-zinc-500">{cleaning.unit.property.title}</Text>
                         </div>
-                      ) : (
-                        <Text className="text-zinc-500">Не назначен</Text>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(cleaning.status)}
-                    </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                      </TableCell>
+                      <TableCell>
+                        {cleaning.cleaner ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6" />
+                            <Text>{cleaning.cleaner.firstName} {cleaning.cleaner.lastName}</Text>
+                          </div>
+                        ) : (
+                          <Text className="text-zinc-500">Не назначен</Text>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(cleaning.status)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Ремонты на сегодня */}
+        {(dashboardData as any)?.todayRepairs?.edges && (dashboardData as any).todayRepairs.edges.length > 0 && (
+          <div>
+            <Subheading className="mb-4">Ремонты на сегодня</Subheading>
+            <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableHeader>Время</TableHeader>
+                    <TableHeader>Объект</TableHeader>
+                    <TableHeader>Мастер</TableHeader>
+                    <TableHeader>Статус</TableHeader>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(dashboardData as any).todayRepairs.edges.map(({ node: repair }: { node: any }) => (
+                    <TableRow 
+                      key={repair.id}
+                      onClick={() => router.push(`/repairs/${repair.id}`)}
+                      className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <TableCell>
+                        {repair.scheduledAt ? (
+                          new Date(repair.scheduledAt).toLocaleTimeString('ru-RU', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })
+                        ) : (
+                          <Text className="text-zinc-500">—</Text>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <Text className="font-medium">{repair.unit?.name || '—'}</Text>
+                          <Text className="text-sm text-zinc-500">{repair.unit?.property?.title || '—'}</Text>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {repair.master ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6" />
+                            <Text>{repair.master.firstName} {repair.master.lastName}</Text>
+                          </div>
+                        ) : (
+                          <Text className="text-zinc-500">Не назначен</Text>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(repair.status)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Дашборд с задачами и уведомлениями */}
       <div className="grid gap-8 lg:grid-cols-2">

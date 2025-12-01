@@ -653,6 +653,17 @@ export const GET_TASK_BY_ID = gql`
             lastName
           }
         }
+        repair {
+          id
+          status
+          scheduledAt
+          completedAt
+          master {
+            id
+            firstName
+            lastName
+          }
+        }
       }
   }
 }
@@ -830,6 +841,36 @@ export const GET_DASHBOARD_STATS = gql`
           checkIn
           checkOut
           status
+        }
+      }
+    }
+    
+    # Ремонты на сегодня
+    todayRepairs: repairs(
+      orgId: $orgId
+      first: 50
+    ) {
+      pageInfo {
+        totalCount
+      }
+      edges {
+        node {
+          id
+          status
+          scheduledAt
+          unit {
+            id
+            name
+            property {
+              id
+              title
+            }
+          }
+          master {
+            id
+            firstName
+            lastName
+          }
         }
       }
     }

@@ -204,6 +204,32 @@ type Cleaning {
   id: UUID!
 }
 
+type Repair {
+  """Уникальный идентификатор ремонта"""
+  id: UUID!
+  """Статус ремонта"""
+  status: RepairStatus!
+  """Запланированное время"""
+  scheduledAt: DateTime!
+  """Время завершения"""
+  completedAt: DateTime
+  """Мастер"""
+  master: Master
+}
+
+"""
+Статус ремонта.
+"""
+enum RepairStatus {
+  """Запланирован"""
+  PLANNED
+  """В процессе выполнения"""
+  IN_PROGRESS
+  """Завершен"""
+  COMPLETED
+  """Отменен"""
+  CANCELLED
+}
 
 """
 Операционная задача.
@@ -455,8 +481,10 @@ enum TaskAssigneeType {
 Входные данные для создания задач из чек-листа.
 """
 input CreateTasksFromChecklistInput {
-  """ID уборки, из которой берём неуспешные пункты"""
-  cleaningId: UUID!
+  """ID уборки, из которой берём неуспешные пункты (опционально, если указан repairId)"""
+  cleaningId: UUID
+  """ID ремонта, из которого берём неуспешные пункты (опционально, если указан cleaningId)"""
+  repairId: UUID
   """Список пунктов для создания задач"""
   items: [ChecklistTaskItemInput!]!
 }
@@ -498,6 +526,8 @@ type Source {
   org: Organization!
   """Уборка (если type = CLEANING)"""
   cleaning: Cleaning
+  """Ремонт (если type = REPAIR)"""
+  repair: Repair
   """Дата создания"""
   createdAt: DateTime!
   """Дата обновления"""

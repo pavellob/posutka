@@ -382,6 +382,55 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
                 </div>
               )}
+
+              {/* Информация о связи с ремонтом через source */}
+              {(taskData?.task as any)?.source?.type === 'REPAIR' && (taskData?.task as any)?.source?.repair && (
+                <div 
+                  className="flex items-start gap-3 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+                  onClick={() => {
+                    const source = (taskData?.task as any)?.source
+                    if (source?.repair?.id) {
+                      router.push(`/repairs/${source.repair.id}`)
+                    } else {
+                      router.push('/repairs')
+                    }
+                  }}
+                >
+                  <SparklesIcon className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <Text className="font-medium text-gray-900 dark:text-white">
+                      Связанный ремонт
+                    </Text>
+                    {(taskData?.task as any)?.source?.repair?.status && (
+                      <Text className="text-sm text-gray-500 dark:text-gray-400">
+                        Статус: {(taskData?.task as any)?.source?.repair?.status === 'SCHEDULED' ? 'Запланирован' :
+                                 (taskData?.task as any)?.source?.repair?.status === 'IN_PROGRESS' ? 'В процессе' :
+                                 (taskData?.task as any)?.source?.repair?.status === 'COMPLETED' ? 'Завершен' :
+                                 (taskData?.task as any)?.source?.repair?.status === 'CANCELLED' ? 'Отменен' :
+                                 (taskData?.task as any)?.source?.repair?.status}
+                      </Text>
+                    )}
+                    {(taskData?.task as any)?.source?.repair?.master && (
+                      <Text className="text-sm text-gray-500 dark:text-gray-400">
+                        Мастер: {(taskData?.task as any)?.source?.repair?.master?.firstName} {(taskData?.task as any)?.source?.repair?.master?.lastName}
+                      </Text>
+                    )}
+                    {(taskData?.task as any)?.source?.repair?.scheduledAt && (
+                      <Text className="text-sm text-gray-500 dark:text-gray-400">
+                        Запланирован: {new Date((taskData?.task as any)?.source?.repair?.scheduledAt).toLocaleString('ru-RU')}
+                      </Text>
+                    )}
+                    {(taskData?.task as any)?.source?.repair?.completedAt && (
+                      <Text className="text-sm text-gray-500 dark:text-gray-400">
+                        Завершен: {new Date((taskData?.task as any)?.source?.repair?.completedAt).toLocaleString('ru-RU')}
+                      </Text>
+                    )}
+                    <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      🔗 Нажмите для перехода к ремонту
+                    </Text>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

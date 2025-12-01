@@ -14,7 +14,8 @@ import { Input } from '@/components/input'
 import { Checkbox } from '@/components/checkbox'
 
 interface CreateTasksFromChecklistProps {
-  cleaningId: string
+  cleaningId?: string
+  repairId?: string
   checklistInstance: {
     id: string
     items: Array<{
@@ -37,6 +38,7 @@ interface CreateTasksFromChecklistProps {
   orgId: string
   unitId?: string
   cleaner?: { id: string; firstName: string; lastName: string } | null
+  master?: { id: string; firstName: string; lastName: string } | null
   onSuccess?: () => void
 }
 
@@ -53,12 +55,15 @@ interface TaskItemInput {
 
 export function CreateTasksFromChecklist({
   cleaningId,
+  repairId,
   checklistInstance,
   orgId,
   unitId,
   cleaner,
+  master,
   onSuccess,
 }: CreateTasksFromChecklistProps) {
+  // Все хуки должны вызываться до любых условных return'ов
   const queryClient = useQueryClient()
   const [taskItems, setTaskItems] = useState<Map<string, TaskItemInput>>(new Map())
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -67,39 +72,75 @@ export function CreateTasksFromChecklist({
 
   // Определяем неуспешные пункты
   const failedItems = useMemo(() => {
-    if (!checklistInstance.items || checklistInstance.items.length === 0) {
+    console.log('[CreateTasksFromChecklist] Processing checklistInstance:', checklistInstance)
+    if (!checklistInstance?.items || checklistInstance.items.length === 0) {
+      console.log('[CreateTasksFromChecklist] No items in checklist')
       return []
     }
+    const attachments = checklistInstance.attachments || []
+    const answers = checklistInstance.answers || []
+    
     return checklistInstance.items.filter((item) => {
-      if (item.requiresPhoto) {
-        const itemAttachments = checklistInstance.attachments.filter(
-          (a) => a.itemKey === item.key
+      const itemKey = item.key || item.id
+      if (!itemKey) return false
+      
+      const requiresPhoto = item.requiresPhoto
+      const isBool = item.type === 'BOOL'
+      const answer = answers.find((a) => a.itemKey === itemKey)
+      
+      // Если требуется фото, проверяем наличие фото
+      if (requiresPhoto) {
+        const itemAttachments = attachments.filter(
+          (a) => a.itemKey === itemKey
         )
-        return itemAttachments.length < 1 // Минимум 1 фото требуется
-      } else {
-        const answer = checklistInstance.answers.find((a) => a.itemKey === item.key)
-        if (!answer || answer.value === undefined || answer.value === null) {
-          return true // Нет ответа - неуспешно
+        const hasPhoto = itemAttachments.length >= 1
+        
+        // Если есть фото, но есть ответ - проверяем ответ тоже
+        if (hasPhoto && answer) {
+          // Для булевых значений: false = неуспешно (даже если есть фото)
+          if (isBool && answer.value === false) {
+            return true
+          }
+          // Для других типов: если есть фото, считаем успешным
+          return false
         }
-        // Проверяем, что значение не положительное
-        const value = answer.value
-        if (typeof value === 'boolean') {
-          return value !== true // false - неуспешно
-        }
-        if (typeof value === 'number') {
-          return value <= 0 // 0 или отрицательное - неуспешно
-        }
-        if (typeof value === 'string') {
-          const lowerValue = value.toLowerCase()
-          return !(
-            lowerValue === 'true' ||
-            lowerValue === 'yes' ||
-            lowerValue === 'да' ||
-            lowerValue === '1'
-          )
-        }
-        return false
+        
+        // Нет фото - неуспешно
+        return !hasPhoto
       }
+      
+      // Для пунктов без требования фото проверяем только ответ
+      // Нет ответа - неуспешно
+      if (!answer || answer.value === undefined || answer.value === null) {
+        return true
+      }
+      
+      // Для булевых значений: false = неуспешно
+      if (isBool) {
+        return answer.value === false
+      }
+      
+      // Для числовых значений: 0 или отрицательное = неуспешно
+      if (typeof answer.value === 'number') {
+        return answer.value <= 0
+      }
+      
+      // Для строковых значений: проверяем положительные значения
+      if (typeof answer.value === 'string') {
+        const lowerValue = answer.value.toLowerCase().trim()
+        return !(
+          lowerValue === 'true' ||
+          lowerValue === 'yes' ||
+          lowerValue === 'да' ||
+          lowerValue === '1' ||
+          lowerValue === 'выполнено' ||
+          lowerValue === 'done' ||
+          lowerValue === 'ok'
+        )
+      }
+      
+      // Для других типов считаем успешным, если есть значение
+      return false
     })
   }, [checklistInstance])
 
@@ -143,23 +184,6 @@ export function CreateTasksFromChecklist({
     enabled: !!orgId,
   })
 
-  // Инициализируем taskItems для всех неуспешных пунктов (по умолчанию все выбраны)
-  useEffect(() => {
-    if (taskItems.size === 0 && failedItems.length > 0) {
-      const initialItems = new Map<string, TaskItemInput>()
-      failedItems.forEach((item) => {
-        initialItems.set(item.key, {
-          itemKey: item.key,
-          selected: true, // По умолчанию все включены
-          description: item.title, // По умолчанию используем название пункта
-          assigneeId: '',
-          assigneeType: 'MASTER',
-          dueAt: undefined,
-        })
-      })
-      setTaskItems(initialItems)
-    }
-  }, [failedItems.length, taskItems.size])
 
   const updateTaskItem = (itemKey: string, updates: Partial<TaskItemInput>) => {
     setTaskItems((prev) => {
@@ -186,8 +210,8 @@ export function CreateTasksFromChecklist({
         selected: true,
         title: newTaskTitle.trim(),
         description: '',
-        assigneeId: cleaner?.id || '',
-        assigneeType: cleaner ? 'CLEANER' : 'MASTER',
+        assigneeId: master?.id || cleaner?.id || '',
+        assigneeType: master ? 'MASTER' : cleaner ? 'CLEANER' : 'MASTER',
         dueAt: undefined,
         isCustom: true,
       })
@@ -209,7 +233,12 @@ export function CreateTasksFromChecklist({
       return graphqlClient.request(CREATE_TASKS_FROM_CHECKLIST, { input }) as any
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cleaning', cleaningId] })
+      if (cleaningId) {
+        queryClient.invalidateQueries({ queryKey: ['cleaning', cleaningId] })
+      }
+      if (repairId) {
+        queryClient.invalidateQueries({ queryKey: ['repair', repairId] })
+      }
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       onSuccess?.()
     },
@@ -252,8 +281,7 @@ export function CreateTasksFromChecklist({
 
       // Сначала создаем задачи из чеклиста, чтобы получить sourceId
       if (checklistItems.length > 0) {
-        const createdChecklistTasks = await createTasksMutation.mutateAsync({
-          cleaningId,
+        const input: any = {
           items: checklistItems.map((item) => ({
             itemKey: item.itemKey,
             description: item.description,
@@ -261,7 +289,16 @@ export function CreateTasksFromChecklist({
             assigneeType: item.assigneeType,
             dueAt: item.dueAt || undefined,
           })),
-        })
+        }
+        
+        if (cleaningId) {
+          input.cleaningId = cleaningId
+        }
+        if (repairId) {
+          input.repairId = repairId
+        }
+        
+        const createdChecklistTasks = await createTasksMutation.mutateAsync(input)
         
         // Получаем sourceId из первой созданной задачи
         if (createdChecklistTasks && createdChecklistTasks.length > 0 && createdChecklistTasks[0]?.source?.id) {
@@ -269,13 +306,12 @@ export function CreateTasksFromChecklist({
         }
       }
 
-      // Создаем обычные задачи и привязываем их к той же уборке через sourceId
+      // Создаем обычные задачи и привязываем их к той же уборке/ремонту через sourceId
       if (customItems.length > 0) {
         // Если sourceId еще не получен (нет задач из чеклиста), создаем временную задачу из чеклиста для получения sourceId
-        if (!sourceId && cleaningId && checklistInstance.items && checklistInstance.items.length > 0) {
+        if (!sourceId && (cleaningId || repairId) && checklistInstance.items && checklistInstance.items.length > 0) {
           try {
-            const tempResult = await createTasksMutation.mutateAsync({
-              cleaningId,
+            const tempInput: any = {
               items: [{
                 itemKey: checklistInstance.items[0].key,
                 description: customItems[0].description || 'Временная задача для получения sourceId',
@@ -283,7 +319,14 @@ export function CreateTasksFromChecklist({
                 assigneeType: customItems[0].assigneeType,
                 dueAt: customItems[0].dueAt || undefined,
               }],
-            })
+            }
+            if (cleaningId) {
+              tempInput.cleaningId = cleaningId
+            }
+            if (repairId) {
+              tempInput.repairId = repairId
+            }
+            const tempResult = await createTasksMutation.mutateAsync(tempInput)
             if (tempResult && tempResult.length > 0 && tempResult[0]?.source?.id) {
               sourceId = tempResult[0].source.id
             }
@@ -300,7 +343,7 @@ export function CreateTasksFromChecklist({
               unitId: unitId || undefined,
               note: item.title ? `${item.title}: ${item.description || ''}` : item.description || undefined,
               dueAt: item.dueAt || undefined,
-              sourceId: sourceId || undefined, // Привязываем к уборке через sourceId
+              sourceId: sourceId || undefined, // Привязываем к уборке/ремонту через sourceId
             }
 
             if (item.assigneeType === 'MASTER') {
@@ -314,13 +357,29 @@ export function CreateTasksFromChecklist({
             return graphqlClient.request(CREATE_TASK_FROM_CHECKLIST_ITEM, { input }) as any
           })
         )
-        queryClient.invalidateQueries({ queryKey: ['tasks'] })
+        // Инвалидация будет выполнена после всех задач в конце handleSubmit
+      }
+
+      // Инвалидируем все запросы после создания всех задач
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      if (cleaningId) {
+        queryClient.invalidateQueries({ queryKey: ['cleaning', cleaningId] })
         queryClient.invalidateQueries({ queryKey: ['cleaning-tasks', cleaningId] })
+      }
+      if (repairId) {
+        queryClient.invalidateQueries({ queryKey: ['repair', repairId] })
+        queryClient.invalidateQueries({ queryKey: ['repair-tasks', repairId] })
+        // Инвалидируем с orgId тоже, если он используется в ключе
+        if (orgId) {
+          queryClient.invalidateQueries({ queryKey: ['repair-tasks', repairId, orgId] })
+        }
       }
 
       // Сброс формы и скрытие компонента
       setTaskItems(new Map())
       setTasksCreated(true)
+      
+      // Вызываем onSuccess после всех обновлений
       onSuccess?.()
     } catch (error) {
       console.error('Failed to create tasks:', error)
@@ -328,6 +387,35 @@ export function CreateTasksFromChecklist({
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Инициализируем taskItems для всех неуспешных пунктов, если еще не инициализированы
+  // НЕ сбрасываем tasksCreated при изменении failedItems, чтобы форма не появлялась снова
+  useEffect(() => {
+    // Если задачи уже созданы, не инициализируем заново
+    if (tasksCreated) return
+    
+    if (taskItems.size === 0 && failedItems.length > 0) {
+      const initialItems = new Map<string, TaskItemInput>()
+      failedItems.forEach((item) => {
+        const itemKey = item.key || item.id
+        if (!itemKey) return
+        initialItems.set(itemKey, {
+          itemKey: itemKey,
+          selected: true, // По умолчанию все включены
+          description: item.title || '', // По умолчанию используем название пункта
+          assigneeId: master?.id || cleaner?.id || '',
+          assigneeType: master ? 'MASTER' : cleaner ? 'CLEANER' : 'MASTER',
+          dueAt: undefined,
+        })
+      })
+      setTaskItems(initialItems)
+    }
+  }, [failedItems, taskItems.size, master, cleaner, tasksCreated])
+
+  // Проверяем валидность checklistInstance после всех хуков
+  if (!checklistInstance || !checklistInstance.items) {
+    return null
   }
 
   // Если задачи уже созданы, не показываем компонент
@@ -490,9 +578,11 @@ export function CreateTasksFromChecklist({
       <div className="space-y-4">
         {/* Задачи из чеклиста */}
         {failedItems.map((item) => {
-          const taskItem = taskItems.get(item.key)
+          const itemKey = item.key || item.id
+          if (!itemKey) return null
+          const taskItem = taskItems.get(itemKey)
           if (!taskItem) return null
-          return <TaskItemCard key={item.key} itemKey={item.key} taskItem={taskItem} item={item} />
+          return <TaskItemCard key={itemKey} itemKey={itemKey} taskItem={taskItem} item={item} />
         })}
 
         {/* Обычные задачи */}

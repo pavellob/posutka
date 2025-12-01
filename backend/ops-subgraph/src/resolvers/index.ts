@@ -162,40 +162,101 @@ export const sharedResolvers = {
       throw new Error('Prisma client is not available in context');
     }
     
-    if (!prisma.cleaning) {
-      logger.error('Prisma cleaning model is not available', { prismaKeys: Object.keys(prisma) });
-      throw new Error('Prisma cleaning model is not available');
+    // Проверяем, что указан либо cleaningId, либо repairId
+    if (!input.cleaningId && !input.repairId) {
+      throw new Error('Either cleaningId or repairId must be provided');
+    }
+    if (input.cleaningId && input.repairId) {
+      throw new Error('Only one of cleaningId or repairId should be provided');
     }
     
-    // 1. Получить cleaning и проверить, что он существует
-    const cleaning = await prisma.cleaning.findUnique({
-      where: { id: input.cleaningId },
-      include: {
-        cleaner: true,
-        checklistInstances: {
-          where: {
-            stage: 'CLEANING', // Берем чек-лист стадии CLEANING
-          },
-          include: {
-            items: true,
-            answers: true,
-            attachments: true,
+    const isRepair = !!input.repairId;
+    const entityId = input.repairId || input.cleaningId;
+    const sourceType = isRepair ? 'REPAIR' : 'CLEANING';
+    
+    // 1. Получить cleaning или repair и проверить, что он существует
+    let entity: any;
+    let checklistInstance: any;
+    let orgId: string;
+    let unitId: string | null;
+    let bookingId: string | null | undefined;
+    let authorId: string | null | undefined;
+    
+    if (isRepair) {
+      if (!prisma.repair) {
+        logger.error('Prisma repair model is not available', { prismaKeys: Object.keys(prisma) });
+        throw new Error('Prisma repair model is not available');
+      }
+      
+      entity = await prisma.repair.findUnique({
+        where: { id: input.repairId },
+        include: {
+          master: true,
+          checklistInstances: {
+            where: {
+              stage: 'REPAIR_RESULT', // Берем чек-лист стадии REPAIR_RESULT
+            },
+            include: {
+              items: true,
+              answers: true,
+              attachments: true,
+            },
           },
         },
-      },
-    });
-    
-    if (!cleaning) {
-      throw new Error(`Cleaning with id ${input.cleaningId} not found`);
+      });
+      
+      if (!entity) {
+        throw new Error(`Repair with id ${input.repairId} not found`);
+      }
+      
+      checklistInstance = entity.checklistInstances?.[0];
+      if (!checklistInstance) {
+        throw new Error(`No checklist instance found for repair ${input.repairId}`);
+      }
+      
+      orgId = entity.orgId;
+      unitId = entity.unitId;
+      bookingId = entity.bookingId;
+      authorId = entity.masterId;
+    } else {
+      if (!prisma.cleaning) {
+        logger.error('Prisma cleaning model is not available', { prismaKeys: Object.keys(prisma) });
+        throw new Error('Prisma cleaning model is not available');
+      }
+      
+      entity = await prisma.cleaning.findUnique({
+        where: { id: input.cleaningId },
+        include: {
+          cleaner: true,
+          checklistInstances: {
+            where: {
+              stage: 'CLEANING', // Берем чек-лист стадии CLEANING
+            },
+            include: {
+              items: true,
+              answers: true,
+              attachments: true,
+            },
+          },
+        },
+      });
+      
+      if (!entity) {
+        throw new Error(`Cleaning with id ${input.cleaningId} not found`);
+      }
+      
+      checklistInstance = entity.checklistInstances?.[0];
+      if (!checklistInstance) {
+        throw new Error(`No checklist instance found for cleaning ${input.cleaningId}`);
+      }
+      
+      orgId = entity.orgId;
+      unitId = entity.unitId;
+      bookingId = entity.bookingId;
+      authorId = entity.cleanerId;
     }
     
-    // 2. Получить ChecklistInstance для этой уборки
-    const checklistInstance = cleaning.checklistInstances?.[0];
-    if (!checklistInstance) {
-      throw new Error(`No checklist instance found for cleaning ${input.cleaningId}`);
-    }
-    
-    // 3. Валидация: проверить, что все itemKey относятся к этому checklistInstance
+    // 2. Валидация: проверить, что все itemKey относятся к этому checklistInstance
     const validItemKeys = new Set(checklistInstance.items.map((item: any) => item.key));
     const invalidItems = input.items.filter(
       (item: any) => !validItemKeys.has(item.itemKey)
@@ -204,7 +265,7 @@ export const sharedResolvers = {
     if (invalidItems.length > 0) {
       throw new Error(
         `Invalid itemKeys: ${invalidItems.map((i: any) => i.itemKey).join(', ')}. ` +
-        `These items do not belong to cleaning ${input.cleaningId}`
+        `These items do not belong to ${isRepair ? 'repair' : 'cleaning'} ${entityId}`
       );
     }
     
@@ -212,7 +273,7 @@ export const sharedResolvers = {
       throw new Error('Items list cannot be empty');
     }
     
-    // 4. Создать или найти Source для этого cleaning
+    // 3. Создать или найти Source для этого cleaning/repair
     if (!prisma.source) {
       logger.error('Prisma source model is not available', { prismaKeys: Object.keys(prisma) });
       throw new Error('Prisma source model is not available. Make sure migration is applied and Prisma Client is regenerated.');
@@ -221,19 +282,19 @@ export const sharedResolvers = {
     let source = await prisma.source.findUnique({
       where: {
         type_entityId: {
-          type: 'CLEANING',
-          entityId: cleaning.id,
+          type: sourceType,
+          entityId: entity.id,
         },
       },
     });
     
     if (!source) {
-      logger.info('Creating new Source for cleaning', { cleaningId: cleaning.id });
+      logger.info(`Creating new Source for ${isRepair ? 'repair' : 'cleaning'}`, { entityId: entity.id });
       source = await prisma.source.create({
         data: {
-          type: 'CLEANING',
-          entityId: cleaning.id,
-          orgId: cleaning.orgId,
+          type: sourceType,
+          entityId: entity.id,
+          orgId: orgId,
         },
       });
       logger.info('Source created', { sourceId: source.id });
@@ -241,7 +302,7 @@ export const sharedResolvers = {
       logger.info('Using existing Source', { sourceId: source.id });
     }
     
-    // 5. Создать задачи в транзакции
+    // 4. Создать задачи в транзакции
     const tasks = await Promise.all(
       input.items.map(async (item: any) => {
         const checklistItem = checklistInstance.items.find(
@@ -257,14 +318,14 @@ export const sharedResolvers = {
         
         // Определяем assignee в зависимости от типа
         const taskInput: any = {
-          orgId: cleaning.orgId,
+          orgId: orgId,
           type: taskType,
-          unitId: cleaning.unitId,
-          bookingId: cleaning.bookingId,
-          sourceId: source.id, // Используем sourceId вместо cleaningId
+          unitId: unitId,
+          bookingId: bookingId,
+          sourceId: source.id, // Используем sourceId вместо cleaningId/repairId
           checklistItemKey: item.itemKey,
           checklistItemInstanceId: checklistItem.id, // Связываем с конкретным пунктом чек-листа
-          authorId: cleaning.cleanerId, // уборщик, который проходил чек-лист
+          authorId: authorId,
           dueAt: item.dueAt,
           note: item.description,
         };
@@ -283,7 +344,8 @@ export const sharedResolvers = {
     );
     
     logger.info('Tasks created from checklist', {
-      cleaningId: input.cleaningId,
+      entityId: entityId,
+      entityType: isRepair ? 'repair' : 'cleaning',
       tasksCount: tasks.length,
     });
     
@@ -374,11 +436,51 @@ export const resolvers = {
   },
   Source: {
     org: (parent: any) => ({ id: parent.orgId }),
-    cleaning: (parent: any) => {
-      // Возвращаем ссылку на уборку для федерации с field-service-subgraph
-      // Federation автоматически получит данные из field-service-subgraph по id
-      if (parent.type === 'CLEANING' && parent.entityId) {
-        return { id: parent.entityId };
+    cleaning: async (parent: any, _: unknown, { prisma }: Context) => {
+      // Получаем данные о уборке напрямую через Prisma (без федерации)
+      if (parent.type === 'CLEANING' && parent.entityId && prisma) {
+        const cleaning = await prisma.cleaning.findUnique({
+          where: { id: parent.entityId },
+          include: {
+            cleaner: true,
+          },
+        });
+        if (!cleaning) return null;
+        return {
+          id: cleaning.id,
+          status: cleaning.status,
+          scheduledAt: cleaning.scheduledAt,
+          completedAt: cleaning.completedAt,
+          cleaner: cleaning.cleaner ? {
+            id: cleaning.cleaner.id,
+            firstName: cleaning.cleaner.firstName,
+            lastName: cleaning.cleaner.lastName,
+          } : null,
+        };
+      }
+      return null;
+    },
+    repair: async (parent: any, _: unknown, { prisma }: Context) => {
+      // Получаем данные о ремонте напрямую через Prisma (без федерации)
+      if (parent.type === 'REPAIR' && parent.entityId && prisma) {
+        const repair = await prisma.repair.findUnique({
+          where: { id: parent.entityId },
+          include: {
+            master: true,
+          },
+        });
+        if (!repair) return null;
+        return {
+          id: repair.id,
+          status: repair.status,
+          scheduledAt: repair.scheduledAt,
+          completedAt: repair.completedAt,
+          master: repair.master ? {
+            id: repair.master.id,
+            firstName: repair.master.firstName,
+            lastName: repair.master.lastName,
+          } : null,
+        };
       }
       return null;
     },
