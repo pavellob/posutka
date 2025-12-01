@@ -37,12 +37,10 @@ export class RealtyCalendarController {
       // Читаем body
       body = await this.readBody(req);
       
-      // Безопасное логирование body (первые 1000 символов для безопасности)
-      const bodyPreview = body ? body.substring(0, 1000) : 'empty';
       const bodyLength = body?.length || 0;
       logger.info('Webhook body received', {
         bodyLength,
-        bodyPreview: bodyLength > 1000 ? `${bodyPreview}...` : bodyPreview,
+        body,
         isJson: this.isValidJson(body),
       });
 
@@ -52,8 +50,8 @@ export class RealtyCalendarController {
       } catch (parseError: any) {
         logger.error('Failed to parse webhook JSON', {
           error: parseError?.message || 'Unknown parse error',
-          bodyPreview: bodyPreview,
           bodyLength,
+          body,
         });
         throw new Error(`Invalid JSON: ${parseError?.message || 'Unknown error'}`);
       }
