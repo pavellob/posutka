@@ -8,6 +8,7 @@ export class BookingService {
   private opsClient: OpsGrpcClient;
   private eventsClient: EventsGrpcClient | null = null;
   private identityDL: any = null;
+  private prisma: any = null;
 
   constructor(
     private readonly dl: any,
@@ -16,7 +17,8 @@ export class BookingService {
     opsGrpcPort: number,
     eventsGrpcHost?: string,
     eventsGrpcPort?: number,
-    identityDL?: any
+    identityDL?: any,
+    prisma?: any
   ) {
     this.opsClient = createOpsGrpcClient({
       host: opsGrpcHost,
@@ -49,6 +51,8 @@ export class BookingService {
     
     // Сохраняем identityDL для поиска пользователей
     this.identityDL = identityDL;
+    // Сохраняем prisma для получения preferred cleaners
+    this.prisma = prisma;
   }
 
   async initialize(): Promise<void> {
@@ -432,6 +436,51 @@ export class BookingService {
         } catch (error: any) {
           logger.warn('Failed to get organization managers', {
             orgId: finalOrgId,
+            error: error.message,
+          });
+        }
+      }
+      
+      // 3. Добавляем preferred cleaners для этого unit
+      if (booking.unitId && this.prisma) {
+        try {
+          const preferredCleaners = await this.prisma.unitPreferredCleaner.findMany({
+            where: { unitId: booking.unitId },
+            include: {
+              cleaner: {
+                select: {
+                  id: true,
+                  userId: true,
+                  isActive: true,
+                }
+              }
+            }
+          });
+          
+          const cleanerUserIds = preferredCleaners
+            .filter((pref: any) => pref.cleaner?.isActive && pref.cleaner?.userId)
+            .map((pref: any) => pref.cleaner.userId);
+          
+          cleanerUserIds.forEach((userId: string) => {
+            if (!targetUserIds.includes(userId)) {
+              targetUserIds.push(userId);
+            }
+          });
+          
+          if (cleanerUserIds.length > 0) {
+            logger.info('Added preferred cleaners to targetUserIds', {
+              unitId: booking.unitId,
+              cleanerCount: cleanerUserIds.length,
+              cleanerUserIds,
+            });
+          } else {
+            logger.debug('No active preferred cleaners found for unit', {
+              unitId: booking.unitId,
+            });
+          }
+        } catch (error: any) {
+          logger.warn('Failed to get preferred cleaners for unit', {
+            unitId: booking.unitId,
             error: error.message,
           });
         }

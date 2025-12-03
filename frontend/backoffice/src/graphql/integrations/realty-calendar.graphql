@@ -1,0 +1,14 @@
+mutation ImportRealtyCalendarFeed($orgId: String!, $xmlContent: String!) {
+  importRealtyCalendarFeed(orgId: $orgId, xmlContent: $xmlContent) {
+    success
+    outcome
+    processed
+    created
+    updated
+    errors {
+      offerId
+      message
+    }
+  }
+}
+

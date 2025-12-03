@@ -124,8 +124,14 @@ export class RealtyCalendarService {
     let foundOrgId: string | null = null;
 
     // 1. Попробовать найти по externalRef (без orgId - поиск по всем организациям)
-    if (dto.propertyExternalRef && dto.unitExternalRef) {
+    // Сначала пробуем найти Property по realty_id
+    if (dto.propertyExternalRef) {
       try {
+        logger.info('Searching for Property by externalRef', {
+          source: dto.propertyExternalRef.source,
+          id: dto.propertyExternalRef.id,
+        });
+        
         const property = await this.inventoryClient.getPropertyByExternalRef({
           externalSource: dto.propertyExternalRef.source,
           externalId: dto.propertyExternalRef.id,
@@ -134,22 +140,129 @@ export class RealtyCalendarService {
         
         if (property.success && property.property) {
           foundOrgId = property.property.orgId;
-          const unit = await this.inventoryClient.getUnitByExternalRef({
-            externalSource: dto.unitExternalRef.source,
-            externalId: dto.unitExternalRef.id,
+          logger.info('Property found by externalRef', {
             propertyId: property.property.id,
+            orgId: foundOrgId,
+            hasUnitExternalRef: !!dto.unitExternalRef,
           });
           
-          if (unit.success && unit.unit) {
+          // Если есть unitExternalRef, пытаемся найти Unit
+          if (dto.unitExternalRef) {
+            const unit = await this.inventoryClient.getUnitByExternalRef({
+              externalSource: dto.unitExternalRef.source,
+              externalId: dto.unitExternalRef.id,
+              propertyId: property.property.id,
+            });
+            
+            if (unit.success && unit.unit) {
+              logger.info('Unit found by externalRef', {
+                unitId: unit.unit.id,
+                propertyId: property.property.id,
+              });
+              return {
+                propertyId: property.property.id,
+                unitId: unit.unit.id,
+                orgId: foundOrgId,
+              };
+            } else {
+              logger.info('Unit not found by externalRef, will use first unit or create new', {
+                propertyId: property.property.id,
+              });
+              // Если Unit не найден, но Property найден - используем первый Unit или создадим новый
+              const units = await this.inventoryClient.getUnitsByProperty({
+                propertyId: property.property.id,
+              });
+              
+              if (units.success && units.units && units.units.length > 0) {
+                logger.info('Using first unit from property', {
+                  unitId: units.units[0].id,
+                });
+                return {
+                  propertyId: property.property.id,
+                  unitId: units.units[0].id,
+                  orgId: foundOrgId,
+                };
+              }
+              
+              // Если Units нет, создаем новый Unit для найденного Property
+              logger.info('Creating new Unit for found Property', {
+                propertyId: property.property.id,
+                unitExternalRef: dto.unitExternalRef,
+              });
+              
+              const newUnit = await this.inventoryClient.createUnit({
+                propertyId: property.property.id,
+                name: 'Unit 1',
+                capacity: 2,
+                beds: 1,
+                bathrooms: 1,
+                amenities: [],
+                images: [],
+                externalSource: dto.unitExternalRef?.source,
+                externalId: dto.unitExternalRef?.id,
+              });
+              
+              if (!newUnit.success || !newUnit.unit) {
+                throw new Error('Failed to create unit for found property');
+              }
+              
+              return {
+                propertyId: property.property.id,
+                unitId: newUnit.unit.id,
+                orgId: foundOrgId,
+              };
+            }
+          } else {
+            // Если нет unitExternalRef, но Property найден - используем первый Unit или создадим новый
+            logger.info('No unitExternalRef provided, will use first unit or create new', {
+              propertyId: property.property.id,
+            });
+            const units = await this.inventoryClient.getUnitsByProperty({
+              propertyId: property.property.id,
+            });
+            
+            if (units.success && units.units && units.units.length > 0) {
+              logger.info('Using first unit from property', {
+                unitId: units.units[0].id,
+              });
+              return {
+                propertyId: property.property.id,
+                unitId: units.units[0].id,
+                orgId: foundOrgId,
+              };
+            }
+            
+            // Если Units нет, создаем новый Unit для найденного Property
+            logger.info('Creating new Unit for found Property (no externalRef)', {
+              propertyId: property.property.id,
+            });
+            
+            const newUnit = await this.inventoryClient.createUnit({
+              propertyId: property.property.id,
+              name: 'Unit 1',
+              capacity: 2,
+              beds: 1,
+              bathrooms: 1,
+              amenities: [],
+              images: [],
+            });
+            
+            if (!newUnit.success || !newUnit.unit) {
+              throw new Error('Failed to create unit for found property');
+            }
+            
             return {
               propertyId: property.property.id,
-              unitId: unit.unit.id,
+              unitId: newUnit.unit.id,
               orgId: foundOrgId,
             };
           }
         }
-      } catch (error) {
-        logger.debug('Property/Unit not found by externalRef, will search by address', { error });
+      } catch (error: any) {
+        logger.debug('Property/Unit not found by externalRef, will search by address', {
+          error: error?.message,
+          propertyExternalRef: dto.propertyExternalRef,
+        });
       }
     }
 
@@ -213,6 +326,7 @@ export class RealtyCalendarService {
         beds: 1,
         bathrooms: 1,
         amenities: [],
+        images: [],
         externalSource: dto.unitExternalRef?.source,
         externalId: dto.unitExternalRef?.id,
       });
@@ -255,6 +369,7 @@ export class RealtyCalendarService {
       beds: 1,
       bathrooms: 1,
       amenities: [],
+      images: [],
       externalSource: dto.unitExternalRef?.source,
       externalId: dto.unitExternalRef?.id,
     });

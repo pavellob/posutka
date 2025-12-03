@@ -268,7 +268,7 @@ const yoga = createYoga<Context>({
   },
 });
 
-const port = parseInt(process.env.PORT || '4013');
+const port = parseInt(process.env.PORT || '4015');
 const grpcHost = process.env.GRPC_HOST || 'localhost';
 const grpcPort = parseInt(process.env.GRPC_PORT || '4113');
 

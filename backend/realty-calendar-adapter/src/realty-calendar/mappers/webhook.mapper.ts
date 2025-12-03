@@ -11,8 +11,8 @@ export class WebhookMapper {
     };
 
     // Парсим даты и время
-    const checkIn = this.parseDateTime(webhook.booking.begin_date, webhook.booking.arrival_time);
-    const checkOut = this.parseDateTime(webhook.booking.end_date, webhook.booking.departure_time);
+    const checkIn = this.parseDateTime(webhook.booking.begin_date, webhook.booking.arrival_time ?? undefined);
+    const checkOut = this.parseDateTime(webhook.booking.end_date, webhook.booking.departure_time ?? undefined);
 
     return {
       action: actionMap[webhook.action] || 'CREATE',
@@ -38,7 +38,7 @@ export class WebhookMapper {
       address: webhook.booking.address,
       amount: webhook.booking.amount,
       prepayment: webhook.booking.prepayment,
-      deposit: webhook.booking.deposit,
+      deposit: webhook.booking.deposit ?? undefined,
     };
   }
 

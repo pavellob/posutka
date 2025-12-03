@@ -92,6 +92,8 @@ export class InventoryDLPrisma implements IDataLayerInventory {
         isElite: input.isElite,
         yandexBuildingId: input.yandexBuildingId,
         yandexHouseId: input.yandexHouseId,
+        externalSource: input.externalSource,
+        externalId: input.externalId,
       },
       include: {
         org: true,
@@ -153,6 +155,8 @@ export class InventoryDLPrisma implements IDataLayerInventory {
         isElite: updateData.isElite,
         yandexBuildingId: updateData.yandexBuildingId,
         yandexHouseId: updateData.yandexHouseId,
+        externalSource: updateData.externalSource,
+        externalId: updateData.externalId,
       },
       include: {
         org: true,
@@ -196,7 +200,7 @@ export class InventoryDLPrisma implements IDataLayerInventory {
     return mappedUnits;
   }
 
-  async createUnit(input: Pick<Unit, 'propertyId' | 'name' | 'capacity' | 'beds' | 'bathrooms' | 'amenities'>): Promise<Unit> {
+  async createUnit(input: Pick<Unit, 'propertyId' | 'name' | 'capacity' | 'beds' | 'bathrooms' | 'amenities' | 'images' | 'externalSource' | 'externalId'>): Promise<Unit> {
     const unit = await this.prisma.unit.create({
       data: {
         propertyId: input.propertyId,
@@ -205,6 +209,9 @@ export class InventoryDLPrisma implements IDataLayerInventory {
         beds: input.beds,
         bathrooms: input.bathrooms,
         amenities: input.amenities,
+        images: input.images || [],
+        externalSource: input.externalSource,
+        externalId: input.externalId,
       },
       include: {
         property: true,
@@ -383,6 +390,8 @@ export class InventoryDLPrisma implements IDataLayerInventory {
       isElite: property.isElite,
       yandexBuildingId: property.yandexBuildingId,
       yandexHouseId: property.yandexHouseId,
+      externalSource: property.externalSource,
+      externalId: property.externalId,
     };
   }
 
@@ -395,10 +404,13 @@ export class InventoryDLPrisma implements IDataLayerInventory {
       beds: unit.beds,
       bathrooms: unit.bathrooms,
       amenities: unit.amenities,
+      images: unit.images || [],
       grade: unit.grade ?? 0,
       cleaningDifficulty: unit.cleaningDifficulty ?? 0,
       checkInInstructions: unit.checkInInstructions ?? undefined,
       property: unit.property,
+      externalSource: unit.externalSource,
+      externalId: unit.externalId,
     };
   }
 }

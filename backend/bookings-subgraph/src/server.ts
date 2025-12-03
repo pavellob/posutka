@@ -36,7 +36,8 @@ async function startServer() {
       4103,
       eventsGrpcHost,
       eventsGrpcPort,
-      identityDL
+      identityDL,
+      prisma
     );
     await bookingService.initialize();
 

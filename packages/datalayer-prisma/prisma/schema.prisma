@@ -88,11 +88,17 @@ model Property {
   // Внешние ID
   yandexBuildingId String?
   yandexHouseId    String?
+  
+  // External references для интеграций
+  externalSource String? // Источник внешней системы (REALTY_CALENDAR, YANDEX и т.д.)
+  externalId     String? // ID во внешней системе
 
   org       Organization @relation(fields: [orgId], references: [id])
   units     Unit[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+  
+  @@index([externalSource, externalId])
 }
 
 model Unit {
@@ -103,9 +109,15 @@ model Unit {
   beds               Int
   bathrooms          Int
   amenities          String[]
+  images             String[]               // Массив URL изображений
   grade              Int?                   @default(0) // 0..10
   cleaningDifficulty Int?                   @default(0) // 0..5 (fallback)
   checkInInstructions String?               @db.Text // Инструкция по заселению для гостя
+  
+  // External references для интеграций
+  externalSource String? // Источник внешней системы (REALTY_CALENDAR, YANDEX и т.д.)
+  externalId     String? // ID во внешней системе
+  
   property           Property               @relation(fields: [propertyId], references: [id])
   preferredCleaners  UnitPreferredCleaner[] // Привязанные уборщики для этой квартиры
   preferredMasters   UnitPreferredMaster[] // Привязанные мастера для этой квартиры
@@ -113,6 +125,9 @@ model Unit {
   checklistInstances ChecklistInstance[] // Инстансы чек-листов
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
+  
+  @@index([externalSource, externalId])
+  @@index([propertyId, externalSource, externalId])
 }
 
 // Связь Unit ↔ Cleaner (many-to-many)

@@ -127,8 +127,8 @@ mutation {
 
 ## Порты
 
-- **4012** - GraphQL HTTP
-- **4112** - gRPC Server
+- **4015** - GraphQL HTTP
+- **4113** - gRPC Server
 
 ## Обработчики событий
 

@@ -286,12 +286,37 @@ export class NotificationEventHandler {
         };
       }
       
-      case 'BOOKING_CREATED':
+      case 'BOOKING_CREATED': {
+        const guestName = payload.guestName || 'Гость';
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const checkInDate = payload.checkIn ? this.formatDate(payload.checkIn) : '';
+        const checkOutDate = payload.checkOut ? this.formatDate(payload.checkOut) : '';
+        const lockCode = payload.lockCode ? `\n🔑 Код от замка: ${payload.lockCode}` : '';
+        const checkInInstructions = payload.checkInInstructions ? `\n\n📋 Инструкции по заселению:\n${payload.checkInInstructions}` : '';
+        
+        let message = `Создано новое бронирование для "${guestName}"`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n🏠 Квартира: ${unitName}`;
+        if (checkInDate) {
+          message += `\n📅 Заселение: ${checkInDate}`;
+        }
+        if (checkOutDate) {
+          message += `\n📅 Выселение: ${checkOutDate}`;
+        }
+        if (payload.guestsCount) {
+          message += `\n👥 Гостей: ${payload.guestsCount}`;
+        }
+        message += lockCode + checkInInstructions;
+        
         return {
           title: '🎉 Новое бронирование',
-          message: `Создано бронирование ${payload.bookingId}`,
+          message,
           actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
         };
+      }
       
       default:
         return {

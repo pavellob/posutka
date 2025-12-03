@@ -1,6 +1,6 @@
 # 🧪 Тестовые запросы для Events Subgraph
 
-Откройте GraphiQL: http://localhost:4013/graphql
+Откройте GraphiQL: http://localhost:4015/graphql
 
 ## 1. Проверить подписки
 

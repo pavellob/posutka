@@ -1,0 +1,49 @@
+# Realty Calendar Subgraph - Интеграция с Calendar Realty
+# Обрабатывает webhooks и импорт XML feed для синхронизации объектов недвижимости
+
+scalar UUID
+scalar DateTime
+
+type Query {
+  _empty: Boolean
+}
+
+type Mutation {
+  """Импортировать объекты недвижимости из XML feed Calendar Realty"""
+  importRealtyCalendarFeed(
+    orgId: String!
+    xmlContent: String!
+  ): RealtyFeedImportResult!
+}
+
+"""Результат импорта XML feed"""
+type RealtyFeedImportResult {
+  """Успешно ли обработано"""
+  success: Boolean!
+  """Результат обработки"""
+  outcome: FeedImportOutcome!
+  """Количество обработанных объектов"""
+  processed: Int!
+  """Количество созданных"""
+  created: Int!
+  """Количество обновленных"""
+  updated: Int!
+  """Ошибки при обработке"""
+  errors: [FeedImportError!]!
+}
+
+"""Статус импорта"""
+enum FeedImportOutcome {
+  SUCCESS
+  PARTIAL
+  ERROR
+}
+
+"""Ошибка при обработке объекта"""
+type FeedImportError {
+  """ID объекта из XML (internal-id)"""
+  offerId: String!
+  """Описание ошибки"""
+  message: String!
+}
+

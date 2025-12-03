@@ -1,26 +1,42 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { createGraphQLLogger } from '@repo/shared-logger';
-import type { RealtyCalendarWebhook } from './realty-calendar/dto/webhook.dto.js';
 
 const logger = createGraphQLLogger('realty-calendar-mock-server');
 
-// Примеры webhook payload'ов от RealtyCalendar
+// Примеры webhook payload'ов от RealtyCalendar (в реальном формате с оберткой data)
 const mockWebhooks = {
   create_booking: {
     action: 'create_booking',
-    status: 'confirmed',
-    booking: {
-      id: 'rc-booking-001',
-      address: 'Москва, ул. Тверская, д. 10, кв. 5',
-      begin_date: '2024-12-15',
-      end_date: '2024-12-20',
-      arrival_time: '14:00',
-      departure_time: '11:00',
-      amount: 15000,
-      prepayment: 5000,
-      deposit: 3000,
-      realty_id: 'rc-property-001',
-      realty_room_id: 'rc-unit-001',
+    status: 'booked',
+    data: {
+      booking: {
+        id: 135376340,
+        begin_date: '2025-12-06',
+        end_date: '2025-12-10',
+        realty_id: 302285,
+        realty_room_id: null,
+        user_id: 34892,
+        address: 'воронцовский 19к1',
+        amount: 7000.0,
+        prepayment: 0,
+        deposit: null,
+        arrival_time: null,
+        departure_time: null,
+        status_cd: 5,
+        created_at: '2025-12-01T17:06:46.007+03:00',
+        updated_at: '2025-12-01T17:07:03.350+03:00',
+        apartment: {
+          id: 302285,
+          title: 'а16 . 1540 Воронцовский 19 студия',
+          address: 'Мурино, воронцовский 19к1',
+        },
+        booking_origin: {
+          id: null,
+          title: null,
+        },
+      },
+      crm_entity_id: null,
+      bitrix_lead_id: null,
     },
     client: {
       fio: 'Иванов Иван Иванович',
@@ -28,23 +44,40 @@ const mockWebhooks = {
       phone: '+79001234567',
       email: 'ivan.ivanov@example.com',
     },
-  } as RealtyCalendarWebhook,
+  },
 
   update_booking: {
     action: 'update_booking',
-    status: 'confirmed',
-    booking: {
-      id: 'rc-booking-001',
-      address: 'Москва, ул. Тверская, д. 10, кв. 5',
-      begin_date: '2024-12-16', // Изменили дату заезда
-      end_date: '2024-12-21',   // Изменили дату выезда
-      arrival_time: '15:00',
-      departure_time: '12:00',
-      amount: 18000, // Изменили сумму
-      prepayment: 5000,
-      deposit: 3000,
-      realty_id: 'rc-property-001',
-      realty_room_id: 'rc-unit-001',
+    status: 'booked',
+    data: {
+      booking: {
+        id: 135376340,
+        begin_date: '2025-12-07', // Изменили дату заезда
+        end_date: '2025-12-11',   // Изменили дату выезда
+        realty_id: 302285,
+        realty_room_id: null,
+        user_id: 34892,
+        address: 'воронцовский 19к1',
+        amount: 8000.0, // Изменили сумму
+        prepayment: 1000,
+        deposit: null,
+        arrival_time: '15:00',
+        departure_time: '12:00',
+        status_cd: 5,
+        created_at: '2025-12-01T17:06:46.007+03:00',
+        updated_at: '2025-12-01T18:00:00.000+03:00',
+        apartment: {
+          id: 302285,
+          title: 'а16 . 1540 Воронцовский 19 студия',
+          address: 'Мурино, воронцовский 19к1',
+        },
+        booking_origin: {
+          id: null,
+          title: null,
+        },
+      },
+      crm_entity_id: null,
+      bitrix_lead_id: null,
     },
     client: {
       fio: 'Иванов Иван Иванович',
@@ -52,23 +85,40 @@ const mockWebhooks = {
       phone: '+79001234567',
       email: 'ivan.ivanov@example.com',
     },
-  } as RealtyCalendarWebhook,
+  },
 
   cancel_booking: {
     action: 'cancel_booking',
     status: 'cancelled',
-    booking: {
-      id: 'rc-booking-001',
-      address: 'Москва, ул. Тверская, д. 10, кв. 5',
-      begin_date: '2024-12-15',
-      end_date: '2024-12-20',
-      arrival_time: '14:00',
-      departure_time: '11:00',
-      amount: 15000,
-      prepayment: 5000,
-      deposit: 3000,
-      realty_id: 'rc-property-001',
-      realty_room_id: 'rc-unit-001',
+    data: {
+      booking: {
+        id: 135376340,
+        begin_date: '2025-12-06',
+        end_date: '2025-12-10',
+        realty_id: 302285,
+        realty_room_id: null,
+        user_id: 34892,
+        address: 'воронцовский 19к1',
+        amount: 7000.0,
+        prepayment: 0,
+        deposit: null,
+        arrival_time: null,
+        departure_time: null,
+        status_cd: 6, // Отменен
+        created_at: '2025-12-01T17:06:46.007+03:00',
+        updated_at: '2025-12-01T19:00:00.000+03:00',
+        apartment: {
+          id: 302285,
+          title: 'а16 . 1540 Воронцовский 19 студия',
+          address: 'Мурино, воронцовский 19к1',
+        },
+        booking_origin: {
+          id: null,
+          title: null,
+        },
+      },
+      crm_entity_id: null,
+      bitrix_lead_id: null,
     },
     client: {
       fio: 'Иванов Иван Иванович',
@@ -76,23 +126,40 @@ const mockWebhooks = {
       phone: '+79001234567',
       email: 'ivan.ivanov@example.com',
     },
-  } as RealtyCalendarWebhook,
+  },
 
   delete_booking: {
     action: 'delete_booking',
     status: 'deleted',
-    booking: {
-      id: 'rc-booking-001',
-      address: 'Москва, ул. Тверская, д. 10, кв. 5',
-      begin_date: '2024-12-15',
-      end_date: '2024-12-20',
-      arrival_time: '14:00',
-      departure_time: '11:00',
-      amount: 15000,
-      prepayment: 5000,
-      deposit: 3000,
-      realty_id: 'rc-property-001',
-      realty_room_id: 'rc-unit-001',
+    data: {
+      booking: {
+        id: 135376340,
+        begin_date: '2025-12-06',
+        end_date: '2025-12-10',
+        realty_id: 302285,
+        realty_room_id: null,
+        user_id: 34892,
+        address: 'воронцовский 19к1',
+        amount: 7000.0,
+        prepayment: 0,
+        deposit: null,
+        arrival_time: null,
+        departure_time: null,
+        status_cd: 6,
+        created_at: '2025-12-01T17:06:46.007+03:00',
+        updated_at: '2025-12-01T20:00:00.000+03:00',
+        apartment: {
+          id: 302285,
+          title: 'а16 . 1540 Воронцовский 19 студия',
+          address: 'Мурино, воронцовский 19к1',
+        },
+        booking_origin: {
+          id: null,
+          title: null,
+        },
+      },
+      crm_entity_id: null,
+      bitrix_lead_id: null,
     },
     client: {
       fio: 'Иванов Иван Иванович',
@@ -100,22 +167,37 @@ const mockWebhooks = {
       phone: '+79001234567',
       email: 'ivan.ivanov@example.com',
     },
-  } as RealtyCalendarWebhook,
+  },
 
   // Пример без realty_id и realty_room_id (будет создано новое property/unit)
   create_booking_new_property: {
     action: 'create_booking',
-    status: 'confirmed',
-    booking: {
-      id: 'rc-booking-002',
-      address: 'Санкт-Петербург, Невский проспект, д. 25, кв. 12',
-      begin_date: '2024-12-25',
-      end_date: '2024-12-30',
-      arrival_time: '15:00',
-      departure_time: '11:00',
-      amount: 20000,
-      prepayment: 7000,
-      deposit: 5000,
+    status: 'booked',
+    data: {
+      booking: {
+        id: 135376341,
+        begin_date: '2025-12-25',
+        end_date: '2025-12-30',
+        realty_id: null, // Новое property будет создано
+        realty_room_id: null,
+        user_id: 34893,
+        address: 'Санкт-Петербург, Невский проспект, д. 25, кв. 12',
+        amount: 20000.0,
+        prepayment: 7000,
+        deposit: 5000,
+        arrival_time: '15:00',
+        departure_time: '11:00',
+        status_cd: 5,
+        created_at: '2025-12-01T18:00:00.000+03:00',
+        updated_at: '2025-12-01T18:00:00.000+03:00',
+        apartment: null,
+        booking_origin: {
+          id: null,
+          title: null,
+        },
+      },
+      crm_entity_id: null,
+      bitrix_lead_id: null,
     },
     client: {
       fio: 'Петрова Мария Сергеевна',
@@ -123,10 +205,10 @@ const mockWebhooks = {
       phone: '+79009876543',
       email: 'maria.petrova@example.com',
     },
-  } as RealtyCalendarWebhook,
+  },
 };
 
-async function sendWebhook(url: string, payload: RealtyCalendarWebhook): Promise<void> {
+async function sendWebhook(url: string, payload: any): Promise<void> {
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -139,14 +221,14 @@ async function sendWebhook(url: string, payload: RealtyCalendarWebhook): Promise
     const result = await response.json();
     logger.info('Webhook sent', {
       action: payload.action,
-      bookingId: payload.booking.id,
+      bookingId: payload.data?.booking?.id || payload.booking?.id,
       status: response.status,
       result,
     });
   } catch (error: any) {
     logger.error('Failed to send webhook', {
       action: payload.action,
-      bookingId: payload.booking.id,
+      bookingId: payload.data?.booking?.id || payload.booking?.id,
       error: error.message,
     });
   }
@@ -223,7 +305,7 @@ function startMockServer(port: number, targetUrl: string) {
             <div class="result success">
               <strong>✅ Успешно отправлено!</strong>
               <div>Action: \${data.payload.action}</div>
-              <div>Booking ID: \${data.payload.booking.id}</div>
+              <div>Booking ID: \${data.payload.data?.booking?.id || data.payload.booking?.id}</div>
               <div>Response Status: \${data.response.status}</div>
               <details style="margin-top: 10px;">
                 <summary>Response Body</summary>
@@ -323,7 +405,7 @@ async function readBody(req: IncomingMessage): Promise<string> {
 
 async function sendWebhookAndGetResponse(
   url: string,
-  payload: RealtyCalendarWebhook
+  payload: any
 ): Promise<{ status: number; body: any }> {
   try {
     const response = await fetch(url, {

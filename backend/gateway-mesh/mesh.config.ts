@@ -77,6 +77,11 @@ export const composeConfig = defineConfig({
       sourceHandler: loadGraphQLHTTPSubgraph('pricing-subgraph', {
         endpoint: 'http://localhost:4012/graphql'
       })
+    },
+    {
+      sourceHandler: loadGraphQLHTTPSubgraph('realty-calendar-subgraph', {
+        endpoint: 'http://localhost:4013/graphql'
+      })
     }
   ],
   additionalTypeDefs: baseSchema

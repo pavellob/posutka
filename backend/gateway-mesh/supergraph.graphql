@@ -54,6 +54,7 @@ enum join__Graph {
   NOTIFICATIONS_SUBGRAPH @join__graph(name: "notifications-subgraph", url: "http://localhost:4011/graphql")
   OPS_SUBGRAPH @join__graph(name: "ops-subgraph", url: "http://localhost:4003/graphql")
   PRICING_SUBGRAPH @join__graph(name: "pricing-subgraph", url: "http://localhost:4012/graphql")
+  REALTY_CALENDAR_SUBGRAPH @join__graph(name: "realty-calendar-subgraph", url: "http://localhost:4013/graphql")
 }
 
 """
@@ -61,13 +62,13 @@ enum join__Graph {
 Используется для всех сущностей в системе.
 Пример: "550e8400-e29b-41d4-a716-446655440000"
 """
-scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH)
+scalar UUID @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) @join__type(graph: REALTY_CALENDAR_SUBGRAPH)
 
 """
 Дата и время в формате ISO 8601 с часовым поясом.
 Пример: "2024-01-15T14:30:00Z" или "2024-01-15T14:30:00+03:00"
 """
-scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH)
+scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) @join__type(graph: REALTY_CALENDAR_SUBGRAPH)
 
 """
 Произвольный JSON объект для хранения метаданных и дополнительной информации.
@@ -76,7 +77,7 @@ scalar DateTime @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGR
 """
 scalar JSON @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH)
 
-scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH)
+scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) @join__type(graph: REALTY_CALENDAR_SUBGRAPH)
 
 scalar Upload @join__type(graph: FIELD_SERVICE_SUBGRAPH)
 
@@ -133,9 +134,9 @@ type GraphQLQueryResult @join__type(graph: AI_SUBGRAPH) {
 }
 
 """Запросы для работы с AI-функциональностью."""
-type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) {
+type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) @join__type(graph: REALTY_CALENDAR_SUBGRAPH) {
   """Пустой запрос (требуется для GraphQL схемы)"""
-  _empty: Boolean @join__field(graph: AI_SUBGRAPH)
+  _empty: Boolean @join__field(graph: AI_SUBGRAPH) @join__field(graph: REALTY_CALENDAR_SUBGRAPH)
   """Получить счет по ID"""
   invoice(id: UUID!): Invoice @merge(subgraph: "billing-subgraph", keyField: "id", keyArg: "id") @join__field(graph: BILLING_SUBGRAPH)
   """Получить список счетов организации с пагинацией и фильтрацией"""
@@ -357,7 +358,7 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
 }
 
 """Мутации для выполнения AI-команд."""
-type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) {
+type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) @join__type(graph: REALTY_CALENDAR_SUBGRAPH) {
   """Выполнить AI-команду на естественном языке"""
   aiCommand(
     """ID организации, для которой выполняется команда"""
@@ -645,6 +646,8 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   upsertRepairPricingRule(input: UpsertRepairPricingRuleInput!): RepairPricingRule! @join__field(graph: PRICING_SUBGRAPH)
   """Удалить правило ценообразования для ремонта"""
   deleteRepairPricingRule(id: UUID!): Boolean! @join__field(graph: PRICING_SUBGRAPH)
+  """Импортировать объекты недвижимости из XML feed Calendar Realty"""
+  importRealtyCalendarFeed(orgId: String!, xmlContent: String!): RealtyFeedImportResult! @join__field(graph: REALTY_CALENDAR_SUBGRAPH)
 }
 
 """
@@ -919,6 +922,8 @@ type Unit @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE
   bathrooms: Int! @join__field(graph: INVENTORY_SUBGRAPH)
   """Список удобств единицы (кондиционер, кухня, балкон и т.д.)"""
   amenities: [String!]! @join__field(graph: INVENTORY_SUBGRAPH)
+  """Массив URL изображений единицы"""
+  images: [String!]! @join__field(graph: INVENTORY_SUBGRAPH)
   """Градация юнита по размеру (0-10)"""
   grade: UnitGrade! @join__field(graph: INVENTORY_SUBGRAPH)
   """Сложность уборки по умолчанию (0-5, fallback)"""
@@ -2358,6 +2363,30 @@ type RepairCostQuote @join__type(graph: PRICING_SUBGRAPH) {
   total: Money!
 }
 
+"""Результат импорта XML feed"""
+type RealtyFeedImportResult @join__type(graph: REALTY_CALENDAR_SUBGRAPH) {
+  """Успешно ли обработано"""
+  success: Boolean!
+  """Результат обработки"""
+  outcome: FeedImportOutcome!
+  """Количество обработанных объектов"""
+  processed: Int!
+  """Количество созданных"""
+  created: Int!
+  """Количество обновленных"""
+  updated: Int!
+  """Ошибки при обработке"""
+  errors: [FeedImportError!]!
+}
+
+"""Ошибка при обработке объекта"""
+type FeedImportError @join__type(graph: REALTY_CALENDAR_SUBGRAPH) {
+  """ID объекта из XML (internal-id)"""
+  offerId: String!
+  """Описание ошибки"""
+  message: String!
+}
+
 """
 Действия с депозитом/залогом.
 Используется для управления залогами при бронировании.
@@ -2880,6 +2909,13 @@ enum CleaningCoeffMode @join__type(graph: PRICING_SUBGRAPH) {
 enum RepairCoeffMode @join__type(graph: PRICING_SUBGRAPH) {
   BASIC @join__enumValue(graph: PRICING_SUBGRAPH)
   INCREASED @join__enumValue(graph: PRICING_SUBGRAPH)
+}
+
+"""Статус импорта"""
+enum FeedImportOutcome @join__type(graph: REALTY_CALENDAR_SUBGRAPH) {
+  SUCCESS @join__enumValue(graph: REALTY_CALENDAR_SUBGRAPH)
+  PARTIAL @join__enumValue(graph: REALTY_CALENDAR_SUBGRAPH)
+  ERROR @join__enumValue(graph: REALTY_CALENDAR_SUBGRAPH)
 }
 
 """Настройки для AI-адаптера."""

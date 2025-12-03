@@ -27,6 +27,7 @@ message Unit {
   int32 beds = 5;
   int32 bathrooms = 6;
   repeated string amenities = 7;
+  repeated string images = 12;  // Массив URL изображений
   // Универсальные external references
   optional string external_source = 8;
   optional string external_id = 9;
@@ -89,6 +90,7 @@ message CreateUnitRequest {
   int32 beds = 4;
   int32 bathrooms = 5;
   repeated string amenities = 6;
+  repeated string images = 11;  // Массив URL изображений
   optional string external_source = 7;
   optional string external_id = 8;
   optional int32 grade = 9;

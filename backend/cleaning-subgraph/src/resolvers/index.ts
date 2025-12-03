@@ -275,6 +275,50 @@ export const resolvers: any = {
         // Не прерываем создание уборки, если не удалось подтянуть задачи
       }
       
+      // Публикуем событие CLEANING_ASSIGNED если уборщик уже назначен
+      if (cleaning.cleanerId) {
+        try {
+          const cleaner = await prisma.cleaner.findUnique({
+            where: { id: cleaning.cleanerId }
+          });
+          
+          const unit = await prisma.unit.findUnique({
+            where: { id: cleaning.unitId },
+            include: { property: true }
+          });
+          
+          if (cleaner && unit) {
+            const eventsClient = getEventsClient();
+            const targetUserId = cleaner.userId || cleaner.id;
+            const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim();
+            const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
+            const unitAddress = unit.property?.address;
+            
+            await eventsClient.publishCleaningAssigned({
+              cleaningId: cleaning.id,
+              cleanerId: cleaning.cleanerId,
+              unitId: cleaning.unitId,
+              unitName,
+              unitAddress,
+              cleanerName,
+              scheduledAt: cleaning.scheduledAt,
+              requiresLinenChange: cleaning.requiresLinenChange || false,
+              notes: cleaning.notes || undefined,
+              orgId: cleaning.orgId || undefined,
+              targetUserId,
+            });
+            
+            logger.info('✅ CLEANING_ASSIGNED event published in scheduleCleaning', { 
+              cleaningId: cleaning.id,
+              cleanerId: cleaning.cleanerId,
+            });
+          }
+        } catch (error) {
+          logger.error('Failed to publish CLEANING_ASSIGNED event in scheduleCleaning:', error);
+          // Не прерываем создание уборки, если событие не опубликовалось
+        }
+      }
+      
       return cleaning;
     },
     

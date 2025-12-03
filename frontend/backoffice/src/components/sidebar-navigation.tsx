@@ -21,7 +21,8 @@ import {
   CpuChipIcon,
   ListBulletIcon,
   WrenchScrewdriverIcon,
-  UserIcon
+  UserIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline'
 import { SparklesIcon as SparklesIconSolid } from '@heroicons/react/24/solid'
 
@@ -39,6 +40,7 @@ const navigationItems = [
   { name: 'Закупки', href: '/procurement', icon: ShoppingCartIcon },
   { name: 'Правовые', href: '/legal', icon: ScaleIcon },
   { name: 'ИИ Подграф', href: '/ai-subgraph', icon: CpuChipIcon },
+  { name: 'Интеграции', href: '/integrations', icon: LinkIcon },
 ]
 
 function AccountDropdownMenu({ anchor }: { anchor: 'top start' | 'bottom end' }) {

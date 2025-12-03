@@ -56,6 +56,9 @@ export interface Property {
   isElite?: boolean;
   yandexBuildingId?: string;
   yandexHouseId?: string;
+  // External references для интеграций
+  externalSource?: string; // Источник внешней системы (REALTY_CALENDAR, YANDEX и т.д.)
+  externalId?: string; // ID во внешней системе
 }
 
 export interface Unit {
@@ -66,9 +69,13 @@ export interface Unit {
   beds: number;
   bathrooms: number;
   amenities: string[];
+  images: string[]; // Массив URL изображений
   grade: number; // 0..10
   cleaningDifficulty: number; // 0..5
   checkInInstructions?: string; // Инструкция по заселению для гостя
+  // External references для интеграций
+  externalSource?: string; // Источник внешней системы (REALTY_CALENDAR, YANDEX и т.д.)
+  externalId?: string; // ID во внешней системе
   property?: Property;
 }
 

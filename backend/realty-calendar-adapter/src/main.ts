@@ -35,6 +35,12 @@ async function startServer() {
         return;
       }
 
+      // Обработка XML feed endpoint
+      if (req.method === 'POST' && req.url === '/api/realty-feed') {
+        await controller.handleXmlFeed(req, res);
+        return;
+      }
+
       // Health check
       if (req.method === 'GET' && req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });

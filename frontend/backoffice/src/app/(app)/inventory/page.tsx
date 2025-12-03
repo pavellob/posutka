@@ -24,9 +24,83 @@ import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon, PlusIcon } from '
 
 // Компонент карточки объекта недвижимости
 function PropertyCard({ property, onEdit, onView }: { property: Property; onEdit: (property: Property) => void; onView: (property: Property) => void }) {
+  // Собираем все изображения из всех юнитов
+  const allImages = property.units?.flatMap(unit => unit.images || []).filter(Boolean) || []
+  const mainImage = allImages[0] || null
+  const additionalImages = allImages.slice(1, 4) // Показываем до 3 дополнительных миниатюр
+  
+  // Отладка
+  if (property.units && property.units.length > 0) {
+    console.log(`Property ${property.title}:`, {
+      unitsCount: property.units.length,
+      units: property.units.map(u => ({ id: u.id, name: u.name, imagesCount: u.images?.length || 0, images: u.images })),
+      allImagesCount: allImages.length,
+      allImages: allImages
+    })
+  }
+  
   return (
     <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden cursor-pointer"
       onClick={() => onView(property)}>
+      {/* Изображение объекта */}
+      <div className="relative w-full h-56 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-zinc-700 dark:to-zinc-800 overflow-hidden">
+        {mainImage ? (
+          <>
+            <img
+              src={mainImage}
+              alt={property.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Если изображение не загрузилось, показываем placeholder
+                e.currentTarget.style.display = 'none'
+                const placeholder = e.currentTarget.nextElementSibling as HTMLElement
+                if (placeholder) placeholder.style.display = 'flex'
+              }}
+            />
+            <div className="hidden absolute inset-0 items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-zinc-700 dark:to-zinc-800">
+              <svg className="w-16 h-16 text-gray-400 dark:text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            {allImages.length > 1 && (
+              <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2.5 py-1 rounded-md shadow-lg">
+                {allImages.length} фото
+              </div>
+            )}
+            {/* Миниатюры дополнительных изображений */}
+            {additionalImages.length > 0 && (
+              <div className="absolute bottom-2 left-2 flex gap-1">
+                {additionalImages.map((img, idx) => (
+                  <div key={idx} className="w-12 h-12 rounded border-2 border-white dark:border-zinc-800 shadow-md overflow-hidden bg-gray-200 dark:bg-zinc-700">
+                    <img
+                      src={img}
+                      alt={`${property.title} ${idx + 2}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  </div>
+                ))}
+                {allImages.length > 4 && (
+                  <div className="w-12 h-12 rounded border-2 border-white dark:border-zinc-800 shadow-md bg-black/60 backdrop-blur-sm flex items-center justify-center text-white text-xs font-medium">
+                    +{allImages.length - 4}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center">
+              <svg className="w-16 h-16 text-gray-400 dark:text-zinc-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <Text className="text-xs text-gray-500 dark:text-zinc-400">Нет фото</Text>
+            </div>
+          </div>
+        )}
+      </div>
       {/* Заголовок карточки */}
       <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
         <div className="flex items-start justify-between">
@@ -791,6 +865,11 @@ type Property = {
     id: string
     name: string
   }
+  units?: {
+    id: string
+    name: string
+    images: string[]
+  }[]
 }
 
 export default function InventoryPage() {
@@ -884,9 +963,30 @@ export default function InventoryPage() {
                   id
                   name
                 }
+                units {
+                  id
+                  name
+                  images
+                }
               }
             }
           `, { orgId }) as any
+      
+      console.log('📊 GraphQL response:', response)
+      if (response?.propertiesByOrgId) {
+        response.propertiesByOrgId.forEach((p: any) => {
+          console.log(`Property ${p.title}:`, {
+            id: p.id,
+            unitsCount: p.units?.length || 0,
+            units: p.units?.map((u: any) => ({
+              id: u.id,
+              name: u.name,
+              images: u.images,
+              imagesCount: u.images?.length || 0
+            })) || []
+          })
+        })
+      }
       
       return response
     },
@@ -895,6 +995,34 @@ export default function InventoryPage() {
   })
 
   const properties = propertiesData?.propertiesByOrgId || []
+  
+  // Дополнительная отладка
+  console.log('🏠 Properties loaded:', properties.length)
+  let totalPropertiesWithImages = 0
+  properties.forEach((p: any) => {
+    if (p.units && p.units.length > 0) {
+      const totalImages = p.units.flatMap((u: any) => u.images || []).filter(Boolean).length
+      console.log(`  - ${p.title}: ${p.units.length} units, ${totalImages} images`)
+      if (totalImages > 0) totalPropertiesWithImages++
+      
+      // Детальная информация о units
+      p.units.forEach((u: any) => {
+        if (u.images && u.images.length > 0) {
+          console.log(`    Unit ${u.name}: ${u.images.length} images`, u.images)
+        }
+      })
+    } else {
+      console.log(`  - ${p.title}: no units`)
+    }
+  })
+  console.log(`📸 Properties with images: ${totalPropertiesWithImages} of ${properties.length}`)
+  
+  if (totalPropertiesWithImages === 0 && properties.length > 0) {
+    console.warn('⚠️ No images found! Make sure to:')
+    console.warn('  1. Restart inventory-subgraph to pick up schema changes')
+    console.warn('  2. Restart gateway-mesh to update supergraph')
+    console.warn('  3. Re-import XML file to save images to database')
+  }
   
   // Фильтрация объектов
   const filteredProperties = properties.filter((property: Property) => {
@@ -1212,6 +1340,7 @@ export default function InventoryPage() {
               <Table className="min-w-full">
               <TableHead>
                 <TableRow className="bg-gray-50 dark:bg-zinc-900">
+                  <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Фото</TableHeader>
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Объект</TableHeader>
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Тип</TableHeader>
                   <TableHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Площадь</TableHeader>
@@ -1231,6 +1360,35 @@ export default function InventoryPage() {
                   className="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors duration-150 cursor-pointer"
                   onClick={() => handleViewProperty(property)}
                 >
+                  <TableCell className="px-6 py-4">
+                    {(() => {
+                      const allImages = property.units?.flatMap(unit => unit.images || []).filter(Boolean) || []
+                      const mainImage = allImages[0]
+                      return mainImage ? (
+                        <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-200 dark:bg-zinc-700 flex-shrink-0">
+                          <img
+                            src={mainImage}
+                            alt={property.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                          {allImages.length > 1 && (
+                            <div className="absolute bottom-0 right-0 bg-black/70 text-white text-xs px-1 rounded-tl">
+                              +{allImages.length - 1}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-zinc-700 flex items-center justify-center">
+                          <svg className="w-6 h-6 text-gray-400 dark:text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )
+                    })()}
+                  </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                       <div>
                       <Text className="font-medium text-gray-900 dark:text-white">{property.title}</Text>
