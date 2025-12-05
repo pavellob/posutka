@@ -24,8 +24,8 @@ export class WebhookMapper {
       checkOut,
       guest: {
         name: webhook.client?.fio || webhook.client?.name || 'Guest',
-        phone: webhook.client?.phone,
-        email: webhook.client?.email,
+        phone: webhook.client?.phone ?? undefined, // Преобразуем null в undefined
+        email: webhook.client?.email ?? undefined, // Преобразуем null в undefined
       },
       propertyExternalRef: webhook.booking.realty_id ? {
         source: 'REALTY_CALENDAR',
@@ -35,7 +35,7 @@ export class WebhookMapper {
         source: 'REALTY_CALENDAR',
         id: webhook.booking.realty_room_id,
       } : undefined,
-      address: webhook.booking.address,
+      address: webhook.booking.address || 'Адрес не указан', // Предоставляем дефолтное значение, если address отсутствует
       amount: webhook.booking.amount,
       prepayment: webhook.booking.prepayment,
       deposit: webhook.booking.deposit ?? undefined,
