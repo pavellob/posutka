@@ -14,6 +14,7 @@ import type {
 export interface IBookingsDL {
   // Booking operations
   getBookingById(id: UUID): Promise<Booking | null>;
+  getBookingByExternalRef(externalSource: string, externalId: string): Promise<Booking | null>;
   listBookings(params: ListBookingsParams): Promise<BookingConnection>;
   createBooking(input: CreateBookingInput): Promise<Booking>;
   cancelBooking(id: UUID, reason?: string): Promise<Booking>;

@@ -25,6 +25,8 @@ export interface InternalBookingDTO {
   amount?: number;
   prepayment?: number;
   deposit?: number;
+  cancellationReason?: string; // Причина отмены (для CANCEL action)
+  canceledDate?: string; // Дата отмены (для CANCEL action)
 }
 
 export interface WebhookResponse {

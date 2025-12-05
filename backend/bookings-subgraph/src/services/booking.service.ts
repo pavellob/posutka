@@ -114,6 +114,8 @@ export class BookingService {
         },
         notes: bookingData.notes,
         source: bookingData.source || 'DIRECT',
+        externalSource: bookingData.externalSource,
+        externalId: bookingData.externalId,
         // Создаем объект guest из доступных данных
         guest: bookingData.guest || {
           name: bookingData.guestName || 'Гость',
@@ -285,25 +287,29 @@ export class BookingService {
     try {
       logger.info('Cancelling booking', { id, reason });
       
-      // Пока что симулируем отмену бронирования
-      // В реальной реализации здесь будет this.dl.cancelBooking(id, reason)
-      return {
-        id,
-        orgId: '123e4567-e89b-12d3-a456-426614174000',
-        unitId: '123e4567-e89b-12d3-a456-426614174001',
-        propertyId: '123e4567-e89b-12d3-a456-426614174001',
-        roomId: '123e4567-e89b-12d3-a456-426614174001',
-        guestName: 'Test Guest',
-        checkIn: '2024-01-01T14:00:00Z',
-        checkOut: '2024-01-03T11:00:00Z',
-        guestsCount: 2,
-        status: 'CANCELLED',
-        cancellationReason: reason,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      // Отменяем бронирование через datalayer
+      const booking = await this.dl.cancelBooking(id, reason);
+      
+      logger.info('Booking cancelled successfully', {
+        bookingId: booking.id,
+        cancellationReason: booking.cancellationReason,
+      });
+
+      // Публикуем событие BOOKING_CANCELLED (не блокируем отмену при ошибке)
+      try {
+        await this.publishBookingCancelledEvent(booking, reason);
+        logger.info('✅ BOOKING_CANCELLED event published', { bookingId: booking.id });
+      } catch (eventError: any) {
+        logger.warn('⚠️ Failed to publish BOOKING_CANCELLED event, continuing with cancellation', {
+          bookingId: booking.id,
+          error: eventError.message,
+        });
+        // Не прерываем отмену, если событие не опубликовалось
+      }
+      
+      return booking;
     } catch (error: any) {
-      logger.error('Failed to cancel booking', { error: error.message });
+      logger.error('Failed to cancel booking', { error: error.message, id, reason });
       throw error;
     }
   }
@@ -629,26 +635,210 @@ export class BookingService {
     }
   }
 
+  private async publishBookingCancelledEvent(
+    booking: any,
+    cancellationReason?: string
+  ): Promise<void> {
+    logger.info('🔔 publishBookingCancelledEvent called', {
+      bookingId: booking?.id,
+      cancellationReason,
+      eventsClientExists: !!this.eventsClient,
+    });
+
+    if (!this.eventsClient) {
+      logger.error('❌ Events client not initialized, cannot publish BOOKING_CANCELLED event', {
+        bookingId: booking.id,
+        hint: 'Check EVENTS_GRPC_HOST and EVENTS_GRPC_PORT environment variables'
+      });
+      return;
+    }
+
+    // Проверяем подключение
+    if (!this.eventsClient.isHealthy()) {
+      logger.warn('⚠️ Events client not connected, attempting to connect...', {
+        bookingId: booking.id,
+      });
+      try {
+        await this.eventsClient.connect();
+        logger.info('✅ Events client connected successfully');
+      } catch (connectError: any) {
+        logger.error('❌ Failed to connect events client', {
+          bookingId: booking.id,
+          error: connectError.message,
+        });
+        return;
+      }
+    }
+
+    try {
+      // Получаем информацию о госте, unit и property
+      let guest: any = null;
+      let unit: any = null;
+      let property: any = null;
+
+      try {
+        guest = await this.dl.getGuestById(booking.guestId);
+      } catch (error: any) {
+        logger.warn('Failed to get guest for BOOKING_CANCELLED event', {
+          bookingId: booking.id,
+          guestId: booking.guestId,
+          error: error.message,
+        });
+      }
+
+      if (booking.unitId && this.inventoryDL) {
+        try {
+          unit = await this.inventoryDL.getUnitById(booking.unitId);
+          if (unit?.propertyId) {
+            property = await this.inventoryDL.getPropertyById(unit.propertyId);
+          }
+        } catch (error: any) {
+          logger.warn('Failed to get unit/property for BOOKING_CANCELLED event', {
+            bookingId: booking.id,
+            unitId: booking.unitId,
+            error: error.message,
+          });
+        }
+      }
+
+      // Формируем адрес
+      const unitAddress = property?.address || unit?.name || 'Адрес не указан';
+
+      // Определяем targetUserIds
+      const targetUserIds: string[] = [];
+      
+      // 1. Пытаемся найти пользователя по email гостя
+      if (guest && guest.email && this.identityDL) {
+        try {
+          const user = await this.identityDL.getUserByEmail(guest.email);
+          if (user?.id) {
+            targetUserIds.push(user.id);
+            logger.info('Found user for guest email', {
+              guestEmail: guest.email,
+              userId: user.id,
+            });
+          }
+        } catch (error: any) {
+          logger.warn('Failed to find user by guest email', {
+            guestEmail: guest?.email,
+            error: error.message,
+          });
+        }
+      }
+      
+      // 2. Добавляем менеджеров организации
+      if (booking.orgId && this.identityDL) {
+        try {
+          const memberships = await this.identityDL.getMembershipsByOrg(booking.orgId);
+          const managerUserIds = memberships
+            .filter((m: any) => m.role === 'MANAGER' || m.role === 'OWNER')
+            .map((m: any) => m.userId);
+          
+          managerUserIds.forEach((userId: string) => {
+            if (!targetUserIds.includes(userId)) {
+              targetUserIds.push(userId);
+            }
+          });
+          
+          if (managerUserIds.length > 0) {
+            logger.info('Added organization managers to targetUserIds', {
+              orgId: booking.orgId,
+              managerCount: managerUserIds.length,
+            });
+          }
+        } catch (error: any) {
+          logger.warn('Failed to get organization managers', {
+            orgId: booking.orgId,
+            error: error.message,
+          });
+        }
+      }
+
+      if (targetUserIds.length === 0) {
+        logger.warn('⚠️ No target users found for BOOKING_CANCELLED event', {
+          bookingId: booking.id,
+          guestEmail: guest?.email,
+          orgId: booking.orgId,
+        });
+      }
+
+      const payload = {
+        bookingId: booking.id,
+        guestId: booking.guestId,
+        guestName: guest?.name || 'Гость',
+        guestPhone: guest?.phone || undefined,
+        guestEmail: guest?.email || undefined,
+        unitId: booking.unitId,
+        unitName: unit?.name || 'Квартира',
+        unitAddress: unitAddress,
+        propertyId: property?.id || unit?.propertyId,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        cancellationReason: cancellationReason || booking.cancellationReason,
+      };
+
+      logger.info('📤 Publishing BOOKING_CANCELLED event', {
+        bookingId: booking.id,
+        guestName: payload.guestName,
+        targetUserIdsCount: targetUserIds.length,
+        targetUserIds: targetUserIds,
+        orgId: booking.orgId,
+      });
+
+      const result = await this.eventsClient.publishEvent({
+        eventType: EventType.EVENT_TYPE_BOOKING_CANCELLED,
+        sourceSubgraph: 'bookings-subgraph',
+        entityType: 'Booking',
+        entityId: booking.id,
+        orgId: booking.orgId,
+        targetUserIds,
+        payload,
+      });
+
+      logger.info('✅ BOOKING_CANCELLED event published to gRPC', {
+        bookingId: booking.id,
+        result: result,
+      });
+
+      if (targetUserIds.length > 0) {
+        logger.info('✅ BOOKING_CANCELLED event published successfully', { 
+          bookingId: booking.id,
+          targetUserIdsCount: targetUserIds.length,
+          targetUserIds 
+        });
+      } else {
+        logger.warn('⚠️ BOOKING_CANCELLED event published but no target users', { 
+          bookingId: booking.id,
+        });
+      }
+    } catch (error: any) {
+      logger.error('Failed to publish BOOKING_CANCELLED event', {
+        error: error.message,
+        bookingId: booking.id,
+      });
+      // Не прерываем отмену, если событие не опубликовалось
+    }
+  }
+
   async getBookingByExternalRef(externalSource: string, externalId: string): Promise<any | null> {
     try {
       logger.info('Getting booking by externalRef', { externalSource, externalId });
       
-      // Временная реализация: ищем через dl.listBookings с фильтрацией
-      // TODO: Добавить метод в datalayer для поиска по externalRef
-      const bookings = await this.dl.listBookings({ limit: 1000 });
+      // Используем метод datalayer для поиска по externalRef
+      const booking = await this.dl.getBookingByExternalRef(externalSource, externalId);
       
-      // Ищем бронь с нужным externalRef
-      // Пока что проверяем через JSON поля, если они есть
-      for (const booking of bookings.edges || []) {
-        const bookingNode = booking.node;
-        // Проверяем, есть ли externalSource и externalId в booking
-        if ((bookingNode as any).externalSource === externalSource && 
-            (bookingNode as any).externalId === externalId) {
-          return bookingNode;
-        }
+      if (!booking) {
+        logger.info('Booking not found by externalRef', { externalSource, externalId });
+        return null;
       }
       
-      return null;
+      logger.info('Booking found by externalRef', {
+        bookingId: booking.id,
+        externalSource,
+        externalId,
+      });
+      
+      return booking;
     } catch (error: any) {
       logger.error('Failed to get booking by externalRef', { error: error.message });
       throw error;
@@ -658,10 +848,13 @@ export class BookingService {
   async updateBooking(request: {
     id: string;
     guestName?: string;
+    guestEmail?: string;
+    guestPhone?: string;
     checkIn?: Date;
     checkOut?: Date;
     guestsCount?: number;
     status?: any;
+    notes?: string;
   }): Promise<any> {
     try {
       logger.info('Updating booking', { request });
@@ -672,18 +865,31 @@ export class BookingService {
         throw new Error('Booking not found');
       }
       
-      // Обновляем поля
+      // Обновляем данные гостя, если переданы
+      if (request.guestName || request.guestEmail || request.guestPhone) {
+        const guest = await this.dl.getGuestById(existing.guestId);
+        if (guest) {
+          await this.dl.upsertGuest({
+            name: request.guestName || guest.name,
+            email: request.guestEmail || guest.email,
+            phone: request.guestPhone || guest.phone,
+          });
+        }
+      }
+      
+      // Обновляем даты, если переданы
+      let updatedBooking = existing;
       if (request.checkIn && request.checkOut) {
-        return await this.dl.changeBookingDates(
+        updatedBooking = await this.dl.changeBookingDates(
           request.id,
           request.checkIn.toISOString(),
           request.checkOut.toISOString()
         );
       }
       
-      // TODO: Добавить метод updateBooking в datalayer для обновления других полей
-      // Пока возвращаем существующую бронь
-      return existing;
+      // TODO: Добавить метод updateBooking в datalayer для обновления других полей (notes, guestsCount, status)
+      // Пока возвращаем обновленную бронь
+      return updatedBooking;
     } catch (error: any) {
       logger.error('Failed to update booking', { error: error.message });
       throw error;

@@ -72,7 +72,8 @@ export class NotificationEventHandler {
       }
       
       // 3. Рендерим шаблон (или используем дефолтные значения)
-      const { title, message, actionUrl } = this.renderNotification(event);
+      // Сначала пытаемся загрузить шаблон из БД, если его нет - используем fallback
+      const { title, message, actionUrl } = await this.renderNotification(event);
       
       // 4. Определяем приоритет
       const priority = this.determinePriority(event.type);
@@ -131,11 +132,53 @@ export class NotificationEventHandler {
   
   /**
    * Рендерить уведомление на основе события
+   * Сначала пытается загрузить шаблон из БД, если его нет - использует fallback
    */
-  private renderNotification(event: any): { title: string; message: string; actionUrl: string } {
+  private async renderNotification(event: any): Promise<{ title: string; message: string; actionUrl: string }> {
     const payload = event.payload;
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     
+    // Пытаемся загрузить шаблон из БД
+    try {
+      const template = await this.prisma.notificationTemplate.findFirst({
+        where: {
+          eventType: event.type,
+        },
+        orderBy: {
+          createdAt: 'desc', // Берем последний созданный шаблон
+        },
+      });
+
+      if (template) {
+        logger.info('Using notification template from DB', {
+          templateId: template.id,
+          eventType: event.type,
+          templateName: template.name,
+        });
+
+        // Рендерим шаблон с подстановкой переменных
+        const title = this.renderTemplate(template.titleTemplate, payload, frontendUrl);
+        const message = this.renderTemplate(template.messageTemplate, payload, frontendUrl);
+        const actionUrl = payload.bookingId 
+          ? `${frontendUrl}/bookings/${payload.bookingId}`
+          : payload.cleaningId
+          ? `${frontendUrl}/cleanings/${payload.cleaningId}`
+          : frontendUrl;
+
+        return { title, message, actionUrl };
+      } else {
+        logger.debug('No template found in DB, using fallback', {
+          eventType: event.type,
+        });
+      }
+    } catch (error: any) {
+      logger.warn('Failed to load template from DB, using fallback', {
+        eventType: event.type,
+        error: error.message,
+      });
+    }
+    
+    // Fallback: используем встроенную логику
     switch (event.type) {
       case 'CLEANING_ASSIGNED': {
         const unitName = payload.unitName || 'квартире';
@@ -317,6 +360,34 @@ export class NotificationEventHandler {
           actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
         };
       }
+
+      case 'BOOKING_CANCELLED': {
+        const guestName = payload.guestName || 'Гость';
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const checkInDate = payload.checkIn ? this.formatDate(payload.checkIn) : '';
+        const checkOutDate = payload.checkOut ? this.formatDate(payload.checkOut) : '';
+        const cancellationReason = payload.cancellationReason ? `\n\n📝 Причина отмены: ${payload.cancellationReason}` : '';
+        
+        let message = `Бронирование для "${guestName}" отменено`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n🏠 Квартира: ${unitName}`;
+        if (checkInDate) {
+          message += `\n📅 Заселение: ${checkInDate}`;
+        }
+        if (checkOutDate) {
+          message += `\n📅 Выселение: ${checkOutDate}`;
+        }
+        message += cancellationReason;
+        
+        return {
+          title: '❌ Бронирование отменено',
+          message,
+          actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
+        };
+      }
       
       default:
         return {
@@ -494,6 +565,9 @@ export class NotificationEventHandler {
       case 'CLEANING_STARTED':
         return 'NORMAL';
       
+      case 'BOOKING_CANCELLED':
+        return 'HIGH';
+      
       case 'CLEANING_COMPLETED':
       case 'TASK_COMPLETED':
         return 'LOW';
@@ -503,6 +577,38 @@ export class NotificationEventHandler {
     }
   }
   
+  /**
+   * Рендерить шаблон с подстановкой переменных
+   */
+  private renderTemplate(template: string, payload: any, frontendUrl: string): string {
+    let rendered = template;
+    
+    // Подстановка переменных из payload
+    // Поддерживаем формат {{variableName}}
+    const variablePattern = /\{\{(\w+)\}\}/g;
+    
+    rendered = rendered.replace(variablePattern, (match, varName) => {
+      // Специальные обработки для дат
+      if (varName.includes('Date') || varName.includes('At')) {
+        const dateValue = payload[varName];
+        if (dateValue) {
+          return this.formatDate(dateValue);
+        }
+      }
+      
+      // Обычные переменные
+      const value = payload[varName];
+      if (value !== undefined && value !== null) {
+        return String(value);
+      }
+      
+      // Если переменная не найдена, оставляем как есть или заменяем на пустую строку
+      return '';
+    });
+    
+    return rendered;
+  }
+
   /**
    * Форматировать дату для отображения
    */

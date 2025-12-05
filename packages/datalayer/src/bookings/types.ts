@@ -44,6 +44,8 @@ export interface Booking {
   priceBreakdown: PriceBreakdown;
   notes?: string;
   cancellationReason?: string;
+  externalSource?: string; // Источник внешней системы (REALTY_CALENDAR, AIRBNB и т.д.)
+  externalId?: string; // ID во внешней системе
   createdAt: DateTime;
   updatedAt: DateTime;
 }
@@ -101,6 +103,8 @@ export interface CreateBookingInput {
   priceBreakdown: PriceBreakdown;
   notes?: string;
   source?: BookingSource;
+  externalSource?: string; // Источник внешней системы (REALTY_CALENDAR, AIRBNB и т.д.)
+  externalId?: string; // ID во внешней системе
 }
 
 export interface MoneyInput {

@@ -3,6 +3,17 @@ import { createGraphQLLogger } from '@repo/shared-logger';
 
 const logger = createGraphQLLogger('realty-calendar-mock-server');
 
+// Сохраняем последнее созданное бронирование для отмены
+let lastCreatedBooking: {
+  id: string | number;
+  bookingData: any;
+  clientData: any;
+  createdAt: Date;
+} | null = null;
+
+// Счетчик для генерации уникальных ID
+let bookingIdCounter = 135376340;
+
 // Примеры webhook payload'ов от RealtyCalendar (в реальном формате с оберткой data)
 const mockWebhooks = {
   create_booking: {
@@ -25,6 +36,8 @@ const mockWebhooks = {
         status_cd: 5,
         created_at: '2025-12-01T17:06:46.007+03:00',
         updated_at: '2025-12-01T17:07:03.350+03:00',
+        canceled_date: null,
+        notes: null,
         apartment: {
           id: 302285,
           title: 'а16 . 1540 Воронцовский 19 студия',
@@ -46,6 +59,7 @@ const mockWebhooks = {
     },
   },
 
+  // Дефолтный payload для обновления, если нет сохраненного бронирования
   update_booking: {
     action: 'update_booking',
     status: 'booked',
@@ -66,6 +80,8 @@ const mockWebhooks = {
         status_cd: 5,
         created_at: '2025-12-01T17:06:46.007+03:00',
         updated_at: '2025-12-01T18:00:00.000+03:00',
+        canceled_date: null,
+        notes: 'Обновлено через webhook',
         apartment: {
           id: 302285,
           title: 'а16 . 1540 Воронцовский 19 студия',
@@ -87,14 +103,15 @@ const mockWebhooks = {
     },
   },
 
+  // Отменяет то же бронирование, которое было создано через create_booking (id: 135376340)
   cancel_booking: {
     action: 'cancel_booking',
-    status: 'cancelled',
+    status: 'canceled',
     data: {
       booking: {
-        id: 135376340,
-        begin_date: '2025-12-06',
-        end_date: '2025-12-10',
+        id: 135376340, // Тот же ID, что и в create_booking
+        begin_date: '2025-12-06', // Те же даты, что и в create_booking
+        end_date: '2025-12-10', // Те же даты, что и в create_booking
         realty_id: 302285,
         realty_room_id: null,
         user_id: 34892,
@@ -104,9 +121,11 @@ const mockWebhooks = {
         deposit: null,
         arrival_time: null,
         departure_time: null,
-        status_cd: 6, // Отменен
-        created_at: '2025-12-01T17:06:46.007+03:00',
-        updated_at: '2025-12-01T19:00:00.000+03:00',
+        status_cd: 3, // Отменен
+        created_at: '2025-12-01T17:06:46.007+03:00', // Та же дата создания, что и в create_booking
+        updated_at: '2025-12-05T07:24:28.028+03:00', // Обновлено время отмены
+        canceled_date: '2025-12-05', // Дата отмены
+        notes: 'Отменено по запросу клиента', // Причина отмены
         apartment: {
           id: 302285,
           title: 'а16 . 1540 Воронцовский 19 студия',
@@ -121,7 +140,7 @@ const mockWebhooks = {
       bitrix_lead_id: null,
     },
     client: {
-      fio: 'Иванов Иван Иванович',
+      fio: 'Иванов Иван Иванович', // Те же данные клиента, что и в create_booking
       name: 'Иван Иванов',
       phone: '+79001234567',
       email: 'ivan.ivanov@example.com',
@@ -148,6 +167,8 @@ const mockWebhooks = {
         status_cd: 6,
         created_at: '2025-12-01T17:06:46.007+03:00',
         updated_at: '2025-12-01T20:00:00.000+03:00',
+        canceled_date: null,
+        notes: null,
         apartment: {
           id: 302285,
           title: 'а16 . 1540 Воронцовский 19 студия',
@@ -190,6 +211,8 @@ const mockWebhooks = {
         status_cd: 5,
         created_at: '2025-12-01T18:00:00.000+03:00',
         updated_at: '2025-12-01T18:00:00.000+03:00',
+        canceled_date: null,
+        notes: null,
         apartment: null,
         booking_origin: {
           id: null,
@@ -207,6 +230,88 @@ const mockWebhooks = {
     },
   },
 };
+
+/**
+ * Генерирует payload для обновления бронирования на основе сохраненного бронирования
+ */
+function generateUpdateBookingPayload(savedBooking: { 
+  id: string | number; 
+  bookingData: any; 
+  clientData: any;
+}): any {
+  const now = new Date();
+  
+  // Обновляем даты на +1 день от исходных
+  const originalBeginDate = new Date(savedBooking.bookingData.begin_date);
+  const originalEndDate = new Date(savedBooking.bookingData.end_date);
+  
+  originalBeginDate.setDate(originalBeginDate.getDate() + 1);
+  originalEndDate.setDate(originalEndDate.getDate() + 1);
+  
+  const newBeginDate = originalBeginDate.toISOString().split('T')[0];
+  const newEndDate = originalEndDate.toISOString().split('T')[0];
+  
+  // Увеличиваем сумму на 1000
+  const newAmount = (savedBooking.bookingData.amount || 0) + 1000;
+
+  return {
+    action: 'update_booking',
+    status: 'booked',
+    data: {
+      booking: {
+        ...savedBooking.bookingData,
+        id: savedBooking.id, // Важно: используем тот же ID, что был при создании, для связи при отмене
+        begin_date: newBeginDate,
+        end_date: newEndDate,
+        amount: newAmount,
+        prepayment: savedBooking.bookingData.prepayment || 0,
+        arrival_time: '15:00',
+        departure_time: '12:00',
+        status_cd: 5, // Подтверждено
+        updated_at: now.toISOString(),
+        canceled_date: null,
+        notes: savedBooking.bookingData.notes || 'Обновлено через RealtyCalendar webhook',
+      },
+      crm_entity_id: null,
+      bitrix_lead_id: null,
+    },
+    client: savedBooking.clientData || {
+      name: 'Guest',
+    },
+  };
+}
+
+/**
+ * Генерирует payload для отмены бронирования на основе сохраненного бронирования
+ */
+function generateCancelBookingPayload(savedBooking: { 
+  id: string | number; 
+  bookingData: any; 
+  clientData: any;
+}): any {
+  const now = new Date();
+  const canceledDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+  return {
+    action: 'cancel_booking',
+    status: 'canceled',
+    data: {
+      booking: {
+        ...savedBooking.bookingData,
+        id: savedBooking.id, // Используем актуальный ID последнего созданного бронирования для отмены
+        status_cd: 3, // Отменен
+        updated_at: now.toISOString(),
+        canceled_date: canceledDate,
+        notes: savedBooking.bookingData.notes || 'Отменено по запросу клиента',
+      },
+      crm_entity_id: null,
+      bitrix_lead_id: null,
+    },
+    client: savedBooking.clientData || {
+      name: 'Guest',
+    },
+  };
+}
 
 async function sendWebhook(url: string, payload: any): Promise<void> {
   try {
@@ -278,6 +383,9 @@ function startMockServer(port: number, targetUrl: string) {
   </div>
   
   <h2>Отправить Webhook</h2>
+  <div id="last-booking-info" style="color: #666; font-size: 14px; margin-bottom: 15px; padding: 10px; background: #fff3cd; border-radius: 4px;">
+    💡 <strong>Информация:</strong> <span id="last-booking-text">Создайте бронирование, чтобы начать работу</span>
+  </div>
   <button class="button" onclick="sendWebhook('create_booking')">📝 Create Booking</button>
   <button class="button" onclick="sendWebhook('update_booking')">✏️ Update Booking</button>
   <button class="button" onclick="sendWebhook('cancel_booking')">❌ Cancel Booking</button>
@@ -287,6 +395,26 @@ function startMockServer(port: number, targetUrl: string) {
   <div id="result"></div>
 
   <script>
+    // Обновляем информацию о последнем бронировании
+    async function updateLastBookingInfo() {
+      try {
+        const response = await fetch('/last-booking');
+        const data = await response.json();
+        const infoDiv = document.getElementById('last-booking-text');
+        
+        if (data.lastCreatedBooking) {
+          infoDiv.innerHTML = \`Последнее созданное бронирование: <strong>ID \${data.lastCreatedBooking.id}</strong>. <br>При каждом Create Booking будет генерироваться новый уникальный ID. <br>Update и Cancel будут использовать актуальный ID последнего созданного бронирования.\`;
+        } else {
+          infoDiv.innerHTML = 'Создайте бронирование, чтобы начать работу. <br>При каждом Create Booking будет генерироваться новый уникальный ID. <br>Update и Cancel будут использовать актуальный ID последнего созданного бронирования.';
+        }
+      } catch (error) {
+        console.error('Failed to fetch last booking info', error);
+      }
+    }
+    
+    // Загружаем информацию при загрузке страницы
+    updateLastBookingInfo();
+    
     async function sendWebhook(type) {
       const resultDiv = document.getElementById('result');
       resultDiv.innerHTML = '<div class="result">Отправка...</div>';
@@ -301,11 +429,20 @@ function startMockServer(port: number, targetUrl: string) {
         const data = await response.json();
         
         if (data.success) {
+          // Обновляем информацию о последнем бронировании
+          if (type === 'create_booking' || type === 'create_booking_new_property') {
+            await updateLastBookingInfo();
+          }
+          
+          const bookingId = data.payload.data?.booking?.id || data.payload.booking?.id;
+          const lastBookingId = data.lastCreatedBookingId;
+          
           resultDiv.innerHTML = \`
             <div class="result success">
               <strong>✅ Успешно отправлено!</strong>
               <div>Action: \${data.payload.action}</div>
-              <div>Booking ID: \${data.payload.data?.booking?.id || data.payload.booking?.id}</div>
+              <div>Booking ID: \${bookingId}</div>
+              \${lastBookingId ? \`<div>Последнее сохраненное бронирование: <strong>\${lastBookingId}</strong></div>\` : ''}
               <div>Response Status: \${data.response.status}</div>
               <details style="margin-top: 10px;">
                 <summary>Response Body</summary>
@@ -351,7 +488,68 @@ function startMockServer(port: number, targetUrl: string) {
           return;
         }
 
-        const payload = mockWebhooks[type as keyof typeof mockWebhooks];
+        // Получаем payload (динамически генерируем для cancel_booking и update_booking)
+        let payload: any;
+        if (type === 'cancel_booking') {
+          if (lastCreatedBooking) {
+            // Используем сохраненное бронирование для отмены (с тем же ID)
+            payload = generateCancelBookingPayload(lastCreatedBooking);
+            logger.info('Using actual ID from last created booking for cancellation', {
+              bookingId: lastCreatedBooking.id,
+              note: 'Using the actual ID that was generated during the last create_booking',
+            });
+          } else {
+            // Если нет сохраненного бронирования, используем дефолтный payload
+            logger.warn('No saved booking found, using default cancel_booking payload');
+            payload = { ...mockWebhooks.cancel_booking };
+          }
+        } else if (type === 'update_booking') {
+          if (lastCreatedBooking) {
+            // Используем сохраненное бронирование для обновления (с тем же ID)
+            payload = generateUpdateBookingPayload(lastCreatedBooking);
+            logger.info('Using saved booking for update with same ID', {
+              bookingId: lastCreatedBooking.id,
+              note: 'ID remains the same as in create_booking',
+            });
+          } else {
+            // Если нет сохраненного бронирования, используем дефолтный payload
+            logger.warn('No saved booking found, using default update_booking payload');
+            payload = { ...mockWebhooks.update_booking };
+          }
+        } else {
+          payload = { ...mockWebhooks[type as keyof typeof mockWebhooks] };
+        }
+
+        // Сохраняем созданное бронирование (сохраняем ID для последующих update и cancel)
+        if (type === 'create_booking' || type === 'create_booking_new_property') {
+          // Генерируем новый уникальный ID для каждого создания
+          bookingIdCounter += 1;
+          const newBookingId = bookingIdCounter;
+          
+          // Обновляем ID в payload на новый
+          if (payload.data?.booking) {
+            payload.data.booking.id = newBookingId;
+          } else if (payload.booking) {
+            payload.booking.id = newBookingId;
+          }
+          
+          const bookingId = payload.data?.booking?.id || payload.booking?.id;
+          if (bookingId) {
+            lastCreatedBooking = {
+              id: bookingId, // Сохраняем новый ID - он будет использован для update и cancel
+              bookingData: payload.data?.booking || payload.booking,
+              clientData: payload.client,
+              createdAt: new Date(),
+            };
+            logger.info('Generated new booking ID and saved for future updates/cancellations', {
+              bookingId: newBookingId,
+              type,
+              hasClient: !!payload.client,
+              note: 'This ID will be used for update_booking and cancel_booking',
+            });
+          }
+        }
+
         const response = await sendWebhookAndGetResponse(targetUrl, payload);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -359,12 +557,25 @@ function startMockServer(port: number, targetUrl: string) {
           success: true,
           payload,
           response,
+          lastCreatedBookingId: lastCreatedBooking?.id || null,
         }));
       } catch (error: any) {
         logger.error('Failed to send webhook', { error: error.message });
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: error.message }));
       }
+      return;
+    }
+
+    // Endpoint для получения последнего созданного бронирования
+    if (req.method === 'GET' && req.url === '/last-booking') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        lastCreatedBooking: lastCreatedBooking ? {
+          id: lastCreatedBooking.id,
+          createdAt: lastCreatedBooking.createdAt,
+        } : null,
+      }));
       return;
     }
 

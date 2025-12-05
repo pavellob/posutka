@@ -30,6 +30,8 @@ const BookingDataSchema = z.object({
   status_cd: z.number().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
+  canceled_date: z.string().nullable().optional(), // Дата отмены
+  notes: z.string().nullable().optional(), // Заметки (могут содержать причину отмены)
   apartment: ApartmentSchema,
   booking_origin: BookingOriginSchema.optional(),
   // Пропускаем остальные поля, которые не нужны для валидации

@@ -14,8 +14,9 @@ export class RealtyCalendarService {
     try {
       switch (dto.action) {
         case 'CREATE':
+          return await this.createBooking(dto, orgId);
         case 'UPDATE':
-          return await this.upsertBooking(dto, orgId);
+          return await this.updateBooking(dto, orgId);
         case 'CANCEL':
           return await this.cancelBooking(dto);
         case 'DELETE':
@@ -37,7 +38,7 @@ export class RealtyCalendarService {
     }
   }
 
-  private async upsertBooking(dto: InternalBookingDTO, defaultOrgId: string): Promise<WebhookResponse> {
+  private async createBooking(dto: InternalBookingDTO, defaultOrgId: string): Promise<WebhookResponse> {
     // 1. Найти или создать Property/Unit (orgId будет взят из найденного объекта или использован default)
     const { propertyId, unitId, orgId } = await this.findOrCreatePropertyAndUnit(dto, defaultOrgId);
 
@@ -56,24 +57,124 @@ export class RealtyCalendarService {
       logger.debug('No existing booking found by externalRef', { externalRef: dto.externalRef });
     }
 
-    // 3. Проверить доступность (если это новая бронь или даты изменились)
-    if (!existingBooking || 
-        existingBooking.checkIn?.getTime() !== dto.checkIn.getTime() ||
-        existingBooking.checkOut?.getTime() !== dto.checkOut.getTime()) {
-      // TODO: Добавить метод checkAvailability в bookings gRPC, если его нет
-      // Пока пропускаем проверку или делаем через поиск всех броней юнита
-    }
-
-    // 4. Создать или обновить бронь
+    // 3. Если бронирование уже существует - обновляем его (меняем даты и другие данные)
+    // Важно: externalId остается привязанным к тому же bookingId, 
+    // поэтому при отмене можно будет найти это бронирование по externalId
     if (existingBooking) {
-      // UPDATE
+      logger.info('Booking already exists with this externalId, updating dates and other data', {
+        bookingId: existingBooking.id,
+        externalSource: dto.externalRef.source,
+        externalId: dto.externalRef.id,
+        oldCheckIn: existingBooking.checkIn instanceof Date 
+          ? existingBooking.checkIn.toISOString() 
+          : existingBooking.checkIn,
+        oldCheckOut: existingBooking.checkOut instanceof Date 
+          ? existingBooking.checkOut.toISOString() 
+          : existingBooking.checkOut,
+        newCheckIn: dto.checkIn instanceof Date ? dto.checkIn.toISOString() : dto.checkIn,
+        newCheckOut: dto.checkOut instanceof Date ? dto.checkOut.toISOString() : dto.checkOut,
+      });
+      
       const updated = await this.bookingsClient.updateBooking({
         id: existingBooking.id,
         guestName: dto.guest.name,
-        checkIn: dto.checkIn,
-        checkOut: dto.checkOut,
-        guestsCount: 1, // TODO: извлечь из webhook если есть
+        guestEmail: dto.guest.email,
+        guestPhone: dto.guest.phone,
+        checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
+        checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
+        guestsCount: 1,
+        notes: dto.address,
+      } as any);
+
+      if (!updated.booking) {
+        throw new Error('Failed to update booking: booking is undefined');
+      }
+
+      logger.info('Booking updated successfully, externalId preserved for cancellation', {
+        bookingId: updated.booking.id,
+        externalId: dto.externalRef.id,
+        externalSource: dto.externalRef.source,
       });
+
+      // Возвращаем UPDATED с тем же bookingId
+      // externalId остается привязанным к этому ID в базе данных,
+      // поэтому при отмене (cancel_booking) система найдет это бронирование по externalId
+      return {
+        ok: true,
+        outcome: 'UPDATED',
+        bookingId: updated.booking.id,
+        unitId,
+        propertyId,
+      };
+    }
+
+    // 4. Создать новое бронирование
+    const created = await this.bookingsClient.createBooking({
+      orgId,
+      unitId,
+      propertyId,
+      guestId: `guest_${dto.externalRef.id}`, // Временный ID, можно улучшить
+      guestName: dto.guest.name,
+      guestEmail: dto.guest.email, // Передаем email для создания гостя
+      guestPhone: dto.guest.phone, // Передаем phone для создания гостя
+      checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
+      checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
+      guestsCount: 1,
+      externalSource: dto.externalRef.source,
+      externalId: dto.externalRef.id, // Сохраняем externalId для связи при отмене
+    } as any); // Используем as any, так как эти поля могут быть не в proto
+
+    if (!created.booking) {
+      throw new Error('Failed to create booking: booking is undefined');
+    }
+
+    logger.info('New booking created with external reference', {
+      bookingId: created.booking.id,
+      externalSource: dto.externalRef.source,
+      externalId: dto.externalRef.id,
+    });
+
+    return {
+      ok: true,
+      outcome: 'CREATED',
+      bookingId: created.booking.id,
+      unitId,
+      propertyId,
+    };
+  }
+
+  private async updateBooking(dto: InternalBookingDTO, defaultOrgId: string): Promise<WebhookResponse> {
+    // 1. Найти или создать Property/Unit (orgId будет взят из найденного объекта или использован default)
+    const { propertyId, unitId, orgId } = await this.findOrCreatePropertyAndUnit(dto, defaultOrgId);
+
+    // 2. Проверить существующую бронь по externalRef
+    let existingBooking = null;
+    try {
+      const existing = await this.bookingsClient.getBookingByExternalRef({
+        externalSource: dto.externalRef.source,
+        externalId: dto.externalRef.id,
+      });
+      if (existing.success && existing.booking) {
+        existingBooking = existing.booking;
+      }
+    } catch (error) {
+      // Бронь не найдена - для UPDATE создадим новую (upsert поведение)
+      logger.info('No existing booking found for UPDATE, will create new one', { externalRef: dto.externalRef });
+    }
+
+    // 3. Если бронирование существует - обновляем, иначе создаем
+    if (existingBooking) {
+      // UPDATE существующего
+      const updated = await this.bookingsClient.updateBooking({
+        id: existingBooking.id,
+        guestName: dto.guest.name,
+        guestEmail: dto.guest.email,
+        guestPhone: dto.guest.phone,
+        checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
+        checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
+        guestsCount: 1, // TODO: извлечь из webhook если есть
+        notes: dto.address, // Используем address как notes, так как поле notes может быть в booking.notes
+      } as any);
 
       if (!updated.booking) {
         throw new Error('Failed to update booking: booking is undefined');
@@ -87,25 +188,36 @@ export class RealtyCalendarService {
         propertyId,
       };
     } else {
-      // CREATE
+      // CREATE нового (upsert поведение для UPDATE)
+      logger.info('Creating new booking for UPDATE action (upsert behavior)', {
+        externalSource: dto.externalRef.source,
+        externalId: dto.externalRef.id,
+      });
+      
       const created = await this.bookingsClient.createBooking({
         orgId,
         unitId,
         propertyId,
-        guestId: `guest_${dto.externalRef.id}`, // Временный ID, можно улучшить
+        guestId: `guest_${dto.externalRef.id}`,
         guestName: dto.guest.name,
-        guestEmail: dto.guest.email, // Передаем email для создания гостя
-        guestPhone: dto.guest.phone, // Передаем phone для создания гостя
+        guestEmail: dto.guest.email,
+        guestPhone: dto.guest.phone,
         checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
         checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
         guestsCount: 1,
         externalSource: dto.externalRef.source,
         externalId: dto.externalRef.id,
-      } as any); // Используем as any, так как эти поля могут быть не в proto
+      } as any);
 
       if (!created.booking) {
         throw new Error('Failed to create booking: booking is undefined');
       }
+
+      logger.info('New booking created with external reference for cancellation', {
+        bookingId: created.booking.id,
+        externalSource: dto.externalRef.source,
+        externalId: dto.externalRef.id,
+      });
 
       return {
         ok: true,
@@ -387,12 +499,23 @@ export class RealtyCalendarService {
 
   private async cancelBooking(dto: InternalBookingDTO): Promise<WebhookResponse> {
     try {
+      logger.info('Cancelling booking', {
+        externalSource: dto.externalRef.source,
+        externalId: dto.externalRef.id,
+        cancellationReason: dto.cancellationReason,
+        canceledDate: dto.canceledDate,
+      });
+
       const booking = await this.bookingsClient.getBookingByExternalRef({
         externalSource: dto.externalRef.source,
         externalId: dto.externalRef.id,
       });
 
       if (!booking.success || !booking.booking) {
+        logger.info('Booking not found for cancellation, ignoring', {
+          externalSource: dto.externalRef.source,
+          externalId: dto.externalRef.id,
+        });
         return {
           ok: true,
           outcome: 'IGNORED',
@@ -400,18 +523,40 @@ export class RealtyCalendarService {
         };
       }
 
-      await this.bookingsClient.cancelBooking({
+      // Используем причину отмены из webhook, если есть, иначе стандартное сообщение
+      const cancellationReason = dto.cancellationReason || 'Отменено через RealtyCalendar webhook';
+
+      logger.info('Cancelling booking via gRPC', {
+        bookingId: booking.booking.id,
+        cancellationReason,
+      });
+
+      const canceled = await this.bookingsClient.cancelBooking({
         id: booking.booking.id,
-        reason: 'Cancelled via RealtyCalendar webhook',
+        reason: cancellationReason,
+      });
+
+      if (!canceled.booking) {
+        throw new Error('Failed to cancel booking: booking is undefined in response');
+      }
+
+      logger.info('Booking cancelled successfully', {
+        bookingId: canceled.booking.id,
+        cancellationReason: canceled.booking.cancellationReason,
       });
 
       return {
         ok: true,
         outcome: 'CANCELED',
-        bookingId: booking.booking.id,
+        bookingId: canceled.booking.id,
+        reason: cancellationReason,
       };
     } catch (error: any) {
-      logger.error('Failed to cancel booking', { error: error.message });
+      logger.error('Failed to cancel booking', {
+        error: error.message,
+        externalSource: dto.externalRef.source,
+        externalId: dto.externalRef.id,
+      });
       return {
         ok: false,
         outcome: 'ERROR',

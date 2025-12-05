@@ -28,6 +28,20 @@ export class BookingsDLPrisma implements IBookingsDL {
     return this.mapBookingFromPrisma(booking);
   }
 
+  async getBookingByExternalRef(externalSource: string, externalId: string): Promise<Booking | null> {
+    const booking = await this.prisma.booking.findFirst({
+      where: {
+        externalSource,
+        externalId,
+      },
+      include: { guest: true }
+    });
+    
+    if (!booking) return null;
+    
+    return this.mapBookingFromPrisma(booking);
+  }
+
   async listBookings(params: ListBookingsParams): Promise<BookingConnection> {
     const where: any = {};
     
@@ -99,7 +113,9 @@ export class BookingsDLPrisma implements IBookingsDL {
         totalCurrency: input.priceBreakdown.total.currency,
         notes: input.notes,
         source: input.source || 'DIRECT',
-        status: 'PENDING'
+        status: 'PENDING',
+        externalSource: input.externalSource,
+        externalId: input.externalId,
       },
       include: { guest: true }
     });
@@ -248,6 +264,8 @@ export class BookingsDLPrisma implements IBookingsDL {
       },
       notes: booking.notes,
       cancellationReason: booking.cancellationReason,
+      externalSource: booking.externalSource || undefined,
+      externalId: booking.externalId || undefined,
       createdAt: booking.createdAt.toISOString(),
       updatedAt: booking.updatedAt.toISOString()
     };

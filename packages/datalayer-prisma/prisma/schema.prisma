@@ -188,11 +188,15 @@ model Booking {
   totalCurrency       String
   notes               String?
   cancellationReason  String?
+  externalSource      String? // Источник внешней системы (REALTY_CALENDAR, AIRBNB и т.д.)
+  externalId          String? // ID во внешней системе
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   guest               Guest                @relation(fields: [guestId], references: [id])
   documents           Document[]
   depositTransactions DepositTransaction[]
+  
+  @@index([externalSource, externalId])
 }
 
 model Document {

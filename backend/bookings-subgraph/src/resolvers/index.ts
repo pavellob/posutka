@@ -31,8 +31,8 @@ export const resolvers = {
       
       return bookingService.createBooking(input);
     },
-    cancelBooking: (_: unknown, { id, reason }: { id: string; reason?: string }, { dl }: Context) => 
-      dl.cancelBooking(id, reason),
+    cancelBooking: (_: unknown, { id, reason }: { id: string; reason?: string }, { bookingService }: Context) => 
+      bookingService.cancelBooking(id, reason),
     changeBookingDates: async (_: unknown, { id, checkIn, checkOut }: { id: string; checkIn: string; checkOut: string }, { dl }: Context) => {
       // Check availability for new dates (excluding current booking)
       const isAvailable = await dl.isRangeAvailable('', checkIn, checkOut, id);

@@ -39,7 +39,31 @@ export class WebhookMapper {
       amount: webhook.booking.amount,
       prepayment: webhook.booking.prepayment,
       deposit: webhook.booking.deposit ?? undefined,
+      cancellationReason: this.buildCancellationReason(webhook),
+      canceledDate: webhook.booking.canceled_date ?? undefined,
     };
+  }
+
+  private static buildCancellationReason(webhook: RealtyCalendarWebhook): string | undefined {
+    if (webhook.action !== 'cancel_booking') {
+      return undefined;
+    }
+
+    const parts: string[] = [];
+    
+    if (webhook.booking.canceled_date) {
+      parts.push(`Отменено: ${webhook.booking.canceled_date}`);
+    }
+    
+    if (webhook.booking.notes) {
+      parts.push(`Примечание: ${webhook.booking.notes}`);
+    }
+    
+    if (webhook.status) {
+      parts.push(`Статус: ${webhook.status}`);
+    }
+
+    return parts.length > 0 ? parts.join('; ') : 'Отменено через RealtyCalendar';
   }
 
   private static parseDateTime(dateStr: string, timeStr?: string): Date {
