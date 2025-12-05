@@ -96,8 +96,8 @@ export class RealtyCalendarService {
         guestName: dto.guest.name,
         guestEmail: dto.guest.email, // Передаем email для создания гостя
         guestPhone: dto.guest.phone, // Передаем phone для создания гостя
-        checkIn: dto.checkIn,
-        checkOut: dto.checkOut,
+        checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
+        checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
         guestsCount: 1,
         externalSource: dto.externalRef.source,
         externalId: dto.externalRef.id,

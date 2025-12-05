@@ -24,8 +24,12 @@ export class BookingsGrpcService {
       
       logger.info('Booking created via GRPC', { bookingId: booking.id });
       
+      // Преобразуем booking для gRPC ответа - конвертируем строки ISO в Date объекты
+      // nice-grpc автоматически конвертирует Date в Timestamp
+      const grpcBooking = this.convertBookingForGrpc(booking);
+      
       return {
-        booking,
+        booking: grpcBooking,
         success: true,
         message: 'Booking created successfully'
       };
@@ -33,6 +37,42 @@ export class BookingsGrpcService {
       logger.error('GRPC CreateBooking failed', { error: error.message });
       throw error;
     }
+  }
+
+  private convertBookingForGrpc(booking: any): any {
+    if (!booking) return booking;
+    
+    const convertDate = (date: any, fieldName: string): Date => {
+      if (!date) {
+        logger.warn(`Date field ${fieldName} is missing, using current date as fallback`);
+        return new Date();
+      }
+      if (date instanceof Date) {
+        if (isNaN(date.getTime())) {
+          logger.warn(`Invalid Date object for ${fieldName}, using current date as fallback`);
+          return new Date();
+        }
+        return date;
+      }
+      if (typeof date === 'string') {
+        const parsed = new Date(date);
+        if (isNaN(parsed.getTime())) {
+          logger.warn(`Invalid date string for ${fieldName}, using current date as fallback`, { date });
+          return new Date();
+        }
+        return parsed;
+      }
+      logger.warn(`Unexpected date type for ${fieldName}, using current date as fallback`, { type: typeof date, date });
+      return new Date();
+    };
+    
+    return {
+      ...booking,
+      checkIn: convertDate(booking.checkIn, 'checkIn'),
+      checkOut: convertDate(booking.checkOut, 'checkOut'),
+      createdAt: convertDate(booking.createdAt, 'createdAt'),
+      updatedAt: convertDate(booking.updatedAt, 'updatedAt'),
+    };
   }
 
   async GetBooking(request: GetBookingRequest): Promise<BookingResponse> {
@@ -46,8 +86,11 @@ export class BookingsGrpcService {
         throw new Error('Booking not found');
       }
       
+      // Преобразуем booking для gRPC ответа
+      const grpcBooking = this.convertBookingForGrpc(booking);
+      
       return {
-        booking,
+        booking: grpcBooking,
         success: true,
         message: 'Booking retrieved successfully'
       };
@@ -64,8 +107,11 @@ export class BookingsGrpcService {
       // Отменяем бронирование
       const booking = await this.bookingService.cancelBooking(request.id, request.reason);
       
+      // Преобразуем booking для gRPC ответа
+      const grpcBooking = this.convertBookingForGrpc(booking);
+      
       return {
-        booking,
+        booking: grpcBooking,
         success: true,
         message: 'Booking cancelled successfully'
       };
@@ -86,8 +132,11 @@ export class BookingsGrpcService {
         request.checkOut?.toISOString() || new Date().toISOString()
       );
       
+      // Преобразуем booking для gRPC ответа
+      const grpcBooking = this.convertBookingForGrpc(booking);
+      
       return {
-        booking,
+        booking: grpcBooking,
         success: true,
         message: 'Booking dates changed successfully'
       };
@@ -115,8 +164,11 @@ export class BookingsGrpcService {
         };
       }
       
+      // Преобразуем booking для gRPC ответа
+      const grpcBooking = booking ? this.convertBookingForGrpc(booking) : undefined;
+      
       return {
-        booking,
+        booking: grpcBooking as any,
         success: true,
         message: 'Booking retrieved successfully'
       };
@@ -133,8 +185,11 @@ export class BookingsGrpcService {
       // Обновляем бронирование через сервис
       const booking = await this.bookingService.updateBooking(request);
       
+      // Преобразуем booking для gRPC ответа
+      const grpcBooking = this.convertBookingForGrpc(booking);
+      
       return {
-        booking,
+        booking: grpcBooking,
         success: true,
         message: 'Booking updated successfully'
       };

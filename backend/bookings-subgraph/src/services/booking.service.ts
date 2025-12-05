@@ -82,12 +82,25 @@ export class BookingService {
 
       // Преобразуем запрос в формат datalayer
       // Если передан guestId и guestName, но нет объекта guest, создаем его
+      // Преобразуем даты: если Date - конвертируем в ISO строку, иначе оставляем как есть
+      const checkInDate = bookingData.checkIn instanceof Date 
+        ? bookingData.checkIn.toISOString()
+        : (bookingData.checkIn && typeof bookingData.checkIn === 'object' && typeof bookingData.checkIn.toISOString === 'function'
+          ? (bookingData.checkIn as Date).toISOString()
+          : bookingData.checkIn);
+      
+      const checkOutDate = bookingData.checkOut instanceof Date 
+        ? bookingData.checkOut.toISOString()
+        : (bookingData.checkOut && typeof bookingData.checkOut === 'object' && typeof bookingData.checkOut.toISOString === 'function'
+          ? (bookingData.checkOut as Date).toISOString()
+          : bookingData.checkOut);
+
       const createBookingInput: any = {
         orgId: bookingData.orgId,
         unitId: bookingData.unitId,
         propertyId: bookingData.propertyId,
-        checkIn: bookingData.checkIn,
-        checkOut: bookingData.checkOut,
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
         guestsCount: bookingData.guestsCount || 1,
         priceBreakdown: bookingData.priceBreakdown || {
           basePrice: {
