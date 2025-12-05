@@ -13,6 +13,27 @@ const BookingOriginSchema = z.object({
   title: z.string().nullable().optional(),
 }).optional();
 
+// Схема для клиента (может приходить отдельно, в data, или внутри data.booking.client)
+const ClientSchema = z.object({
+  id: z.union([z.string(), z.number()]).optional(),
+  fio: z.string().optional(),
+  name: z.string().optional(),
+  phone: z.string().nullable().optional(),
+  email: z.preprocess(
+    (val) => {
+      // Если значение null или пустая строка, возвращаем undefined
+      if (val === null || val === '' || val === undefined) {
+        return undefined;
+      }
+      return val;
+    },
+    z.string().email().optional()
+  ),
+  additional_phone: z.string().nullable().optional(),
+  contact_text: z.string().nullable().optional(),
+  // Пропускаем остальные поля
+}).passthrough().optional();
+
 // Схема для booking (основная информация о бронировании)
 const BookingDataSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
@@ -21,7 +42,7 @@ const BookingDataSchema = z.object({
   realty_id: z.union([z.string(), z.number(), z.null()]).nullable().optional().transform((val) => val === null || val === undefined ? undefined : String(val)),
   realty_room_id: z.union([z.string(), z.number(), z.null()]).nullable().optional().transform((val) => val === null || val === undefined ? undefined : String(val)),
   user_id: z.union([z.string(), z.number()]).optional(),
-  address: z.string(),
+  address: z.string().optional(),
   amount: z.number().optional(),
   prepayment: z.number().optional(),
   deposit: z.number().nullable().optional(),
@@ -34,16 +55,9 @@ const BookingDataSchema = z.object({
   notes: z.string().nullable().optional(), // Заметки (могут содержать причину отмены)
   apartment: ApartmentSchema,
   booking_origin: BookingOriginSchema.optional(),
+  client: ClientSchema, // Клиент может быть внутри booking (для cancel_booking)
   // Пропускаем остальные поля, которые не нужны для валидации
 }).passthrough();
-
-// Схема для клиента (может приходить отдельно или в data)
-const ClientSchema = z.object({
-  fio: z.string().optional(),
-  name: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
-}).optional();
 
 // Схема для data объекта (обертка для booking)
 const WebhookDataSchema = z.object({
@@ -83,11 +97,16 @@ export const RealtyCalendarWebhookSchema = z.union([
 ]).transform((webhook) => {
   // Нормализуем структуру: если есть data.booking, извлекаем его
   if ('data' in webhook && webhook.data?.booking) {
+    // Клиент может быть на верхнем уровне или внутри data.booking.client
+    // Приоритет: верхний уровень -> data.booking.client
+    const bookingData = webhook.data.booking as any;
+    const client = webhook.client || bookingData?.client;
+    
     return {
       action: webhook.action,
       status: webhook.status,
       booking: webhook.data.booking,
-      client: webhook.client,
+      client: client,
     };
   }
   // Если booking уже на верхнем уровне, возвращаем как есть

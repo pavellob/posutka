@@ -135,15 +135,17 @@ const mockWebhooks = {
           id: null,
           title: null,
         },
+        // В cancel_booking клиент находится внутри booking
+        client: {
+          id: 40917281,
+          fio: 'Иванов Иван Иванович', // Те же данные клиента, что и в create_booking
+          name: 'Иван Иванов',
+          phone: '+79001234567',
+          email: 'ivan.ivanov@example.com',
+        },
       },
       crm_entity_id: null,
       bitrix_lead_id: null,
-    },
-    client: {
-      fio: 'Иванов Иван Иванович', // Те же данные клиента, что и в create_booking
-      name: 'Иван Иванов',
-      phone: '+79001234567',
-      email: 'ivan.ivanov@example.com',
     },
   },
 
@@ -292,6 +294,14 @@ function generateCancelBookingPayload(savedBooking: {
   const now = new Date();
   const canceledDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
 
+  // Формируем клиента для cancel_booking (может быть null в email/phone)
+  const client = savedBooking.clientData || {
+    fio: 'Guest',
+    name: 'Guest',
+    phone: null,
+    email: null,
+  };
+
   return {
     action: 'cancel_booking',
     status: 'canceled',
@@ -303,12 +313,17 @@ function generateCancelBookingPayload(savedBooking: {
         updated_at: now.toISOString(),
         canceled_date: canceledDate,
         notes: savedBooking.bookingData.notes || 'Отменено по запросу клиента',
+        // В cancel_booking клиент находится внутри booking
+        client: {
+          id: client.id || undefined,
+          fio: client.fio,
+          name: client.name,
+          phone: client.phone || null,
+          email: client.email || null,
+        },
       },
       crm_entity_id: null,
       bitrix_lead_id: null,
-    },
-    client: savedBooking.clientData || {
-      name: 'Guest',
     },
   };
 }
@@ -535,10 +550,17 @@ function startMockServer(port: number, targetUrl: string) {
           
           const bookingId = payload.data?.booking?.id || payload.booking?.id;
           if (bookingId) {
+            // Извлекаем клиента - может быть на верхнем уровне или внутри data.booking.client
+            const bookingDataRaw = payload.data?.booking || payload.booking;
+            const clientData = payload.client || (bookingDataRaw as any)?.client;
+            
+            // Убираем клиента из bookingData, чтобы не дублировать его при генерации cancel_booking
+            const { client: _, ...bookingDataWithoutClient } = bookingDataRaw as any;
+            
             lastCreatedBooking = {
               id: bookingId, // Сохраняем новый ID - он будет использован для update и cancel
-              bookingData: payload.data?.booking || payload.booking,
-              clientData: payload.client,
+              bookingData: bookingDataWithoutClient,
+              clientData: clientData,
               createdAt: new Date(),
             };
             logger.info('Generated new booking ID and saved for future updates/cancellations', {
