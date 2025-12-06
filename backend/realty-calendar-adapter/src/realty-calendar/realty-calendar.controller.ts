@@ -65,6 +65,26 @@ export class RealtyCalendarController {
       // Безопасное логирование структуры webhook до валидации
       const safeWebhookInfo = this.safeLogWebhook(rawWebhook);
       logger.info('Webhook parsed successfully, validating...', safeWebhookInfo);
+      
+      // Логируем структуру клиента для отладки
+      const hasClientAtTopLevel = !!(rawWebhook as any)?.client;
+      const hasClientInDataBooking = !!(rawWebhook as any)?.data?.booking?.client;
+      logger.info('Client structure before validation', {
+        hasClientAtTopLevel,
+        hasClientInDataBooking,
+        clientAtTopLevel: hasClientAtTopLevel ? {
+          fio: (rawWebhook as any).client?.fio,
+          name: (rawWebhook as any).client?.name,
+          phone: (rawWebhook as any).client?.phone,
+          email: (rawWebhook as any).client?.email,
+        } : null,
+        clientInDataBooking: hasClientInDataBooking ? {
+          fio: (rawWebhook as any).data?.booking?.client?.fio,
+          name: (rawWebhook as any).data?.booking?.client?.name,
+          phone: (rawWebhook as any).data?.booking?.client?.phone,
+          email: (rawWebhook as any).data?.booking?.client?.email,
+        } : null,
+      });
 
       // Валидация через Zod
       let validatedWebhook: RealtyCalendarWebhook;
@@ -76,6 +96,11 @@ export class RealtyCalendarController {
           hasRealtyId: !!validatedWebhook.booking.realty_id,
           hasRealtyRoomId: !!validatedWebhook.booking.realty_room_id,
           realtyId: validatedWebhook.booking.realty_id,
+          hasClient: !!validatedWebhook.client,
+          clientFio: validatedWebhook.client?.fio,
+          clientName: validatedWebhook.client?.name,
+          clientPhone: validatedWebhook.client?.phone,
+          clientEmail: validatedWebhook.client?.email,
         });
       } catch (validationError: any) {
         if (validationError instanceof ZodError) {
@@ -109,7 +134,14 @@ export class RealtyCalendarController {
         realtyRoomId: validatedWebhook.booking.realty_room_id,
         defaultOrgId,
         hasClient: !!validatedWebhook.client,
+        clientFio: validatedWebhook.client?.fio,
+        clientName: validatedWebhook.client?.name,
+        clientPhone: validatedWebhook.client?.phone,
+        clientEmail: validatedWebhook.client?.email,
         address: validatedWebhook.booking.address,
+        guestName: dto.guest.name,
+        guestPhone: dto.guest.phone,
+        guestEmail: dto.guest.email,
       });
 
       // Обрабатываем

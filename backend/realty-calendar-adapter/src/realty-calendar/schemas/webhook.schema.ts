@@ -99,13 +99,17 @@ export const RealtyCalendarWebhookSchema = z.union([
   if ('data' in webhook && webhook.data?.booking) {
     // Клиент может быть на верхнем уровне или внутри data.booking.client
     // Приоритет: верхний уровень -> data.booking.client
-    const bookingData = webhook.data.booking as any;
-    const client = webhook.client || bookingData?.client;
+    const bookingDataRaw = webhook.data.booking as any;
+    // Извлекаем клиента: сначала проверяем верхний уровень, потом внутри booking
+    const client = webhook.client || bookingDataRaw?.client || undefined;
+    
+    // Убираем клиента из bookingData, чтобы не было дублирования
+    const { client: _, ...bookingDataWithoutClient } = bookingDataRaw;
     
     return {
       action: webhook.action,
       status: webhook.status,
-      booking: webhook.data.booking,
+      booking: bookingDataWithoutClient,
       client: client,
     };
   }

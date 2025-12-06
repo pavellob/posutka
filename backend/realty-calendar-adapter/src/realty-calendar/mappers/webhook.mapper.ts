@@ -14,6 +14,13 @@ export class WebhookMapper {
     const checkIn = this.parseDateTime(webhook.booking.begin_date, webhook.booking.arrival_time ?? undefined);
     const checkOut = this.parseDateTime(webhook.booking.end_date, webhook.booking.departure_time ?? undefined);
 
+    // Извлекаем данные клиента
+    const clientFio = webhook.client?.fio;
+    const clientName = webhook.client?.name;
+    const clientPhone = webhook.client?.phone ?? undefined;
+    const clientEmail = webhook.client?.email ?? undefined;
+    const guestName = clientFio || clientName || 'Guest';
+
     return {
       action: actionMap[webhook.action] || 'CREATE',
       externalRef: {
@@ -23,9 +30,9 @@ export class WebhookMapper {
       checkIn,
       checkOut,
       guest: {
-        name: webhook.client?.fio || webhook.client?.name || 'Guest',
-        phone: webhook.client?.phone ?? undefined, // Преобразуем null в undefined
-        email: webhook.client?.email ?? undefined, // Преобразуем null в undefined
+        name: guestName,
+        phone: clientPhone,
+        email: clientEmail,
       },
       propertyExternalRef: webhook.booking.realty_id ? {
         source: 'REALTY_CALENDAR',

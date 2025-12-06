@@ -197,3 +197,39 @@ mutation ChangeBookingDates($id: UUID!, $checkIn: DateTime!, $checkOut: DateTime
     updatedAt
   }
 }
+
+mutation UpdateBooking($input: UpdateBookingInput!) {
+  updateBooking(input: $input) {
+    id
+    status
+    checkIn
+    checkOut
+    guestsCount
+    notes
+    updatedAt
+    guest {
+      id
+      name
+      email
+      phone
+    }
+    unit {
+      id
+      name
+      property {
+        id
+        title
+      }
+    }
+    priceBreakdown {
+      basePrice {
+        amount
+        currency
+      }
+      total {
+        amount
+        currency
+      }
+    }
+  }
+}

@@ -277,26 +277,71 @@ export class RealtyCalendarService {
                 orgId: foundOrgId,
               };
             } else {
-              logger.info('Unit not found by externalRef, will use first unit or create new', {
+              logger.info('Unit not found by externalRef, checking existing units or creating new', {
                 propertyId: property.property.id,
+                unitExternalRef: dto.unitExternalRef,
               });
-              // Если Unit не найден, но Property найден - используем первый Unit или создадим новый
+              
+              // Проверяем, есть ли уже Unit с таким externalId на другом Property
+              // (защита от дублирования)
+              // Примечание: getUnitByExternalRef требует propertyId, поэтому мы не можем искать везде
+              // Это ограничение API - если Unit не найден по externalId в этом Property,
+              // мы просто создаем новый. Дубликаты будут предотвращены на уровне базы данных
+              // через уникальный индекс на (propertyId, externalSource, externalId)
+              // или (externalSource, externalId) если такой есть
+              
+              // Проверяем существующие Units в этом Property
               const units = await this.inventoryClient.getUnitsByProperty({
                 propertyId: property.property.id,
               });
               
+              // Если есть Units, проверяем, нет ли среди них Unit с таким же externalId
               if (units.success && units.units && units.units.length > 0) {
-                logger.info('Using first unit from property', {
-                  unitId: units.units[0].id,
-                });
-                return {
+                // Если есть unitExternalRef, проверяем, нет ли Unit с таким же externalId
+                if (dto.unitExternalRef) {
+                  // Ищем Unit с таким же externalId (не создаем дубликат)
+                  const unitWithSameExternalId = units.units.find(
+                    (u: any) => u.externalSource === dto.unitExternalRef?.source && 
+                                u.externalId === dto.unitExternalRef?.id
+                  );
+                  
+                  if (unitWithSameExternalId) {
+                    logger.info('Found existing Unit with same externalId, using it to avoid duplicate', {
+                      unitId: unitWithSameExternalId.id,
+                      externalId: dto.unitExternalRef.id,
+                    });
+                    return {
+                      propertyId: property.property.id,
+                      unitId: unitWithSameExternalId.id,
+                      orgId: foundOrgId,
+                    };
+                  }
+                  
+                  // Ищем Unit без externalId (можно использовать, чтобы не создавать дубликат)
+                  const unitWithoutExternalId = units.units.find((u: any) => !u.externalSource || !u.externalId);
+                  
+                  if (unitWithoutExternalId) {
+                    logger.info('Using existing unit without externalId (to avoid creating duplicate)', {
+                      unitId: unitWithoutExternalId.id,
+                    });
+                    // TODO: Здесь нужно обновить Unit, добавив externalId (если метод updateUnit поддерживает это)
+                    // Пока используем существующий Unit
+                    return {
+                      propertyId: property.property.id,
+                      unitId: unitWithoutExternalId.id,
+                      orgId: foundOrgId,
+                    };
+                  }
+                }
+                
+                // Если нет подходящего Unit (все имеют другие externalId), создаем новый
+                logger.info('All existing units have different externalId, creating new Unit', {
                   propertyId: property.property.id,
-                  unitId: units.units[0].id,
-                  orgId: foundOrgId,
-                };
+                  existingUnitsCount: units.units.length,
+                });
               }
               
-              // Если Units нет, создаем новый Unit для найденного Property
+              // Создаем новый Unit для найденного Property
               logger.info('Creating new Unit for found Property', {
                 propertyId: property.property.id,
                 unitExternalRef: dto.unitExternalRef,
@@ -378,32 +423,137 @@ export class RealtyCalendarService {
       }
     }
 
-    // 2. Попробовать найти по адресу (без orgId - поиск по всем организациям)
-    try {
-      const properties = await this.inventoryClient.searchPropertyByAddress({
-        address: dto.address,
-        // orgId не передаем - ищем по всем организациям
-      } as any);
-      
-      if (properties.success && properties.properties && properties.properties.length > 0) {
-        const property = properties.properties[0];
-        foundOrgId = property.orgId;
-        const units = await this.inventoryClient.getUnitsByProperty({
-          propertyId: property.id,
+    // 2. Попробовать найти по адресу ТОЛЬКО если нет externalRef
+    // Это нужно, чтобы избежать дублирования объектов, у которых есть externalId
+    if (!dto.propertyExternalRef) {
+      try {
+        logger.info('Searching for Property by address (no externalRef provided)', {
+          address: dto.address,
         });
         
-        if (units.success && units.units && units.units.length > 0) {
-          return {
-            propertyId: property.id,
-            unitId: units.units[0].id,
-            orgId: foundOrgId,
-          };
+        const properties = await this.inventoryClient.searchPropertyByAddress({
+          address: dto.address,
+          // orgId не передаем - ищем по всем организациям
+        } as any);
+        
+        if (properties.success && properties.properties && properties.properties.length > 0) {
+          const property = properties.properties[0];
+          foundOrgId = property.orgId;
+          
+          // Проверяем, что у найденного Property нет другого externalId (чтобы избежать конфликтов)
+          if (property.externalSource && property.externalId) {
+            logger.warn('Found property by address but it already has externalRef, skipping to avoid duplicates', {
+              propertyId: property.id,
+              existingExternalSource: property.externalSource,
+              existingExternalId: property.externalId,
+              requestedAddress: dto.address,
+            });
+            // Не используем этот объект, чтобы не создавать конфликты
+          } else {
+            // У найденного Property нет externalRef, можем использовать
+            const units = await this.inventoryClient.getUnitsByProperty({
+              propertyId: property.id,
+            });
+            
+            if (units.success && units.units && units.units.length > 0) {
+              logger.info('Using property found by address (no externalRef conflict)', {
+                propertyId: property.id,
+              });
+              return {
+                propertyId: property.id,
+                unitId: units.units[0].id,
+                orgId: foundOrgId,
+              };
+            }
+          }
         }
+      } catch (error) {
+        logger.debug('Property not found by address, will create new', { error });
       }
-    } catch (error) {
-      logger.debug('Property not found by address, will create new', { error });
+    } else {
+      logger.debug('Skipping address search because externalRef is provided', {
+        propertyExternalRef: dto.propertyExternalRef,
+      });
     }
 
+    // 3. Финальная проверка: перед созданием нового Property проверяем еще раз externalRef
+    // (на случай, если он появился между проверками)
+    if (dto.propertyExternalRef) {
+      try {
+        logger.debug('Final check: searching for Property by externalRef before creating new', {
+          source: dto.propertyExternalRef.source,
+          id: dto.propertyExternalRef.id,
+        });
+        
+        const finalPropertyCheck = await this.inventoryClient.getPropertyByExternalRef({
+          externalSource: dto.propertyExternalRef.source,
+          externalId: dto.propertyExternalRef.id,
+        } as any);
+        
+        if (finalPropertyCheck.success && finalPropertyCheck.property) {
+          logger.info('Property found in final check (race condition prevented)', {
+            propertyId: finalPropertyCheck.property.id,
+            orgId: finalPropertyCheck.property.orgId,
+          });
+          
+          // Повторяем логику поиска Unit
+          if (dto.unitExternalRef) {
+            const finalUnitCheck = await this.inventoryClient.getUnitByExternalRef({
+              externalSource: dto.unitExternalRef.source,
+              externalId: dto.unitExternalRef.id,
+              propertyId: finalPropertyCheck.property.id,
+            });
+            
+            if (finalUnitCheck.success && finalUnitCheck.unit) {
+              return {
+                propertyId: finalPropertyCheck.property.id,
+                unitId: finalUnitCheck.unit.id,
+                orgId: finalPropertyCheck.property.orgId,
+              };
+            }
+          }
+          
+          // Unit не найден, используем первый или создаем новый
+          const units = await this.inventoryClient.getUnitsByProperty({
+            propertyId: finalPropertyCheck.property.id,
+          });
+          
+          if (units.success && units.units && units.units.length > 0) {
+            return {
+              propertyId: finalPropertyCheck.property.id,
+              unitId: units.units[0].id,
+              orgId: finalPropertyCheck.property.orgId,
+            };
+          }
+          
+          // Создаем Unit для найденного Property
+          const newUnit = await this.inventoryClient.createUnit({
+            propertyId: finalPropertyCheck.property.id,
+            name: 'Unit 1',
+            capacity: 2,
+            beds: 1,
+            bathrooms: 1,
+            amenities: [],
+            images: [],
+            externalSource: dto.unitExternalRef?.source,
+            externalId: dto.unitExternalRef?.id,
+          });
+          
+          if (newUnit.success && newUnit.unit) {
+            return {
+              propertyId: finalPropertyCheck.property.id,
+              unitId: newUnit.unit.id,
+              orgId: finalPropertyCheck.property.orgId,
+            };
+          }
+        }
+      } catch (error: any) {
+        logger.debug('Final check failed, proceeding with creation', {
+          error: error?.message,
+        });
+      }
+    }
+    
     // 3. Создать новое Property и Unit (используем найденный orgId или default)
     const orgIdToUse = foundOrgId || defaultOrgId;
     

@@ -8,6 +8,7 @@ import type {
   DepositTransaction, 
   BookingConnection,
   CreateBookingInput,
+  UpdateBookingInput,
   ListBookingsParams,
   UUID, 
   DateTime, 
@@ -121,6 +122,25 @@ export class BookingsDLPrisma implements IBookingsDL {
     });
 
     return this.mapBookingFromPrisma(booking);
+  }
+
+  async updateBooking(input: UpdateBookingInput): Promise<Booking> {
+    const data: any = {};
+    if (input.guestId) data.guestId = input.guestId;
+    if (input.checkIn) data.checkIn = new Date(input.checkIn);
+    if (input.checkOut) data.checkOut = new Date(input.checkOut);
+    if (input.guestsCount) data.guestsCount = input.guestsCount;
+    if (input.status) data.status = input.status;
+    if (input.notes !== undefined) data.notes = input.notes;
+    if (input.cancellationReason !== undefined) data.cancellationReason = input.cancellationReason;
+
+    const updatedBooking = await this.prisma.booking.update({
+      where: { id: input.id },
+      data,
+      include: { guest: true },
+    });
+
+    return this.mapBookingFromPrisma(updatedBooking);
   }
 
   async cancelBooking(id: string, reason?: string): Promise<Booking> {

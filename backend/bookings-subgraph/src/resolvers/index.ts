@@ -22,25 +22,32 @@ export const resolvers = {
     },
   },
   Mutation: {
-    createBooking: async (_: unknown, { input }: { input: any }, { dl, bookingService }: Context) => {
-      // Check availability first
-      const isAvailable = await dl.isRangeAvailable(input.unitId, input.checkIn, input.checkOut);
-      if (!isAvailable) {
-        throw new Error('Unit is not available for the selected dates');
-      }
-      
+    createBooking: async (_: unknown, { input }: { input: any }, { bookingService }: Context) => {
+      // Валидация доступности дат теперь выполняется внутри bookingService.createBooking
+      // Это гарантирует единообразную обработку для GraphQL и gRPC
       return bookingService.createBooking(input);
     },
     cancelBooking: (_: unknown, { id, reason }: { id: string; reason?: string }, { bookingService }: Context) => 
       bookingService.cancelBooking(id, reason),
-    changeBookingDates: async (_: unknown, { id, checkIn, checkOut }: { id: string; checkIn: string; checkOut: string }, { dl }: Context) => {
-      // Check availability for new dates (excluding current booking)
-      const isAvailable = await dl.isRangeAvailable('', checkIn, checkOut, id);
-      if (!isAvailable) {
-        throw new Error('Unit is not available for the new dates');
-      }
-      
-      return dl.changeBookingDates(id, checkIn, checkOut);
+    changeBookingDates: async (_: unknown, { id, checkIn, checkOut }: { id: string; checkIn: string; checkOut: string }, { bookingService }: Context) => {
+      // Валидация доступности дат теперь выполняется внутри bookingService.changeBookingDates
+      // Это гарантирует единообразную обработку для GraphQL и gRPC
+      return bookingService.changeBookingDates(id, checkIn, checkOut);
+    },
+    updateBooking: async (_: unknown, { input }: { input: any }, { bookingService }: Context) => {
+      // Валидация доступности дат теперь выполняется внутри bookingService.updateBooking
+      // Это гарантирует единообразную обработку для GraphQL и gRPC
+      return bookingService.updateBooking({
+        id: input.id,
+        guestName: input.guest?.name,
+        guestEmail: input.guest?.email,
+        guestPhone: input.guest?.phone,
+        checkIn: input.checkIn ? new Date(input.checkIn) : undefined,
+        checkOut: input.checkOut ? new Date(input.checkOut) : undefined,
+        guestsCount: input.guestsCount,
+        status: input.status,
+        notes: input.notes,
+      });
     },
     // generateContract и depositAction перенесены в legal-subgraph
   },

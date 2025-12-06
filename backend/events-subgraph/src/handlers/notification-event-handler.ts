@@ -1392,12 +1392,49 @@ export class NotificationEventHandler {
           actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
         };
       
-      case 'BOOKING_CONFIRMED':
+      case 'BOOKING_CONFIRMED': {
+        const guestName = payload.guestName || 'Гость';
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const checkInDate = payload.checkIn 
+          ? new Date(payload.checkIn).toLocaleString('ru-RU', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : '';
+        const checkOutDate = payload.checkOut 
+          ? new Date(payload.checkOut).toLocaleString('ru-RU', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : '';
+        const status = payload.status ? `\n📊 Статус: ${payload.status}` : '';
+        
+        let message = `Бронирование для "${guestName}" обновлено`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n🏠 Квартира: ${unitName}`;
+        if (checkInDate) {
+          message += `\n📅 Заселение: ${checkInDate}`;
+        }
+        if (checkOutDate) {
+          message += `\n📅 Выселение: ${checkOutDate}`;
+        }
+        message += status;
+        
         return {
-          title: '✅ Бронирование подтверждено',
-          message: `Бронирование #${payload.bookingId || 'N/A'} подтверждено`,
+          title: '✏️ Бронирование обновлено',
+          message,
           actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
         };
+      }
       
       case 'BOOKING_CANCELLED':
         return {

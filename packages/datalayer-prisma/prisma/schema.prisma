@@ -99,6 +99,7 @@ model Property {
   updatedAt DateTime     @updatedAt
   
   @@index([externalSource, externalId])
+  @@unique([orgId, externalSource, externalId]) // Уникальность в рамках одной организации
 }
 
 model Unit {
@@ -128,6 +129,7 @@ model Unit {
   
   @@index([externalSource, externalId])
   @@index([propertyId, externalSource, externalId])
+  @@unique([externalSource, externalId]) // Уникальность Unit по externalId глобально
 }
 
 // Связь Unit ↔ Cleaner (many-to-many)

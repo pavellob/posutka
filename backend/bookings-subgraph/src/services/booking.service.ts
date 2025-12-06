@@ -95,6 +95,26 @@ export class BookingService {
           ? (bookingData.checkOut as Date).toISOString()
           : bookingData.checkOut);
 
+      // Валидация: проверяем доступность дат ПЕРЕД созданием бронирования
+      // Это гарантирует, что валидация выполняется и для GraphQL, и для gRPC
+      if (bookingData.unitId && checkInDate && checkOutDate) {
+        const isAvailable = await this.dl.isRangeAvailable(bookingData.unitId, checkInDate, checkOutDate);
+        if (!isAvailable) {
+          throw new Error('Unit is not available for the selected dates');
+        }
+        logger.info('✅ Date range availability validated', {
+          unitId: bookingData.unitId,
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+        });
+      } else {
+        logger.warn('⚠️ Skipping availability check - missing required fields', {
+          hasUnitId: !!bookingData.unitId,
+          hasCheckIn: !!checkInDate,
+          hasCheckOut: !!checkOutDate,
+        });
+      }
+
       const createBookingInput: any = {
         orgId: bookingData.orgId,
         unitId: bookingData.unitId,
@@ -318,22 +338,28 @@ export class BookingService {
     try {
       logger.info('Changing booking dates', { id, checkIn, checkOut });
       
-      // Пока что симулируем изменение дат бронирования
-      // В реальной реализации здесь будет this.dl.changeBookingDates(id, checkIn, checkOut)
-      return {
-        id,
-        orgId: '123e4567-e89b-12d3-a456-426614174000',
-        unitId: '123e4567-e89b-12d3-a456-426614174001',
-        propertyId: '123e4567-e89b-12d3-a456-426614174001',
-        roomId: '123e4567-e89b-12d3-a456-426614174001',
-        guestName: 'Test Guest',
+      // Получаем существующее бронирование для проверки доступности
+      const existing = await this.dl.getBookingById(id);
+      if (!existing) {
+        throw new Error('Booking not found');
+      }
+
+      // Валидация: проверяем доступность новых дат (исключая текущее бронирование)
+      // Это гарантирует, что валидация выполняется и для GraphQL, и для gRPC
+      const isAvailable = await this.dl.isRangeAvailable(existing.unitId, checkIn, checkOut, id);
+      if (!isAvailable) {
+        throw new Error('Unit is not available for the new dates');
+      }
+      
+      logger.info('✅ Date range availability validated for date change', {
+        bookingId: id,
+        unitId: existing.unitId,
         checkIn,
         checkOut,
-        guestsCount: 2,
-        status: 'CONFIRMED',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      });
+      
+      // Изменяем даты через datalayer
+      return await this.dl.changeBookingDates(id, checkIn, checkOut);
     } catch (error: any) {
       logger.error('Failed to change booking dates', { error: error.message });
       throw error;
@@ -864,35 +890,296 @@ export class BookingService {
       if (!existing) {
         throw new Error('Booking not found');
       }
+
+      // Валидация: если обновляются даты, проверяем доступность (исключая текущее бронирование)
+      // Это гарантирует, что валидация выполняется и для GraphQL, и для gRPC
+      if (request.checkIn && request.checkOut) {
+        const checkInStr = request.checkIn instanceof Date 
+          ? request.checkIn.toISOString()
+          : request.checkIn;
+        const checkOutStr = request.checkOut instanceof Date 
+          ? request.checkOut.toISOString()
+          : request.checkOut;
+
+        const isAvailable = await this.dl.isRangeAvailable(existing.unitId, checkInStr, checkOutStr, request.id);
+        if (!isAvailable) {
+          throw new Error('Unit is not available for the selected dates');
+        }
+        
+        logger.info('✅ Date range availability validated for update', {
+          bookingId: request.id,
+          unitId: existing.unitId,
+          checkIn: checkInStr,
+          checkOut: checkOutStr,
+        });
+      }
       
       // Обновляем данные гостя, если переданы
+      let updatedGuestId = existing.guestId;
       if (request.guestName || request.guestEmail || request.guestPhone) {
         const guest = await this.dl.getGuestById(existing.guestId);
         if (guest) {
-          await this.dl.upsertGuest({
+          const updatedGuest = await this.dl.upsertGuest({
             name: request.guestName || guest.name,
             email: request.guestEmail || guest.email,
             phone: request.guestPhone || guest.phone,
           });
+          updatedGuestId = updatedGuest.id;
         }
       }
       
-      // Обновляем даты, если переданы
-      let updatedBooking = existing;
-      if (request.checkIn && request.checkOut) {
-        updatedBooking = await this.dl.changeBookingDates(
-          request.id,
-          request.checkIn.toISOString(),
-          request.checkOut.toISOString()
-        );
+      // Обновляем через datalayer (используем updateBooking для всех полей)
+      const updatedBooking = await this.dl.updateBooking({
+        id: request.id,
+        guestId: updatedGuestId,
+        checkIn: request.checkIn?.toISOString(),
+        checkOut: request.checkOut?.toISOString(),
+        guestsCount: request.guestsCount,
+        status: request.status,
+        notes: request.notes,
+      });
+
+      // Публикуем событие BOOKING_CONFIRMED (используем для обновления)
+      try {
+        await this.publishBookingUpdatedEvent(updatedBooking);
+        logger.info('✅ BOOKING_CONFIRMED event published', { bookingId: updatedBooking.id });
+      } catch (eventError: any) {
+        logger.warn('⚠️ Failed to publish BOOKING_CONFIRMED event, continuing with update', {
+          bookingId: updatedBooking.id,
+          error: eventError.message,
+        });
+        // Не прерываем обновление, если событие не опубликовалось
       }
       
-      // TODO: Добавить метод updateBooking в datalayer для обновления других полей (notes, guestsCount, status)
-      // Пока возвращаем обновленную бронь
       return updatedBooking;
     } catch (error: any) {
       logger.error('Failed to update booking', { error: error.message });
       throw error;
+    }
+  }
+
+  private async publishBookingUpdatedEvent(booking: any): Promise<void> {
+    logger.info('🔔 publishBookingUpdatedEvent called', {
+      bookingId: booking?.id,
+      eventsClientExists: !!this.eventsClient,
+    });
+
+    if (!this.eventsClient) {
+      logger.error('❌ Events client not initialized, cannot publish BOOKING_CONFIRMED event', {
+        bookingId: booking.id,
+        hint: 'Check EVENTS_GRPC_HOST and EVENTS_GRPC_PORT environment variables'
+      });
+      return;
+    }
+
+    // Проверяем подключение
+    if (!this.eventsClient.isHealthy()) {
+      logger.warn('⚠️ Events client not connected, attempting to connect...', {
+        bookingId: booking.id,
+      });
+      try {
+        await this.eventsClient.connect();
+        logger.info('✅ Events client connected successfully');
+      } catch (connectError: any) {
+        logger.error('❌ Failed to connect events client', {
+          bookingId: booking.id,
+          error: connectError.message,
+        });
+        return;
+      }
+    }
+
+    try {
+      // Получаем информацию о госте, unit и property
+      let guest: any = null;
+      let unit: any = null;
+      let property: any = null;
+
+      try {
+        guest = await this.dl.getGuestById(booking.guestId);
+      } catch (error: any) {
+        logger.warn('Failed to get guest for BOOKING_CONFIRMED event', {
+          bookingId: booking.id,
+          guestId: booking.guestId,
+          error: error.message,
+        });
+      }
+
+      if (booking.unitId && this.inventoryDL) {
+        try {
+          unit = await this.inventoryDL.getUnitById(booking.unitId);
+          if (unit?.propertyId) {
+            property = await this.inventoryDL.getPropertyById(unit.propertyId);
+          }
+        } catch (error: any) {
+          logger.warn('Failed to get unit/property for BOOKING_CONFIRMED event', {
+            bookingId: booking.id,
+            unitId: booking.unitId,
+            error: error.message,
+          });
+        }
+      }
+
+      // Формируем адрес
+      const unitAddress = property?.address || unit?.name || 'Адрес не указан';
+
+      // Определяем targetUserIds
+      const targetUserIds: string[] = [];
+      
+      // 1. Пытаемся найти пользователя по email гостя
+      if (guest && guest.email && this.identityDL) {
+        try {
+          const user = await this.identityDL.getUserByEmail(guest.email);
+          if (user?.id) {
+            targetUserIds.push(user.id);
+            logger.info('Found user for guest email', {
+              guestEmail: guest.email,
+              userId: user.id,
+            });
+          }
+        } catch (error: any) {
+          logger.warn('Failed to find user by guest email', {
+            guestEmail: guest?.email,
+            error: error.message,
+          });
+        }
+      }
+      
+      // 2. Добавляем менеджеров организации (ОБЯЗАТЕЛЬНО для обновлений)
+      if (booking.orgId && this.identityDL) {
+        try {
+          const memberships = await this.identityDL.getMembershipsByOrg(booking.orgId);
+          const managerUserIds = memberships
+            .filter((m: any) => m.role === 'MANAGER' || m.role === 'OWNER' || m.role === 'ADMIN')
+            .map((m: any) => m.userId)
+            .filter((id: string) => id); // Убираем null/undefined
+          
+          managerUserIds.forEach((userId: string) => {
+            if (userId && !targetUserIds.includes(userId)) {
+              targetUserIds.push(userId);
+            }
+          });
+          
+          if (managerUserIds.length > 0) {
+            logger.info('Added organization managers to targetUserIds', {
+              orgId: booking.orgId,
+              managerCount: managerUserIds.length,
+              managerUserIds,
+            });
+          } else {
+            logger.warn('No managers found for organization', {
+              orgId: booking.orgId,
+              totalMemberships: memberships.length,
+            });
+          }
+        } catch (error: any) {
+          logger.error('Failed to get organization managers', {
+            orgId: booking.orgId,
+            error: error.message,
+            stack: error.stack,
+          });
+        }
+      }
+
+      // 3. Если все еще нет получателей, пытаемся найти любых пользователей организации
+      if (targetUserIds.length === 0 && booking.orgId && this.identityDL) {
+        try {
+          logger.warn('No target users found, trying to get any org members', {
+            bookingId: booking.id,
+            orgId: booking.orgId,
+          });
+          
+          const memberships = await this.identityDL.getMembershipsByOrg(booking.orgId);
+          const allUserIds = memberships
+            .map((m: any) => m.userId)
+            .filter((id: string) => id);
+          
+          if (allUserIds.length > 0) {
+            targetUserIds.push(...allUserIds.slice(0, 5)); // Берем первых 5, чтобы не спамить
+            logger.info('Added organization members as fallback', {
+              orgId: booking.orgId,
+              memberCount: allUserIds.length,
+              addedCount: Math.min(5, allUserIds.length),
+            });
+          }
+        } catch (error: any) {
+          logger.error('Failed to get organization members as fallback', {
+            orgId: booking.orgId,
+            error: error.message,
+          });
+        }
+      }
+
+      if (targetUserIds.length === 0) {
+        logger.error('⚠️ No target users found for BOOKING_CONFIRMED event - notification will not be sent', {
+          bookingId: booking.id,
+          guestEmail: guest?.email,
+          orgId: booking.orgId,
+          hint: 'Check if organization has members with MANAGER/OWNER/ADMIN roles',
+        });
+      } else {
+        logger.info('✅ Target users found for BOOKING_CONFIRMED event', {
+          bookingId: booking.id,
+          targetUserIdsCount: targetUserIds.length,
+          targetUserIds,
+        });
+      }
+
+      const payload = {
+        bookingId: booking.id,
+        guestId: booking.guestId,
+        guestName: guest?.name || 'Гость',
+        guestPhone: guest?.phone || undefined,
+        guestEmail: guest?.email || undefined,
+        unitId: booking.unitId,
+        unitName: unit?.name || 'Квартира',
+        unitAddress: unitAddress,
+        propertyId: property?.id || unit?.propertyId,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        status: booking.status,
+      };
+
+      logger.info('📤 Publishing BOOKING_CONFIRMED event', {
+        bookingId: booking.id,
+        guestName: payload.guestName,
+        targetUserIdsCount: targetUserIds.length,
+        targetUserIds: targetUserIds,
+        orgId: booking.orgId,
+      });
+
+      const result = await this.eventsClient.publishEvent({
+        eventType: EventType.EVENT_TYPE_BOOKING_CONFIRMED,
+        sourceSubgraph: 'bookings-subgraph',
+        entityType: 'Booking',
+        entityId: booking.id,
+        orgId: booking.orgId,
+        targetUserIds,
+        payload,
+      });
+
+      logger.info('✅ BOOKING_CONFIRMED event published to gRPC', {
+        bookingId: booking.id,
+        result: result,
+      });
+
+      if (targetUserIds.length > 0) {
+        logger.info('✅ BOOKING_CONFIRMED event published successfully', { 
+          bookingId: booking.id,
+          targetUserIdsCount: targetUserIds.length,
+          targetUserIds 
+        });
+      } else {
+        logger.warn('⚠️ BOOKING_CONFIRMED event published but no target users', { 
+          bookingId: booking.id,
+        });
+      }
+    } catch (error: any) {
+      logger.error('Failed to publish BOOKING_CONFIRMED event', {
+        error: error.message,
+        bookingId: booking.id,
+      });
+      // Не прерываем обновление, если событие не опубликовалось
     }
   }
 

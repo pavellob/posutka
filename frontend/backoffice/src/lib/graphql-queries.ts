@@ -1149,6 +1149,44 @@ export const CHANGE_BOOKING_DATES = gql`
   }
 `
 
+export const UPDATE_BOOKING = gql`
+  mutation UpdateBooking($input: UpdateBookingInput!) {
+    updateBooking(input: $input) {
+      id
+      status
+      checkIn
+      checkOut
+      guestsCount
+      notes
+      updatedAt
+      guest {
+        id
+        name
+        email
+        phone
+      }
+      unit {
+        id
+        name
+        property {
+          id
+          title
+        }
+      }
+      priceBreakdown {
+        basePrice {
+          amount
+          currency
+        }
+        total {
+          amount
+          currency
+        }
+      }
+    }
+  }
+`
+
 export const GENERATE_GRAPHQL_QUERY = gql`
   mutation GenerateGraphQLQuery(
     $orgId: UUID!

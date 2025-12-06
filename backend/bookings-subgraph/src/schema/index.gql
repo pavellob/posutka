@@ -126,6 +126,8 @@ type Mutation {
   cancelBooking(id: UUID!, reason: String): Booking!
   """Изменить даты заезда и выезда в бронировании"""
   changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking!
+  """Обновить бронирование (гость, даты, количество гостей, заметки, статус)"""
+  updateBooking(input: UpdateBookingInput!): Booking!
   # generateContract и depositAction перенесены в legal-subgraph
 }
 
@@ -323,6 +325,26 @@ input PriceBreakdownInput {
   taxes: MoneyInput
   """Общая стоимость бронирования"""
   total: MoneyInput!
+}
+
+"""
+Входные данные для обновления бронирования.
+"""
+input UpdateBookingInput {
+  """ID бронирования для обновления"""
+  id: UUID!
+  """Информация о госте (опционально)"""
+  guest: GuestInput
+  """Дата и время заезда (опционально)"""
+  checkIn: DateTime
+  """Дата и время выезда (опционально)"""
+  checkOut: DateTime
+  """Количество гостей (опционально)"""
+  guestsCount: Int
+  """Статус бронирования (опционально)"""
+  status: BookingStatus
+  """Дополнительные заметки (опционально)"""
+  notes: String
 }
 
 

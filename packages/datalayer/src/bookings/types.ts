@@ -121,3 +121,14 @@ export interface ListBookingsParams {
   first?: number;
   after?: string;
 }
+
+export interface UpdateBookingInput {
+  id: UUID;
+  guestId?: UUID;
+  checkIn?: DateTime;
+  checkOut?: DateTime;
+  guestsCount?: number;
+  status?: BookingStatus;
+  notes?: string;
+  cancellationReason?: string;
+}

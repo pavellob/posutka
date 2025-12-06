@@ -388,6 +388,34 @@ export class NotificationEventHandler {
           actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
         };
       }
+
+      case 'BOOKING_CONFIRMED': {
+        const guestName = payload.guestName || 'Гость';
+        const unitName = payload.unitName || 'квартире';
+        const unitAddress = payload.unitAddress;
+        const checkInDate = payload.checkIn ? this.formatDate(payload.checkIn) : '';
+        const checkOutDate = payload.checkOut ? this.formatDate(payload.checkOut) : '';
+        const status = payload.status ? `\n📊 Статус: ${payload.status}` : '';
+        
+        let message = `Бронирование для "${guestName}" обновлено`;
+        if (unitAddress) {
+          message += `\n📍 Адрес: ${unitAddress}`;
+        }
+        message += `\n🏠 Квартира: ${unitName}`;
+        if (checkInDate) {
+          message += `\n📅 Заселение: ${checkInDate}`;
+        }
+        if (checkOutDate) {
+          message += `\n📅 Выселение: ${checkOutDate}`;
+        }
+        message += status;
+        
+        return {
+          title: '✏️ Бронирование обновлено',
+          message,
+          actionUrl: `${frontendUrl}/bookings/${payload.bookingId}`
+        };
+      }
       
       default:
         return {
@@ -567,6 +595,9 @@ export class NotificationEventHandler {
       
       case 'BOOKING_CANCELLED':
         return 'HIGH';
+      
+      case 'BOOKING_CONFIRMED':
+        return 'NORMAL';
       
       case 'CLEANING_COMPLETED':
       case 'TASK_COMPLETED':

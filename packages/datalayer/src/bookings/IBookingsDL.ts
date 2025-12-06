@@ -5,6 +5,7 @@ import type {
   DepositTransaction, 
   BookingConnection,
   CreateBookingInput,
+  UpdateBookingInput,
   ListBookingsParams,
   UUID, 
   DateTime, 
@@ -17,6 +18,7 @@ export interface IBookingsDL {
   getBookingByExternalRef(externalSource: string, externalId: string): Promise<Booking | null>;
   listBookings(params: ListBookingsParams): Promise<BookingConnection>;
   createBooking(input: CreateBookingInput): Promise<Booking>;
+  updateBooking(input: UpdateBookingInput): Promise<Booking>;
   cancelBooking(id: UUID, reason?: string): Promise<Booking>;
   changeBookingDates(id: UUID, checkIn: DateTime, checkOut: DateTime): Promise<Booking>;
   

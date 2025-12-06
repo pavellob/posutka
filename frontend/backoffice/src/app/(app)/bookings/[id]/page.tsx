@@ -154,17 +154,25 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        <Dropdown>
-          <DropdownButton>
-            <EllipsisVerticalIcon className="w-5 h-5" />
-          </DropdownButton>
-          <DropdownMenu>
-            <DropdownItem onClick={() => setShowCancelDialog(true)}>
-              <XCircleIcon className="w-4 h-4 mr-2" />
-              Отменить бронирование
-            </DropdownItem>
-          </DropdownMenu>
-        </Dropdown>
+        <div className="flex items-center space-x-3">
+          <Button
+            onClick={() => router.push(`/bookings/${id}/edit`)}
+          >
+            <PencilIcon className="w-4 h-4 mr-2" />
+            Редактировать
+          </Button>
+          <Dropdown>
+            <DropdownButton>
+              <EllipsisVerticalIcon className="w-5 h-5" />
+            </DropdownButton>
+            <DropdownMenu>
+              <DropdownItem onClick={() => setShowCancelDialog(true)}>
+                <XCircleIcon className="w-4 h-4 mr-2" />
+                Отменить бронирование
+              </DropdownItem>
+            </DropdownMenu>
+          </Dropdown>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

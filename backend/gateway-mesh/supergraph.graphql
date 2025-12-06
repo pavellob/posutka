@@ -406,6 +406,10 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   cancelBooking(id: UUID!, reason: String): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
   """Изменить даты заезда и выезда в бронировании"""
   changeBookingDates(id: UUID!, checkIn: DateTime!, checkOut: DateTime!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """
+  Обновить бронирование (гость, даты, количество гостей, заметки, статус)
+  """
+  updateBooking(input: UpdateBookingInput!): Booking! @join__field(graph: BOOKINGS_SUBGRAPH)
   """Создать нового уборщика"""
   createCleaner(input: CreateCleanerInput!): Cleaner! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Обновить данные уборщика"""
@@ -3055,6 +3059,24 @@ input PriceBreakdownInput @join__type(graph: BOOKINGS_SUBGRAPH) {
   taxes: MoneyInput
   """Общая стоимость бронирования"""
   total: MoneyInput!
+}
+
+"""Входные данные для обновления бронирования."""
+input UpdateBookingInput @join__type(graph: BOOKINGS_SUBGRAPH) {
+  """ID бронирования для обновления"""
+  id: UUID!
+  """Информация о госте (опционально)"""
+  guest: GuestInput
+  """Дата и время заезда (опционально)"""
+  checkIn: DateTime
+  """Дата и время выезда (опционально)"""
+  checkOut: DateTime
+  """Количество гостей (опционально)"""
+  guestsCount: Int
+  """Статус бронирования (опционально)"""
+  status: BookingStatus
+  """Дополнительные заметки (опционально)"""
+  notes: String
 }
 
 """
