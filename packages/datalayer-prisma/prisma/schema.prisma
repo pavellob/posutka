@@ -111,7 +111,7 @@ model Unit {
   bathrooms          Int
   amenities          String[]
   images             String[]               // Массив URL изображений
-  grade              Int?                   @default(0) // 0..10
+  grade              Int?                   @default(0) // 0-10: 0=Комната, 1=Маленькая студия, 2=Студия, 3=Маленькая однушка, 4=Однушка, 5=Маленькая двушка/Большая однушка, 6=Двушка, 7=Маленькая трешка, 8=Трешка, 9=4+, 10=Элитные апартаменты
   cleaningDifficulty Int?                   @default(0) // 0..5 (fallback)
   checkInInstructions String?               @db.Text // Инструкция по заселению для гостя
   

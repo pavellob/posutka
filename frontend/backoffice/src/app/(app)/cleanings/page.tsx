@@ -247,15 +247,12 @@ function CleaningsPageContent() {
       {/* Заголовок */}
       <div className="flex justify-between items-center">
         <div>
-          <Heading level={1}>Управление уборками</Heading>
-          <Text className="mt-2 text-zinc-600 dark:text-zinc-400">
-            Уборки и уборщики в одном месте
-          </Text>
+          <Heading level={1} className="text-2xl">Управление уборками</Heading>
         </div>
         {activeTab === 'cleanings' && (
           <Button 
             onClick={() => setIsScheduleDialogOpen(true)} 
-            className="bg-black hover:bg-gray-800 text-white border-gray-600"
+            className="bg-black hover:bg-gray-800 text-white border-gray-600 text-sm px-4"
           >
             Запланировать уборку
           </Button>
@@ -263,51 +260,51 @@ function CleaningsPageContent() {
         {activeTab === 'cleaners' && (
           <Button 
             onClick={() => setIsCreateCleanerDialogOpen(true)} 
-            className="bg-black hover:bg-gray-800 text-white border-gray-600"
+            className="bg-black hover:bg-gray-800 text-white border-gray-600 text-sm px-4"
           >
             + Добавить уборщика
           </Button>
         )}
       </div>
 
-      {/* Вкладки */}
+      {/* Вкладки - компактные */}
       <div className="border-b border-gray-200 dark:border-zinc-700">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex space-x-6">
           <button
             onClick={() => setActiveTab('cleanings')}
             className={`
-              py-4 px-1 border-b-2 font-medium text-sm
+              py-3 px-1 border-b-2 font-medium text-sm transition-colors
               ${activeTab === 'cleanings'
                 ? 'border-black dark:border-white text-black dark:text-white'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }
             `}
           >
-            🧹 Уборки ({totalCleanings})
+            Уборки ({totalCleanings})
           </button>
           <button
             onClick={() => setActiveTab('cleaners')}
             className={`
-              py-4 px-1 border-b-2 font-medium text-sm
+              py-3 px-1 border-b-2 font-medium text-sm transition-colors
               ${activeTab === 'cleaners'
                 ? 'border-black dark:border-white text-black dark:text-white'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }
             `}
           >
-            👤 Уборщики ({totalCleaners})
+            Уборщики ({totalCleaners})
           </button>
           <button
             onClick={() => setActiveTab('templates')}
             className={`
-              py-4 px-1 border-b-2 font-medium text-sm
+              py-3 px-1 border-b-2 font-medium text-sm transition-colors
               ${activeTab === 'templates'
                 ? 'border-black dark:border-white text-black dark:text-white'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }
             `}
           >
-            📋 Чеклисты
+            Чеклисты
           </button>
         </nav>
       </div>
@@ -315,120 +312,103 @@ function CleaningsPageContent() {
       {/* Контент вкладки "Уборки" */}
       {activeTab === 'cleanings' && (
         <>
-          {/* Статистика уборок */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <div className="p-6">
-          <Heading level={3} className="mb-4">Всего уборок</Heading>
-          <Text className="text-2xl font-bold text-blue-600">{totalCleanings}</Text>
-          <Text className="text-sm text-zinc-500">Уборок в системе</Text>
+          {/* Статистика уборок - компактная */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">Всего</Text>
+          <Text className="text-xl font-bold text-gray-900 dark:text-white">{totalCleanings}</Text>
         </div>
 
-        <div className="p-6">
-          <Heading level={3} className="mb-4">Запланировано</Heading>
-          <Text className="text-2xl font-bold text-orange-600">{scheduledCleanings}</Text>
-          <Text className="text-sm text-zinc-500">
-            {totalCleanings > 0 ? `${Math.round((scheduledCleanings / totalCleanings) * 100)}%` : '0%'}
-          </Text>
+        <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">Запланировано</Text>
+          <Text className="text-xl font-bold text-orange-600">{scheduledCleanings}</Text>
         </div>
 
-        <div className="p-6">
-          <Heading level={3} className="mb-4">В процессе</Heading>
-          <Text className="text-2xl font-bold text-blue-600">{inProgressCleanings}</Text>
-          <Text className="text-sm text-zinc-500">
-            {totalCleanings > 0 ? `${Math.round((inProgressCleanings / totalCleanings) * 100)}%` : '0%'}
-          </Text>
+        <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">В процессе</Text>
+          <Text className="text-xl font-bold text-blue-600">{inProgressCleanings}</Text>
         </div>
 
-        <div className="p-6">
-          <Heading level={3} className="mb-4">Завершены</Heading>
-          <Text className="text-2xl font-bold text-green-600">{completedCleanings}</Text>
-          <Text className="text-sm text-zinc-500">
-            {totalCleanings > 0 ? `${Math.round((completedCleanings / totalCleanings) * 100)}%` : '0%'}
-          </Text>
+        <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">Завершены</Text>
+          <Text className="text-xl font-bold text-green-600">{completedCleanings}</Text>
         </div>
 
-        <div className="p-6">
-          <Heading level={3} className="mb-4">Проверены</Heading>
-          <Text className="text-2xl font-bold text-green-700">{approvedCleanings}</Text>
-          <Text className="text-sm text-zinc-500">
-            {totalCleanings > 0 ? `${Math.round((approvedCleanings / totalCleanings) * 100)}%` : '0%'}
-          </Text>
+        <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">Проверены</Text>
+          <Text className="text-xl font-bold text-green-700">{approvedCleanings}</Text>
         </div>
 
-        <div className="p-6">
-          <Heading level={3} className="mb-4">Отменены</Heading>
-          <Text className="text-2xl font-bold text-red-600">{cancelledCleanings}</Text>
-          <Text className="text-sm text-zinc-500">
-            {totalCleanings > 0 ? `${Math.round((cancelledCleanings / totalCleanings) * 100)}%` : '0%'}
-          </Text>
+        <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">Отменены</Text>
+          <Text className="text-xl font-bold text-red-600">{cancelledCleanings}</Text>
         </div>
       </div>
 
-      {/* Фильтры */}
-      <div className="space-y-4">
-        <Heading level={2}>Фильтры</Heading>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Статус</label>
-            <Select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            >
-              <option value="">Все статусы</option>
-              <option value="SCHEDULED">Запланирована</option>
-              <option value="IN_PROGRESS">В процессе</option>
-              <option value="COMPLETED">Завершена</option>
-              <option value="APPROVED">Проверена</option>
-              <option value="CANCELLED">Отменена</option>
-            </Select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Уборщик</label>
-            <Select
-              value={filters.cleanerId}
-              onChange={(e) => setFilters({ ...filters, cleanerId: e.target.value })}
-            >
-              <option value="">Все уборщики</option>
-              {cleaners.map((cleaner: any) => (
-                <option key={cleaner.id} value={cleaner.id}>
-                  {cleaner.firstName} {cleaner.lastName}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex items-end">
-            <Button 
-              onClick={() => setFilters({ status: '', cleanerId: '' })}
-              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-gray-300 dark:border-zinc-600"
-            >
-              Сбросить фильтры
-            </Button>
-          </div>
+      {/* Фильтры - компактные */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-medium mb-1.5 text-gray-700 dark:text-gray-300">Статус</label>
+          <Select
+            value={filters.status}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            className="text-sm"
+          >
+            <option value="">Все статусы</option>
+            <option value="SCHEDULED">Запланирована</option>
+            <option value="IN_PROGRESS">В процессе</option>
+            <option value="COMPLETED">Завершена</option>
+            <option value="APPROVED">Проверена</option>
+            <option value="CANCELLED">Отменена</option>
+          </Select>
         </div>
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-medium mb-1.5 text-gray-700 dark:text-gray-300">Уборщик</label>
+          <Select
+            value={filters.cleanerId}
+            onChange={(e) => setFilters({ ...filters, cleanerId: e.target.value })}
+            className="text-sm"
+          >
+            <option value="">Все уборщики</option>
+            {cleaners.map((cleaner: any) => (
+              <option key={cleaner.id} value={cleaner.id}>
+                {cleaner.firstName} {cleaner.lastName}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {(filters.status || filters.cleanerId) && (
+          <Button 
+            onClick={() => setFilters({ status: '', cleanerId: '' })}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-gray-300 dark:border-zinc-600 text-sm px-4"
+          >
+            Сбросить
+          </Button>
+        )}
       </div>
 
       {/* Таблица уборок */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Heading level={2}>Уборки ({cleanings.length})</Heading>
+          <Heading level={2} className="text-lg">Уборки ({cleanings.length})</Heading>
           <div className="flex items-center space-x-1 bg-gray-100 dark:bg-zinc-700 rounded-lg p-1">
             <Button
               onClick={() => setViewMode('table')}
-              className={`p-2 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-0 text-gray-700 dark:text-gray-300 ${viewMode === 'table' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
+              className={`p-1.5 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-0 text-gray-700 dark:text-gray-300 ${viewMode === 'table' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
               title="Таблица"
             >
               <TableCellsIcon className="w-4 h-4" />
             </Button>
             <Button
               onClick={() => setViewMode('cards')}
-              className={`p-2 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-0 text-gray-700 dark:text-gray-300 ${viewMode === 'cards' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
+              className={`p-1.5 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-0 text-gray-700 dark:text-gray-300 ${viewMode === 'cards' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
               title="Карточки"
             >
               <Squares2X2Icon className="w-4 h-4" />
             </Button>
             <Button
               onClick={() => setViewMode('kanban')}
-              className={`p-2 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-0 text-gray-700 dark:text-gray-300 ${viewMode === 'kanban' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
+              className={`p-1.5 bg-transparent hover:bg-gray-200 dark:hover:bg-zinc-600 border-0 text-gray-700 dark:text-gray-300 ${viewMode === 'kanban' ? 'bg-white dark:bg-zinc-600 shadow-sm' : ''}`}
               title="Канбан"
             >
               <ViewColumnsIcon className="w-4 h-4" />
@@ -456,7 +436,7 @@ function CleaningsPageContent() {
             }}
           />
         ) : viewMode === 'cards' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {cleanings.map((cleaning: any) => (
               <CleaningCard
                 key={cleaning.id}
@@ -579,27 +559,21 @@ function CleaningsPageContent() {
       {/* Контент вкладки "Уборщики" */}
       {activeTab === 'cleaners' && (
         <>
-          {/* Статистика уборщиков */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
-              <Heading level={3} className="mb-2">Всего уборщиков</Heading>
-              <Text className="text-3xl font-bold text-blue-600">{totalCleaners}</Text>
+          {/* Статистика уборщиков - компактная */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+              <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">Всего</Text>
+              <Text className="text-xl font-bold text-gray-900 dark:text-white">{totalCleaners}</Text>
             </div>
 
-            <div className="p-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
-              <Heading level={3} className="mb-2">Активных</Heading>
-              <Text className="text-3xl font-bold text-green-600">{activeCleaners}</Text>
-              <Text className="text-sm text-zinc-500">
-                {totalCleaners > 0 ? `${Math.round((activeCleaners / totalCleaners) * 100)}%` : '0%'}
-              </Text>
+            <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+              <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">Активных</Text>
+              <Text className="text-xl font-bold text-green-600">{activeCleaners}</Text>
             </div>
 
-            <div className="p-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
-              <Heading level={3} className="mb-2">Неактивных</Heading>
-              <Text className="text-3xl font-bold text-red-600">{inactiveCleaners}</Text>
-              <Text className="text-sm text-zinc-500">
-                {totalCleaners > 0 ? `${Math.round((inactiveCleaners / totalCleaners) * 100)}%` : '0%'}
-              </Text>
+            <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+              <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">Неактивных</Text>
+              <Text className="text-xl font-bold text-red-600">{inactiveCleaners}</Text>
             </div>
           </div>
 

@@ -20,210 +20,151 @@ import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { CreatePropertyDialog } from '@/components/create-property-dialog'
-import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { Squares2X2Icon, TableCellsIcon, EllipsisVerticalIcon, PlusIcon, EyeIcon, PencilIcon } from '@heroicons/react/24/outline'
 
 // Компонент карточки объекта недвижимости
 function PropertyCard({ property, onEdit, onView }: { property: Property; onEdit: (property: Property) => void; onView: (property: Property) => void }) {
   // Собираем все изображения из всех юнитов
   const allImages = property.units?.flatMap(unit => unit.images || []).filter(Boolean) || []
   const mainImage = allImages[0] || null
-  const additionalImages = allImages.slice(1, 4) // Показываем до 3 дополнительных миниатюр
-  
-  // Отладка
-  if (property.units && property.units.length > 0) {
-    console.log(`Property ${property.title}:`, {
-      unitsCount: property.units.length,
-      units: property.units.map(u => ({ id: u.id, name: u.name, imagesCount: u.images?.length || 0, images: u.images })),
-      allImagesCount: allImages.length,
-      allImages: allImages
-    })
-  }
   
   return (
-    <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden cursor-pointer"
-      onClick={() => onView(property)}>
+    <div 
+      className="group relative bg-white dark:bg-zinc-800 rounded-lg overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3),0_2px_4px_-1px_rgba(0,0,0,0.2)]"
+      onClick={() => onView(property)}
+    >
       {/* Изображение объекта */}
-      <div className="relative w-full h-56 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-zinc-700 dark:to-zinc-800 overflow-hidden">
+      <div className="relative w-full h-40 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-zinc-700 dark:to-zinc-800 overflow-hidden">
         {mainImage ? (
           <>
             <img
               src={mainImage}
               alt={property.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               onError={(e) => {
-                // Если изображение не загрузилось, показываем placeholder
                 e.currentTarget.style.display = 'none'
-                const placeholder = e.currentTarget.nextElementSibling as HTMLElement
-                if (placeholder) placeholder.style.display = 'flex'
               }}
             />
-            <div className="hidden absolute inset-0 items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-zinc-700 dark:to-zinc-800">
-              <svg className="w-16 h-16 text-gray-400 dark:text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
             {allImages.length > 1 && (
-              <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2.5 py-1 rounded-md shadow-lg">
-                {allImages.length} фото
-              </div>
-            )}
-            {/* Миниатюры дополнительных изображений */}
-            {additionalImages.length > 0 && (
-              <div className="absolute bottom-2 left-2 flex gap-1">
-                {additionalImages.map((img, idx) => (
-                  <div key={idx} className="w-12 h-12 rounded border-2 border-white dark:border-zinc-800 shadow-md overflow-hidden bg-gray-200 dark:bg-zinc-700">
-                    <img
-                      src={img}
-                      alt={`${property.title} ${idx + 2}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                      }}
-                    />
-                  </div>
-                ))}
-                {allImages.length > 4 && (
-                  <div className="w-12 h-12 rounded border-2 border-white dark:border-zinc-800 shadow-md bg-black/60 backdrop-blur-sm flex items-center justify-center text-white text-xs font-medium">
-                    +{allImages.length - 4}
-                  </div>
-                )}
+              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                {allImages.length}
               </div>
             )}
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center">
-              <svg className="w-16 h-16 text-gray-400 dark:text-zinc-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <Text className="text-xs text-gray-500 dark:text-zinc-400">Нет фото</Text>
-            </div>
+            <svg className="w-12 h-12 text-gray-400 dark:text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
           </div>
         )}
       </div>
-      {/* Заголовок карточки */}
-      <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <Heading level={3} className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+
+      {/* Контент карточки */}
+      <div className="p-4">
+        {/* Заголовок и действия */}
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1 min-w-0">
+            <Heading level={3} className="text-base font-medium text-gray-900 dark:text-white truncate mb-0.5">
               {property.title}
             </Heading>
-            <Text className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            <Text className="text-xs text-gray-500 dark:text-gray-400 truncate">
               {property.address}
             </Text>
-            <div className="flex flex-wrap gap-2">
-              <Badge color="blue">{property.propertyType || 'Не указано'}</Badge>
-              {property.category && (
-                <Badge color="green">{property.category}</Badge>
-              )}
-              {property.isElite && (
-                <Badge color="orange">Элитная</Badge>
-              )}
-            </div>
           </div>
-          <div className="flex space-x-2">
-            <Button
+          {/* Действия при наведении */}
+          <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <button
               onClick={(e) => {
                 e.stopPropagation()
                 onView(property)
               }}
-              color="green"
+              className="p-1.5 rounded-full bg-white dark:bg-zinc-700 shadow-md hover:bg-gray-50 dark:hover:bg-zinc-600 transition-colors"
+              title="Просмотр"
             >
-              Открыть
-            </Button>
-            <Button
+              <EyeIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            </button>
+            <button
               onClick={(e) => {
                 e.stopPropagation()
                 onEdit(property)
               }}
-              color="blue"
+              className="p-1.5 rounded-full bg-white dark:bg-zinc-700 shadow-md hover:bg-gray-50 dark:hover:bg-zinc-600 transition-colors"
+              title="Редактировать"
             >
-              Редактировать
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Основная информация */}
-      <div className="p-6">
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <Text className="text-sm font-medium text-gray-900 dark:text-white">Площадь</Text>
-            <Text className="text-lg font-semibold text-blue-600">
-              {property.totalArea ? `${property.totalArea} м²` : 'Не указано'}
-            </Text>
-            {property.livingArea && (
-              <Text className="text-xs text-gray-500">Жилая: {property.livingArea} м²</Text>
-            )}
-          </div>
-          <div>
-            <Text className="text-sm font-medium text-gray-900 dark:text-white">Комнаты</Text>
-            <Text className="text-lg font-semibold text-green-600">
-              {property.rooms || 'Не указано'}
-            </Text>
-          </div>
-          <div>
-            <Text className="text-sm font-medium text-gray-900 dark:text-white">Этаж</Text>
-            <Text className="text-lg font-semibold text-purple-600">
-              {property.floor || 'Не указано'}
-              {property.floorsTotal && ` из ${property.floorsTotal}`}
-            </Text>
-          </div>
-          <div>
-            <Text className="text-sm font-medium text-gray-900 dark:text-white">Год постройки</Text>
-            <Text className="text-lg font-semibold text-orange-600">
-              {property.buildingYear || 'Не указано'}
-            </Text>
+              <PencilIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            </button>
           </div>
         </div>
 
-        {/* Метро */}
+        {/* Бейджи */}
+        <div className="flex flex-wrap gap-1 mb-3">
+          <Badge color="blue" className="text-xs px-1.5 py-0.5">{property.propertyType || 'Не указано'}</Badge>
+          {property.category && (
+            <Badge color="green" className="text-xs px-1.5 py-0.5">{property.category}</Badge>
+          )}
+          {property.isElite && (
+            <Badge color="orange" className="text-xs px-1.5 py-0.5">Элитная</Badge>
+          )}
+        </div>
+
+        {/* Основная информация - компактная сетка */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <Text className="text-gray-500 dark:text-gray-400">Площадь</Text>
+            <Text className="block font-medium text-gray-900 dark:text-white">
+              {property.totalArea ? `${property.totalArea} м²` : '—'}
+            </Text>
+          </div>
+          <div>
+            <Text className="text-gray-500 dark:text-gray-400">Комнаты</Text>
+            <Text className="block font-medium text-gray-900 dark:text-white">
+              {property.rooms || '—'}
+            </Text>
+          </div>
+          <div>
+            <Text className="text-gray-500 dark:text-gray-400">Этаж</Text>
+            <Text className="block font-medium text-gray-900 dark:text-white">
+              {property.floor ? `${property.floor}${property.floorsTotal ? `/${property.floorsTotal}` : ''}` : '—'}
+            </Text>
+          </div>
+          <div>
+            <Text className="text-gray-500 dark:text-gray-400">Год</Text>
+            <Text className="block font-medium text-gray-900 dark:text-white">
+              {property.buildingYear || '—'}
+            </Text>
+          </div>
+        </div>
+
+        {/* Метро - компактно */}
         {property.metroName && (
-          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+          <div className="mt-2 pt-2 border-t border-gray-100 dark:border-zinc-700">
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
               </svg>
-              <Text className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              <Text className="text-xs text-gray-600 dark:text-gray-300 truncate">
                 {property.metroName}
+                {property.metroTimeOnFoot && ` • ${property.metroTimeOnFoot} мин`}
               </Text>
-              {property.metroTimeOnFoot && (
-                <Text className="text-xs text-blue-600 dark:text-blue-300">
-                  {property.metroTimeOnFoot} мин пешком
-                </Text>
-              )}
             </div>
           </div>
         )}
 
-        {/* Удобства */}
-        <div className="mb-4">
-          <Text className="text-sm font-medium text-gray-900 dark:text-white mb-2">Удобства</Text>
-          <div className="flex flex-wrap gap-1">
-            {property.elevator && <Badge color="green" className="text-xs">Лифт</Badge>}
-            {property.parking && <Badge color="green" className="text-xs">Парковка</Badge>}
-            {property.security && <Badge color="green" className="text-xs">Охрана</Badge>}
-            {property.balcony && <Badge color="blue" className="text-xs">Балкон</Badge>}
-            {property.airConditioning && <Badge color="blue" className="text-xs">Кондиционер</Badge>}
-            {property.internet && <Badge color="blue" className="text-xs">Интернет</Badge>}
-            {property.tv && <Badge color="blue" className="text-xs">ТВ</Badge>}
-            {property.renovation && (
-              <Badge color="orange" className="text-xs">{property.renovation}</Badge>
-            )}
+        {/* Удобства - компактно, только если есть */}
+        {(property.elevator || property.parking || property.security || property.balcony || property.airConditioning || property.internet || property.tv) && (
+          <div className="mt-2 pt-2 border-t border-gray-100 dark:border-zinc-700">
+            <div className="flex flex-wrap gap-1">
+              {property.elevator && <Badge color="green" className="text-[10px] px-1 py-0">Лифт</Badge>}
+              {property.parking && <Badge color="green" className="text-[10px] px-1 py-0">Парковка</Badge>}
+              {property.security && <Badge color="green" className="text-[10px] px-1 py-0">Охрана</Badge>}
+              {property.balcony && <Badge color="blue" className="text-[10px] px-1 py-0">Балкон</Badge>}
+              {property.airConditioning && <Badge color="blue" className="text-[10px] px-1 py-0">Кондиционер</Badge>}
+              {property.internet && <Badge color="blue" className="text-[10px] px-1 py-0">Интернет</Badge>}
+              {property.tv && <Badge color="blue" className="text-[10px] px-1 py-0">ТВ</Badge>}
+            </div>
           </div>
-        </div>
-
-        {/* Дополнительная информация */}
-        <div className="grid grid-cols-2 gap-4 text-xs text-gray-500 dark:text-gray-400">
-          <div>
-            <Text className="font-medium">Тип здания:</Text>
-            <Text>{property.buildingType || 'Не указано'}</Text>
-          </div>
-          <div>
-            <Text className="font-medium">Ремонт:</Text>
-            <Text>{property.renovation || 'Не указано'}</Text>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )
@@ -1476,7 +1417,7 @@ export default function InventoryPage() {
                       </div>
             ) : (
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredProperties.map((property: Property) => (
                   <PropertyCard
                     key={property.id}
@@ -1485,7 +1426,7 @@ export default function InventoryPage() {
                     onEdit={handleEditProperty}
                   />
                 ))}
-                        </div>
+              </div>
               {filteredProperties.length === 0 && (
                 <div className="text-center py-12">
                   <Text className="text-gray-500 dark:text-gray-400">

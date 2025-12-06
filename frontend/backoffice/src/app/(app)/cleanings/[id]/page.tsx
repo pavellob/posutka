@@ -1272,6 +1272,25 @@ function CleaningDifficultyEditor({ cleaning, unitId, orgId }: { cleaning: any; 
     return labels[difficulty] || 'Не указано'
   }
 
+  const getGradeLabel = (grade: string | undefined | null) => {
+    if (!grade) return 'Не указано'
+    const gradeNum = parseInt(grade.replace('GRADE_', ''))
+    const labels = [
+      'Комната',
+      'Маленькая студия',
+      'Студия',
+      'Маленькая однушка',
+      'Однушка',
+      'Маленькая двушка/Большая однушка',
+      'Двушка',
+      'Маленькая трешка',
+      'Трешка',
+      '4+',
+      'Элитные апартаменты'
+    ]
+    return labels[gradeNum] || `GRADE_${gradeNum}`
+  }
+
   const formatMoney = (amount: number, currency: string): string => {
     const value = amount / 100
     return new Intl.NumberFormat('ru-RU', {
@@ -1302,7 +1321,7 @@ function CleaningDifficultyEditor({ cleaning, unitId, orgId }: { cleaning: any; 
         </div>
         {cleaning.assessedDifficulty && (
           <Badge color="green">
-            Установлена: {cleaning.assessedDifficulty}
+            Установлена: {getDifficultyLabel(parseInt(cleaning.assessedDifficulty.replace('D', '')))}
             {cleaning.assessedAt && (
               <span className="ml-2 text-xs">
                 {new Date(cleaning.assessedAt).toLocaleDateString('ru-RU')}
@@ -1351,9 +1370,19 @@ function CleaningDifficultyEditor({ cleaning, unitId, orgId }: { cleaning: any; 
                 <Text className="text-zinc-500">Базовая:</Text>
                 <Text>{formatMoney(costQuote.base.amount, costQuote.base.currency)}</Text>
               </div>
+              {cleaning.unit?.grade && (
+                <div className="flex justify-between">
+                  <Text className="text-zinc-500">Размер:</Text>
+                  <Text className="font-medium">{getGradeLabel(cleaning.unit.grade)}</Text>
+                </div>
+              )}
               <div className="flex justify-between">
-                <Text className="text-zinc-500">Коэф. градации:</Text>
+                <Text className="text-zinc-500">Коэф. размера:</Text>
                 <Text>{costQuote.gradeCoefficient.toFixed(2)}x</Text>
+              </div>
+              <div className="flex justify-between">
+                <Text className="text-zinc-500">Сложность:</Text>
+                <Text className="font-medium">{getDifficultyLabel(parseInt(difficulty))}</Text>
               </div>
               <div className="flex justify-between">
                 <Text className="text-zinc-500">Коэф. сложности:</Text>

@@ -614,6 +614,25 @@ function UnitPricingEditor({ unitId, unitData }: { unitId: string; unitData: any
     return labels[difficulty] || 'Не указано'
   }
 
+  const getGradeLabel = (grade: string | undefined | null) => {
+    if (!grade) return 'Не указано'
+    const gradeNum = parseInt(grade.replace('GRADE_', ''))
+    const labels = [
+      'Комната',
+      'Маленькая студия',
+      'Студия',
+      'Маленькая однушка',
+      'Однушка',
+      'Маленькая двушка/Большая однушка',
+      'Двушка',
+      'Маленькая трешка',
+      'Трешка',
+      '4+',
+      'Элитные апартаменты'
+    ]
+    return labels[gradeNum] || `GRADE_${gradeNum}`
+  }
+
   const hasChanges = 
     grade !== (unitData?.grade?.replace('GRADE_', '') || '0') ||
     difficulty !== (unitData?.cleaningDifficulty?.replace('D', '') || '0')
@@ -666,8 +685,16 @@ function UnitPricingEditor({ unitId, unitData }: { unitId: string; unitData: any
                   </Text>
                 </div>
                 <div>
-                  <Text className="text-zinc-500 dark:text-zinc-400">Коэф. градации:</Text>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Размер:</Text>
+                  <Text className="font-semibold">{getGradeLabel(`GRADE_${grade}`)}</Text>
+                </div>
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Коэф. размера:</Text>
                   <Text className="font-semibold">{costQuote.gradeCoefficient.toFixed(2)}x</Text>
+                </div>
+                <div>
+                  <Text className="text-zinc-500 dark:text-zinc-400">Сложность:</Text>
+                  <Text className="font-semibold">{getDifficultyLabel(parseInt(difficulty))}</Text>
                 </div>
                 <div>
                   <Text className="text-zinc-500 dark:text-zinc-400">Коэф. сложности:</Text>
@@ -699,7 +726,7 @@ function UnitPricingEditor({ unitId, unitData }: { unitId: string; unitData: any
           >
             {Array.from({ length: 11 }, (_, i) => (
               <option key={i} value={i.toString()}>
-                GRADE_{i}
+                GRADE_{i} - {getGradeLabel(`GRADE_${i}`)}
               </option>
             ))}
           </Select>

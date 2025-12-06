@@ -18,6 +18,9 @@ import { GET_BOOKINGS, CREATE_BOOKING, CANCEL_BOOKING, GET_PROPERTIES_BY_ORG, GE
 import { graphqlClient } from '@/lib/graphql-client'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
+import { Squares2X2Icon, TableCellsIcon, PhoneIcon, CalendarIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { Checkbox } from '@/components/checkbox'
+import * as Headless from '@headlessui/react'
 import type { 
   GetBookingsQuery, 
   GetPropertiesByOrgQuery, 
@@ -44,9 +47,138 @@ type Booking = NonNullable<GetBookingsQuery['bookings']['edges'][0]>['node']
 type Property = NonNullable<GetPropertiesByOrgQuery['propertiesByOrgId'][0]>
 type Unit = NonNullable<GetUnitsByPropertyQuery['unitsByPropertyId'][0]>
 
+type Booking = NonNullable<GetBookingsQuery['bookings']['edges'][0]>['node']
+
+// Компонент карточки бронирования
+function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: (id: string) => void }) {
+  const router = useRouter()
+  
+  return (
+    <div 
+      className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1"
+      onClick={() => router.push(`/bookings/${booking.id}`)}
+    >
+      <div className="p-6 space-y-4">
+        {/* Заголовок с гостем */}
+        <div className="space-y-3">
+          <div>
+            <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+              {booking.guest.name}
+            </Text>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                {booking.guest.email}
+              </div>
+              {booking.guest.phone && (
+                <a 
+                  href={`tel:${booking.guest.phone}`}
+                  className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <PhoneIcon className="w-4 h-4" />
+                  {booking.guest.phone}
+                </a>
+              )}
+            </div>
+          </div>
+          <div>
+            <Badge color={getStatusColor(booking.status) as any}>
+              {getStatusLabel(booking.status)}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Объект */}
+        <div className="p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg">
+          <Text className="text-sm font-medium text-gray-900 dark:text-white">
+            {booking.unit.name}
+          </Text>
+          <Text className="text-xs text-gray-500 dark:text-gray-400">
+            {booking.unit.property.title}
+          </Text>
+        </div>
+
+        {/* Даты */}
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4 text-gray-400" />
+            <div>
+              <Text className="text-xs text-gray-500 dark:text-gray-400">Заезд</Text>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {new Date(booking.checkIn).toLocaleDateString('ru-RU', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                })}
+              </Text>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4 text-gray-400" />
+            <div>
+              <Text className="text-xs text-gray-500 dark:text-gray-400">Выезд</Text>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {new Date(booking.checkOut).toLocaleDateString('ru-RU', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                })}
+              </Text>
+            </div>
+          </div>
+        </div>
+
+        {/* Дополнительная информация */}
+        <div className="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-700">
+          <div className="flex items-center gap-4 text-sm">
+            <div>
+              <Text className="text-xs text-gray-500 dark:text-gray-400">Гостей</Text>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {booking.guestsCount}
+              </Text>
+            </div>
+          </div>
+          <div className="text-right">
+            <Text className="text-xs text-gray-500 dark:text-gray-400">Сумма</Text>
+            <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+              {formatMoney(booking.priceBreakdown.total.amount, booking.priceBreakdown.total.currency)}
+            </Text>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'CONFIRMED': return 'green'
+    case 'PENDING': return 'orange'
+    case 'CANCELLED': return 'red'
+    case 'COMPLETED': return 'blue'
+    case 'NO_SHOW': return 'gray'
+    default: return 'gray'
+  }
+}
+
+function getStatusLabel(status: string) {
+  switch (status) {
+    case 'CONFIRMED': return 'Подтверждено'
+    case 'PENDING': return 'Ожидает'
+    case 'CANCELLED': return 'Отменено'
+    case 'COMPLETED': return 'Завершено'
+    case 'NO_SHOW': return 'Не явился'
+    default: return status
+  }
+}
+
 export default function BookingsPage() {
   const router = useRouter()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
   const [selectedProperty, setSelectedProperty] = useState('')
   const [selectedUnit, setSelectedUnit] = useState('')
   const [createFormData, setCreateFormData] = useState({
@@ -63,7 +195,7 @@ export default function BookingsPage() {
   // Фильтры для бронирований
   const [filters, setFilters] = useState({
     status: '',
-    property: '',
+    property: [] as string[], // Мультиселект для объектов
     guest: ''
   })
 
@@ -270,7 +402,7 @@ export default function BookingsPage() {
   // Фильтрация бронирований по дополнительным фильтрам
   const filteredBookings = bookingsInPeriod.filter(booking => {
     if (filters.status && booking.status !== filters.status) return false
-    if (filters.property && booking.unit.property.id !== filters.property) return false
+    if (filters.property.length > 0 && !filters.property.includes(booking.unit.property.id)) return false
     if (filters.guest && !booking.guest.name.toLowerCase().includes(filters.guest.toLowerCase()) && 
         !booking.guest.email.toLowerCase().includes(filters.guest.toLowerCase())) return false
     return true
@@ -486,26 +618,58 @@ export default function BookingsPage() {
           </Field>
 
           <Field>
-            <Label>Объект</Label>
-            <Combobox
-              value={filters.property}
-              onChange={(value) => setFilters(prev => ({ ...prev, property: value || '' }))}
-              options={['', ...properties.map(p => p?.id || '').filter(Boolean)]}
-              displayValue={(value) => {
-                if (!value) return 'Все объекты'
-                const property = properties.find(p => p?.id === value)
-                return property?.title || 'Неизвестный объект'
-              }}
-            >
-              {(option) => (
-                <ComboboxOption value={option}>
-                  <ComboboxLabel>
-                    {option === '' ? 'Все объекты' : 
-                     properties.find(p => p?.id === option)?.title || 'Неизвестный объект'}
-                  </ComboboxLabel>
-                </ComboboxOption>
-              )}
-            </Combobox>
+            <Label>Объекты</Label>
+            <Headless.Popover className="relative">
+              <Headless.PopoverButton className="relative block w-full appearance-none rounded-lg py-[calc(--spacing(2.5)-1px)] sm:py-[calc(--spacing(1.5)-1px)] pr-[calc(--spacing(10)-1px)] pl-[calc(--spacing(3.5)-1px)] sm:pr-[calc(--spacing(9)-1px)] sm:pl-[calc(--spacing(3)-1px)] text-base/6 text-zinc-950 placeholder:text-zinc-500 sm:text-sm/6 dark:text-white border border-zinc-950/10 data-hover:border-zinc-950/20 dark:border-white/10 dark:data-hover:border-white/20 bg-transparent dark:bg-white/5 focus:outline-hidden flex items-center justify-between">
+                <span>
+                  {filters.property.length === 0 
+                    ? 'Все объекты' 
+                    : filters.property.length === 1
+                      ? properties.find(p => p?.id === filters.property[0])?.title || 'Выбрано: 1'
+                      : `Выбрано: ${filters.property.length}`}
+                </span>
+                <svg className="size-5 stroke-zinc-500 sm:size-4" viewBox="0 0 16 16" fill="none">
+                  <path d="M5.75 10.75L8 13L10.25 10.75" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10.25 5.25L8 3L5.75 5.25" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </Headless.PopoverButton>
+              <Headless.PopoverPanel className="absolute z-10 mt-2 w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg max-h-60 overflow-y-auto">
+                <div className="p-2 space-y-1">
+                  <label className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer">
+                    <Checkbox
+                      checked={filters.property.length === 0}
+                      onChange={(checked) => {
+                        if (checked) {
+                          setFilters(prev => ({ ...prev, property: [] }))
+                        }
+                      }}
+                    />
+                    <span className="text-sm text-zinc-900 dark:text-white">Все объекты</span>
+                  </label>
+                  {properties.map((property) => (
+                    property && (
+                      <label
+                        key={property.id}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={filters.property.includes(property.id)}
+                          onChange={(checked) => {
+                            setFilters(prev => ({
+                              ...prev,
+                              property: checked
+                                ? [...prev.property, property.id]
+                                : prev.property.filter(id => id !== property.id)
+                            }))
+                          }}
+                        />
+                        <span className="text-sm text-zinc-900 dark:text-white">{property.title}</span>
+                      </label>
+                    )
+                  ))}
+                </div>
+              </Headless.PopoverPanel>
+            </Headless.Popover>
           </Field>
 
           <Field>
@@ -520,13 +684,31 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      {/* Таблица бронирований */}
+      {/* Таблица/Карточки бронирований */}
       <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
         <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
-          <Heading level={2}>Список бронирований</Heading>
-          <Text className="text-sm text-zinc-500 mt-1">
-            Показано {bookings.length} бронирований
-          </Text>
+          <div className="flex items-center justify-between">
+            <div>
+              <Heading level={2}>Список бронирований</Heading>
+              <Text className="text-sm text-zinc-500 mt-1">
+                Показано {bookings.length} бронирований
+              </Text>
+            </div>
+            <div className="flex items-center space-x-1 bg-gray-100 dark:bg-zinc-700 rounded-lg p-1">
+              <Button
+                onClick={() => setViewMode('table')}
+                className={`p-2 ${viewMode === 'table' ? 'bg-white dark:bg-zinc-600 shadow-sm' : 'hover:bg-gray-200 dark:hover:bg-zinc-600'}`}
+              >
+                <TableCellsIcon className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={() => setViewMode('cards')}
+                className={`p-2 ${viewMode === 'cards' ? 'bg-white dark:bg-zinc-600 shadow-sm' : 'hover:bg-gray-200 dark:hover:bg-zinc-600'}`}
+              >
+                <Squares2X2Icon className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </div>
         
         {bookingsLoading ? (
@@ -536,6 +718,18 @@ export default function BookingsPage() {
         ) : bookings.length === 0 ? (
           <div className="p-6 text-center">
             <Text className="text-zinc-500">Нет бронирований</Text>
+          </div>
+        ) : viewMode === 'cards' ? (
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {bookings.map((booking) => (
+                <BookingCard 
+                  key={booking.id} 
+                  booking={booking}
+                  onCancel={(id) => cancelBookingMutation.mutate({ id, reason: 'Отменено пользователем' })}
+                />
+              ))}
+            </div>
           </div>
         ) : (
           <Table striped>
@@ -558,9 +752,21 @@ export default function BookingsPage() {
                   onClick={() => handleBookingClick(booking.id)}
                 >
                   <TableCell>
-                    <div>
+                    <div className="space-y-1">
                       <Text className="font-medium">{booking.guest.name}</Text>
                       <Text className="text-sm text-zinc-500">{booking.guest.email}</Text>
+                      {booking.guest.phone && (
+                        <a 
+                          href={`tel:${booking.guest.phone}`}
+                          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          {booking.guest.phone}
+                        </a>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

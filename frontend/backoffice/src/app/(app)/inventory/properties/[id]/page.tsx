@@ -26,6 +26,31 @@ type PropertyDetailsPageProps = {
   }>
 }
 
+// Утилиты для преобразования грейдов и сложности в понятные лейблы
+const getGradeLabel = (grade: string | undefined | null) => {
+  if (!grade) return 'Не указано'
+  const gradeNum = parseInt(grade.replace('GRADE_', ''))
+  const labels = [
+    'Комната',
+    'Маленькая студия',
+    'Студия',
+    'Маленькая однушка',
+    'Однушка',
+    'Маленькая двушка/Большая однушка',
+    'Двушка',
+    'Маленькая трешка',
+    'Трешка',
+    '4+',
+    'Элитные апартаменты'
+  ]
+  return labels[gradeNum] || `GRADE_${gradeNum}`
+}
+
+const getDifficultyLabel = (difficulty: number) => {
+  const labels = ['Очень простая', 'Простая', 'Средняя', 'Сложная', 'Очень сложная', 'Экстремально сложная']
+  return labels[difficulty] || 'Не указано'
+}
+
 export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
   const params = use(props.params)
   const router = useRouter()
@@ -583,12 +608,12 @@ export default function PropertyDetailsPage(props: PropertyDetailsPageProps) {
                       <div className="flex items-center gap-2 flex-wrap">
                         {unit.grade !== null && unit.grade !== undefined && (
                           <Badge color="blue" className="text-xs">
-                            GRADE_{unit.grade.replace('GRADE_', '')}
+                            {getGradeLabel(unit.grade)}
                           </Badge>
                         )}
                         {unit.cleaningDifficulty !== null && unit.cleaningDifficulty !== undefined && (
                           <Badge color="purple" className="text-xs">
-                            Сложность: {unit.cleaningDifficulty.replace('D', '')}
+                            Сложность: {getDifficultyLabel(parseInt(unit.cleaningDifficulty.replace('D', '')))}
                           </Badge>
                         )}
                         {(!unit.grade && !unit.cleaningDifficulty) && (

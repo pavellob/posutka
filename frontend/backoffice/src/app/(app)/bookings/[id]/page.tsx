@@ -184,23 +184,35 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
           </Subheading>
           <div className="space-y-4">
             <div>
-              <Text className="font-medium text-gray-900 dark:text-white">
+              <Text className="font-medium text-gray-900 dark:text-white text-lg">
                 {booking.guest.name}
               </Text>
-              <div className="flex items-center space-x-2 mt-1">
-                <EnvelopeIcon className="w-4 h-4 text-gray-400" />
-                <Text className="text-sm text-gray-600 dark:text-gray-400">
-                  {booking.guest.email}
-                </Text>
-              </div>
-              {booking.guest.phone && (
-                <div className="flex items-center space-x-2 mt-1">
-                  <PhoneIcon className="w-4 h-4 text-gray-400" />
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <EnvelopeIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
                   <Text className="text-sm text-gray-600 dark:text-gray-400">
-                    {booking.guest.phone}
+                    {booking.guest.email}
                   </Text>
                 </div>
-              )}
+                {booking.guest.phone ? (
+                  <div className="flex items-center space-x-2">
+                    <PhoneIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <a 
+                      href={`tel:${booking.guest.phone}`}
+                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline"
+                    >
+                      {booking.guest.phone}
+                    </a>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <PhoneIcon className="w-5 h-5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                    <Text className="text-sm text-gray-400 dark:text-gray-500 italic">
+                      Телефон не указан
+                    </Text>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
