@@ -47,8 +47,6 @@ type Booking = NonNullable<GetBookingsQuery['bookings']['edges'][0]>['node']
 type Property = NonNullable<GetPropertiesByOrgQuery['propertiesByOrgId'][0]>
 type Unit = NonNullable<GetUnitsByPropertyQuery['unitsByPropertyId'][0]>
 
-type Booking = NonNullable<GetBookingsQuery['bookings']['edges'][0]>['node']
-
 // Компонент карточки бронирования
 function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: (id: string) => void }) {
   const router = useRouter()
