@@ -48,6 +48,8 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
     guestPhone: '',
     checkIn: '',
     checkOut: '',
+    arrivalTime: '',
+    departureTime: '',
     guestsCount: 1,
     status: 'CONFIRMED',
     notes: ''
@@ -58,6 +60,8 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
     if (booking) {
       const checkInDate = new Date(booking.checkIn).toISOString().split('T')[0]
       const checkOutDate = new Date(booking.checkOut).toISOString().split('T')[0]
+      const arrivalTime = (booking as any).arrivalTime || ''
+      const departureTime = (booking as any).departureTime || ''
       
       setFormData({
         guestName: booking.guest.name || '',
@@ -65,6 +69,8 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
         guestPhone: booking.guest.phone || '',
         checkIn: checkInDate,
         checkOut: checkOutDate,
+        arrivalTime,
+        departureTime,
         guestsCount: booking.guestsCount || 1,
         status: booking.status || 'CONFIRMED',
         notes: booking.notes || ''
@@ -103,6 +109,14 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
 
     if (formData.checkOut) {
       input.checkOut = new Date(formData.checkOut).toISOString()
+    }
+
+    if (formData.arrivalTime) {
+      input.arrivalTime = formData.arrivalTime
+    }
+
+    if (formData.departureTime) {
+      input.departureTime = formData.departureTime
     }
 
     if (formData.guestsCount) {
@@ -242,6 +256,24 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
                   value={formData.checkOut}
                   onChange={(e) => handleChange('checkOut', e.target.value)}
                   required
+                />
+              </Field>
+              <Field>
+                <Label>Время прибытия</Label>
+                <Input
+                  type="time"
+                  value={formData.arrivalTime}
+                  onChange={(e) => handleChange('arrivalTime', e.target.value)}
+                  placeholder="14:00"
+                />
+              </Field>
+              <Field>
+                <Label>Время выезда</Label>
+                <Input
+                  type="time"
+                  value={formData.departureTime}
+                  onChange={(e) => handleChange('departureTime', e.target.value)}
+                  placeholder="12:00"
                 />
               </Field>
               <Field>

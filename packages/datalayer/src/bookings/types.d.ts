@@ -15,9 +15,13 @@ export interface Guest {
 }
 export interface PriceBreakdown {
     basePrice: Money;
+    pricePerDay?: Money;
     cleaningFee?: Money;
     serviceFee?: Money;
     taxes?: Money;
+    platformTax?: Money;
+    prepayment?: Money;
+    amount?: Money;
     total: Money;
 }
 export interface ServiceFee {
@@ -34,6 +38,8 @@ export interface Booking {
     source: BookingSource;
     checkIn: DateTime;
     checkOut: DateTime;
+    arrivalTime?: string;
+    departureTime?: string;
     guestsCount: number;
     priceBreakdown: PriceBreakdown;
     notes?: string;
@@ -87,6 +93,8 @@ export interface CreateBookingInput {
     };
     checkIn: DateTime;
     checkOut: DateTime;
+    arrivalTime?: string;
+    departureTime?: string;
     guestsCount: number;
     priceBreakdown: PriceBreakdown;
     notes?: string;
@@ -104,4 +112,17 @@ export interface ListBookingsParams {
     status?: BookingStatus;
     first?: number;
     after?: string;
+}
+
+export interface UpdateBookingInput {
+    id: UUID;
+    guestId?: UUID;
+    checkIn?: DateTime;
+    checkOut?: DateTime;
+    arrivalTime?: string;
+    departureTime?: string;
+    guestsCount?: number;
+    status?: BookingStatus;
+    notes?: string;
+    cancellationReason?: string;
 }

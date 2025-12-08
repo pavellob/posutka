@@ -75,6 +75,10 @@ export class RealtyCalendarService {
         newCheckOut: dto.checkOut instanceof Date ? dto.checkOut.toISOString() : dto.checkOut,
       });
       
+      // Преобразуем финансовые данные в формат gRPC (в копейках)
+      const currency = 'RUB';
+      const basePriceAmount = dto.totalAmount ?? dto.amount ?? 0;
+      
       const updated = await this.bookingsClient.updateBooking({
         id: existingBooking.id,
         guestName: dto.guest.name,
@@ -82,8 +86,24 @@ export class RealtyCalendarService {
         guestPhone: dto.guest.phone,
         checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
         checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
-        guestsCount: 1,
-        notes: dto.address,
+        arrivalTime: dto.arrivalTime,
+        departureTime: dto.departureTime,
+        guestsCount: dto.guestsCount || 1,
+        notes: dto.notes ?? dto.address,
+        source: dto.source,
+        // Финансовые поля в формате gRPC (в копейках)
+        basePriceAmount: basePriceAmount,
+        basePriceCurrency: currency,
+        pricePerDayAmount: dto.pricePerDay,
+        pricePerDayCurrency: currency,
+        platformTaxAmount: dto.platformTax,
+        platformTaxCurrency: currency,
+        prepaymentAmount: dto.prepayment,
+        prepaymentCurrency: currency,
+        amountAmount: dto.amount,
+        amountCurrency: currency,
+        totalAmount: dto.totalAmount ?? basePriceAmount,
+        totalCurrency: currency,
       } as any);
 
       if (!updated.booking) {
@@ -109,6 +129,10 @@ export class RealtyCalendarService {
     }
 
     // 4. Создать новое бронирование
+    // Преобразуем финансовые данные в формат gRPC (в копейках)
+    const currency = 'RUB'; // Валюта по умолчанию
+    const basePriceAmount = dto.totalAmount ?? dto.amount ?? 0;
+    
     const created = await this.bookingsClient.createBooking({
       orgId,
       unitId,
@@ -119,10 +143,27 @@ export class RealtyCalendarService {
       guestPhone: dto.guest.phone, // Передаем phone для создания гостя
       checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
       checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
-      guestsCount: 1,
+      arrivalTime: dto.arrivalTime,
+      departureTime: dto.departureTime,
+      guestsCount: dto.guestsCount || 1,
+      notes: dto.notes ?? dto.address,
+      source: dto.source,
       externalSource: dto.externalRef.source,
       externalId: dto.externalRef.id, // Сохраняем externalId для связи при отмене
-    } as any); // Используем as any, так как эти поля могут быть не в proto
+      // Финансовые поля в формате gRPC (в копейках)
+      basePriceAmount: basePriceAmount,
+      basePriceCurrency: currency,
+      pricePerDayAmount: dto.pricePerDay,
+      pricePerDayCurrency: currency,
+      platformTaxAmount: dto.platformTax,
+      platformTaxCurrency: currency,
+      prepaymentAmount: dto.prepayment,
+      prepaymentCurrency: currency,
+      amountAmount: dto.amount,
+      amountCurrency: currency,
+      totalAmount: dto.totalAmount ?? basePriceAmount,
+      totalCurrency: currency,
+    } as any);
 
     if (!created.booking) {
       throw new Error('Failed to create booking: booking is undefined');
@@ -165,6 +206,10 @@ export class RealtyCalendarService {
     // 3. Если бронирование существует - обновляем, иначе создаем
     if (existingBooking) {
       // UPDATE существующего
+      // Преобразуем финансовые данные в формат gRPC (в копейках)
+      const currency = 'RUB';
+      const basePriceAmount = dto.totalAmount ?? dto.amount ?? 0;
+      
       const updated = await this.bookingsClient.updateBooking({
         id: existingBooking.id,
         guestName: dto.guest.name,
@@ -172,8 +217,24 @@ export class RealtyCalendarService {
         guestPhone: dto.guest.phone,
         checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
         checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
-        guestsCount: 1, // TODO: извлечь из webhook если есть
-        notes: dto.address, // Используем address как notes, так как поле notes может быть в booking.notes
+        arrivalTime: dto.arrivalTime,
+        departureTime: dto.departureTime,
+        guestsCount: dto.guestsCount || 1,
+        notes: dto.notes ?? dto.address,
+        source: dto.source,
+        // Финансовые поля в формате gRPC (в копейках)
+        basePriceAmount: basePriceAmount,
+        basePriceCurrency: currency,
+        pricePerDayAmount: dto.pricePerDay,
+        pricePerDayCurrency: currency,
+        platformTaxAmount: dto.platformTax,
+        platformTaxCurrency: currency,
+        prepaymentAmount: dto.prepayment,
+        prepaymentCurrency: currency,
+        amountAmount: dto.amount,
+        amountCurrency: currency,
+        totalAmount: dto.totalAmount ?? basePriceAmount,
+        totalCurrency: currency,
       } as any);
 
       if (!updated.booking) {

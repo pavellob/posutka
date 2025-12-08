@@ -101,15 +101,25 @@ export class BookingsDLPrisma implements IBookingsDL {
         guestId: guest.id,
         checkIn: new Date(input.checkIn),
         checkOut: new Date(input.checkOut),
+        arrivalTime: input.arrivalTime,
+        departureTime: input.departureTime,
         guestsCount: input.guestsCount,
         basePriceAmount: input.priceBreakdown.basePrice.amount,
         basePriceCurrency: input.priceBreakdown.basePrice.currency,
+        pricePerDayAmount: input.priceBreakdown.pricePerDay?.amount,
+        pricePerDayCurrency: input.priceBreakdown.pricePerDay?.currency,
         cleaningFeeAmount: input.priceBreakdown.cleaningFee?.amount,
         cleaningFeeCurrency: input.priceBreakdown.cleaningFee?.currency,
         serviceFeeAmount: input.priceBreakdown.serviceFee?.amount,
         serviceFeeCurrency: input.priceBreakdown.serviceFee?.currency,
         taxesAmount: input.priceBreakdown.taxes?.amount,
         taxesCurrency: input.priceBreakdown.taxes?.currency,
+        platformTaxAmount: input.priceBreakdown.platformTax?.amount,
+        platformTaxCurrency: input.priceBreakdown.platformTax?.currency,
+        prepaymentAmount: input.priceBreakdown.prepayment?.amount,
+        prepaymentCurrency: input.priceBreakdown.prepayment?.currency,
+        amountAmount: input.priceBreakdown.amount?.amount,
+        amountCurrency: input.priceBreakdown.amount?.currency,
         totalAmount: input.priceBreakdown.total.amount,
         totalCurrency: input.priceBreakdown.total.currency,
         notes: input.notes,
@@ -129,10 +139,53 @@ export class BookingsDLPrisma implements IBookingsDL {
     if (input.guestId) data.guestId = input.guestId;
     if (input.checkIn) data.checkIn = new Date(input.checkIn);
     if (input.checkOut) data.checkOut = new Date(input.checkOut);
+    if (input.arrivalTime !== undefined) data.arrivalTime = input.arrivalTime;
+    if (input.departureTime !== undefined) data.departureTime = input.departureTime;
     if (input.guestsCount) data.guestsCount = input.guestsCount;
     if (input.status) data.status = input.status;
     if (input.notes !== undefined) data.notes = input.notes;
     if (input.cancellationReason !== undefined) data.cancellationReason = input.cancellationReason;
+
+    // Финансовые поля (опционально)
+    if (input.priceBreakdown) {
+      const pb = input.priceBreakdown;
+      if (pb.basePrice) {
+        data.basePriceAmount = pb.basePrice.amount;
+        data.basePriceCurrency = pb.basePrice.currency;
+      }
+      if (pb.pricePerDay) {
+        data.pricePerDayAmount = pb.pricePerDay.amount;
+        data.pricePerDayCurrency = pb.pricePerDay.currency;
+      }
+      if (pb.cleaningFee) {
+        data.cleaningFeeAmount = pb.cleaningFee.amount;
+        data.cleaningFeeCurrency = pb.cleaningFee.currency;
+      }
+      if (pb.serviceFee) {
+        data.serviceFeeAmount = pb.serviceFee.amount;
+        data.serviceFeeCurrency = pb.serviceFee.currency;
+      }
+      if (pb.taxes) {
+        data.taxesAmount = pb.taxes.amount;
+        data.taxesCurrency = pb.taxes.currency;
+      }
+      if (pb.platformTax) {
+        data.platformTaxAmount = pb.platformTax.amount;
+        data.platformTaxCurrency = pb.platformTax.currency;
+      }
+      if (pb.prepayment) {
+        data.prepaymentAmount = pb.prepayment.amount;
+        data.prepaymentCurrency = pb.prepayment.currency;
+      }
+      if (pb.amount) {
+        data.amountAmount = pb.amount.amount;
+        data.amountCurrency = pb.amount.currency;
+      }
+      if (pb.total) {
+        data.totalAmount = pb.total.amount;
+        data.totalCurrency = pb.total.currency;
+      }
+    }
 
     const updatedBooking = await this.prisma.booking.update({
       where: { id: input.id },
@@ -274,12 +327,18 @@ export class BookingsDLPrisma implements IBookingsDL {
       source: booking.source,
       checkIn: booking.checkIn.toISOString(),
       checkOut: booking.checkOut.toISOString(),
+      arrivalTime: booking.arrivalTime || undefined,
+      departureTime: booking.departureTime || undefined,
       guestsCount: booking.guestsCount,
       priceBreakdown: {
         basePrice: { amount: booking.basePriceAmount, currency: booking.basePriceCurrency },
+        pricePerDay: booking.pricePerDayAmount ? { amount: booking.pricePerDayAmount, currency: booking.pricePerDayCurrency } : undefined,
         cleaningFee: booking.cleaningFeeAmount ? { amount: booking.cleaningFeeAmount, currency: booking.cleaningFeeCurrency } : undefined,
         serviceFee: booking.serviceFeeAmount ? { amount: booking.serviceFeeAmount, currency: booking.serviceFeeCurrency } : undefined,
         taxes: booking.taxesAmount ? { amount: booking.taxesAmount, currency: booking.taxesCurrency } : undefined,
+        platformTax: booking.platformTaxAmount ? { amount: booking.platformTaxAmount, currency: booking.platformTaxCurrency } : undefined,
+        prepayment: booking.prepaymentAmount ? { amount: booking.prepaymentAmount, currency: booking.prepaymentCurrency } : undefined,
+        amount: booking.amountAmount ? { amount: booking.amountAmount, currency: booking.amountCurrency } : undefined,
         total: { amount: booking.totalAmount, currency: booking.totalCurrency }
       },
       notes: booking.notes,

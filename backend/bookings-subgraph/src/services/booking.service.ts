@@ -115,23 +115,54 @@ export class BookingService {
         });
       }
 
+      // Формируем priceBreakdown с поддержкой новых финансовых полей
+      const buildPriceBreakdown = () => {
+        if (bookingData.priceBreakdown) {
+          return bookingData.priceBreakdown;
+        }
+        
+        const currency = bookingData.basePriceCurrency || bookingData.totalCurrency || 'RUB';
+        const basePriceAmount = bookingData.basePriceAmount || 0;
+        const totalAmount = bookingData.totalAmount || basePriceAmount;
+        
+        return {
+          basePrice: {
+            amount: basePriceAmount,
+            currency,
+          },
+          pricePerDay: bookingData.pricePerDay ? {
+            amount: bookingData.pricePerDay,
+            currency,
+          } : undefined,
+          platformTax: bookingData.platformTax ? {
+            amount: bookingData.platformTax,
+            currency,
+          } : undefined,
+          prepayment: bookingData.prepayment ? {
+            amount: bookingData.prepayment,
+            currency,
+          } : undefined,
+          amount: bookingData.amount ? {
+            amount: bookingData.amount,
+            currency,
+          } : undefined,
+          total: {
+            amount: totalAmount,
+            currency: bookingData.totalCurrency || currency,
+          },
+        };
+      };
+
       const createBookingInput: any = {
         orgId: bookingData.orgId,
         unitId: bookingData.unitId,
         propertyId: bookingData.propertyId,
         checkIn: checkInDate,
         checkOut: checkOutDate,
+        arrivalTime: bookingData.arrivalTime,
+        departureTime: bookingData.departureTime,
         guestsCount: bookingData.guestsCount || 1,
-        priceBreakdown: bookingData.priceBreakdown || {
-          basePrice: {
-            amount: bookingData.basePriceAmount || 0,
-            currency: bookingData.basePriceCurrency || 'RUB',
-          },
-          total: {
-            amount: bookingData.totalAmount || bookingData.basePriceAmount || 0,
-            currency: bookingData.totalCurrency || bookingData.basePriceCurrency || 'RUB',
-          },
-        },
+        priceBreakdown: buildPriceBreakdown(),
         notes: bookingData.notes,
         source: bookingData.source || 'DIRECT',
         externalSource: bookingData.externalSource,
@@ -878,9 +909,12 @@ export class BookingService {
     guestPhone?: string;
     checkIn?: Date;
     checkOut?: Date;
+    arrivalTime?: string;
+    departureTime?: string;
     guestsCount?: number;
     status?: any;
     notes?: string;
+    priceBreakdown?: any;
   }): Promise<any> {
     try {
       logger.info('Updating booking', { request });
@@ -934,9 +968,12 @@ export class BookingService {
         guestId: updatedGuestId,
         checkIn: request.checkIn?.toISOString(),
         checkOut: request.checkOut?.toISOString(),
+        arrivalTime: request.arrivalTime,
+        departureTime: request.departureTime,
         guestsCount: request.guestsCount,
         status: request.status,
         notes: request.notes,
+        priceBreakdown: request.priceBreakdown,
       });
 
       // Публикуем событие BOOKING_CONFIRMED (используем для обновления)

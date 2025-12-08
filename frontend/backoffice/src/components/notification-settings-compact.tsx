@@ -24,6 +24,7 @@ const QUICK_EVENTS = [
   { id: 'CLEANING_READY_FOR_REVIEW', name: 'Уборки ждут проверки' },
   { id: 'TASK_ASSIGNED', name: 'Задачи назначены' },
   { id: 'BOOKING_CREATED', name: 'Новые бронирования' },
+  { id: 'BOOKING_UPDATED', name: 'Брони обновлены' },
 ];
 
 /**

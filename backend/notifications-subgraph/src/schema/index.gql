@@ -46,6 +46,8 @@ enum EventType {
   BOOKING_CONFIRMED
   """Бронирование отменено"""
   BOOKING_CANCELLED
+  """Бронирование обновлено"""
+  BOOKING_UPDATED
   """Заселение гостя"""
   BOOKING_CHECKIN
   """Выселение гостя"""

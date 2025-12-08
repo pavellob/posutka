@@ -177,15 +177,25 @@ model Booking {
   source              BookingSource        @default(DIRECT)
   checkIn             DateTime
   checkOut            DateTime
+  arrivalTime         String?
+  departureTime       String?
   guestsCount         Int
   basePriceAmount     Int
   basePriceCurrency   String
+  pricePerDayAmount   Int?
+  pricePerDayCurrency String?
   cleaningFeeAmount   Int?
   cleaningFeeCurrency String?
   serviceFeeAmount    Int?
   serviceFeeCurrency  String?
   taxesAmount         Int?
   taxesCurrency       String?
+  platformTaxAmount   Int?
+  platformTaxCurrency String?
+  prepaymentAmount    Int?
+  prepaymentCurrency  String?
+  amountAmount        Int?
+  amountCurrency      String?
   totalAmount         Int
   totalCurrency       String
   notes               String?

@@ -49,6 +49,7 @@ const EVENT_GROUPS = {
     events: [
       { id: 'BOOKING_CREATED', name: 'Бронирование создано' },
       { id: 'BOOKING_CONFIRMED', name: 'Бронирование подтверждено' },
+      { id: 'BOOKING_UPDATED', name: 'Бронирование обновлено' },
       { id: 'BOOKING_CANCELLED', name: 'Бронирование отменено' },
       { id: 'BOOKING_CHECKIN', name: 'Заселение' },
       { id: 'BOOKING_CHECKOUT', name: 'Выселение' },

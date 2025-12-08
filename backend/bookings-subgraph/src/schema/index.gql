@@ -179,6 +179,10 @@ type Booking {
   checkIn: DateTime!
   """Дата и время выезда"""
   checkOut: DateTime!
+  """Время прибытия (если известно)"""
+  arrivalTime: String
+  """Время выезда гостя (если известно)"""
+  departureTime: String
   """Количество гостей"""
   guestsCount: Int!
   """Детализация стоимости бронирования"""
@@ -225,12 +229,20 @@ type Guest {
 type PriceBreakdown {
   """Базовая стоимость проживания"""
   basePrice: Money!
+  """Цена за сутки (опционально)"""
+  pricePerDay: Money
   """Стоимость уборки (опционально)"""
   cleaningFee: Money
   """Сервисный сбор (опционально)"""
   serviceFee: Money
   """Налоги (опционально)"""
   taxes: Money
+  """Комиссия платформы (опционально)"""
+  platformTax: Money
+  """Предоплата (опционально)"""
+  prepayment: Money
+  """Сумма, переданная внешней системой (опционально)"""
+  amount: Money
   """Общая стоимость бронирования"""
   total: Money!
 }
@@ -285,6 +297,10 @@ input CreateBookingInput {
   checkIn: DateTime!
   """Дата и время выезда"""
   checkOut: DateTime!
+  """Время прибытия (опционально)"""
+  arrivalTime: String
+  """Время выезда (опционально)"""
+  departureTime: String
   """Количество гостей"""
   guestsCount: Int!
   """Детализация стоимости"""
@@ -317,12 +333,20 @@ input GuestInput {
 input PriceBreakdownInput {
   """Базовая стоимость проживания"""
   basePrice: MoneyInput!
+  """Цена за сутки (опционально)"""
+  pricePerDay: MoneyInput
   """Стоимость уборки (опционально)"""
   cleaningFee: MoneyInput
   """Сервисный сбор (опционально)"""
   serviceFee: MoneyInput
   """Налоги (опционально)"""
   taxes: MoneyInput
+  """Комиссия платформы (опционально)"""
+  platformTax: MoneyInput
+  """Предоплата (опционально)"""
+  prepayment: MoneyInput
+  """Сумма, переданная внешней системой (опционально)"""
+  amount: MoneyInput
   """Общая стоимость бронирования"""
   total: MoneyInput!
 }
@@ -339,6 +363,10 @@ input UpdateBookingInput {
   checkIn: DateTime
   """Дата и время выезда (опционально)"""
   checkOut: DateTime
+  """Время прибытия (опционально)"""
+  arrivalTime: String
+  """Время выезда (опционально)"""
+  departureTime: String
   """Количество гостей (опционально)"""
   guestsCount: Int
   """Статус бронирования (опционально)"""

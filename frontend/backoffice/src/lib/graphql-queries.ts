@@ -148,6 +148,10 @@ export const GET_BOOKINGS = gql`
           source
           checkIn
           checkOut
+      arrivalTime
+      departureTime
+      arrivalTime
+      departureTime
           guestsCount
           notes
           cancellationReason
@@ -172,6 +176,10 @@ export const GET_BOOKINGS = gql`
               amount
               currency
             }
+            pricePerDay {
+              amount
+              currency
+            }
             cleaningFee {
               amount
               currency
@@ -181,6 +189,18 @@ export const GET_BOOKINGS = gql`
               currency
             }
             taxes {
+              amount
+              currency
+            }
+            platformTax {
+              amount
+              currency
+            }
+            prepayment {
+              amount
+              currency
+            }
+            amount {
               amount
               currency
             }
@@ -211,6 +231,10 @@ export const GET_BOOKING_BY_ID = gql`
       source
       checkIn
       checkOut
+      arrivalTime
+      departureTime
+      arrivalTime
+      departureTime
       guestsCount
       notes
       cancellationReason
@@ -246,6 +270,10 @@ export const GET_BOOKING_BY_ID = gql`
           amount
           currency
         }
+        pricePerDay {
+          amount
+          currency
+        }
         cleaningFee {
           amount
           currency
@@ -255,6 +283,18 @@ export const GET_BOOKING_BY_ID = gql`
           currency
         }
         taxes {
+          amount
+          currency
+        }
+        platformTax {
+          amount
+          currency
+        }
+        prepayment {
+          amount
+          currency
+        }
+        amount {
           amount
           currency
         }
@@ -1156,6 +1196,8 @@ export const UPDATE_BOOKING = gql`
       status
       checkIn
       checkOut
+      arrivalTime
+      departureTime
       guestsCount
       notes
       updatedAt

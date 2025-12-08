@@ -20,6 +20,30 @@ message Booking {
   string property_id = 4;
   string guest_id = 5;
   string guest_name = 6;
+  // Контакты гостя
+  optional string guest_email = 34;
+  optional string guest_phone = 35;
+  optional string arrival_time = 36;
+  optional string departure_time = 37;
+  // Финансовые поля (в минимальных единицах валюты)
+  optional int32 base_price_amount = 40;
+  optional string base_price_currency = 41;
+  optional int32 price_per_day_amount = 42;
+  optional string price_per_day_currency = 43;
+  optional int32 cleaning_fee_amount = 44;
+  optional string cleaning_fee_currency = 45;
+  optional int32 service_fee_amount = 46;
+  optional string service_fee_currency = 47;
+  optional int32 taxes_amount = 48;
+  optional string taxes_currency = 49;
+  optional int32 platform_tax_amount = 50;
+  optional string platform_tax_currency = 51;
+  optional int32 prepayment_amount = 52;
+  optional string prepayment_currency = 53;
+  optional int32 amount_amount = 54;
+  optional string amount_currency = 55;
+  optional int32 total_amount = 56;
+  optional string total_currency = 57;
   google.protobuf.Timestamp check_in = 7;
   google.protobuf.Timestamp check_out = 8;
   int32 guests_count = 9;
@@ -39,6 +63,30 @@ message CreateBookingRequest {
   string property_id = 3;
   string guest_id = 4;
   string guest_name = 5;
+  // Контакты гостя
+  optional string guest_email = 11;
+  optional string guest_phone = 12;
+  optional string arrival_time = 13;
+  optional string departure_time = 14;
+  // Финансовые поля (в минимальных единицах валюты)
+  optional int32 base_price_amount = 16;
+  optional string base_price_currency = 17;
+  optional int32 price_per_day_amount = 18;
+  optional string price_per_day_currency = 19;
+  optional int32 cleaning_fee_amount = 20;
+  optional string cleaning_fee_currency = 21;
+  optional int32 service_fee_amount = 22;
+  optional string service_fee_currency = 23;
+  optional int32 taxes_amount = 24;
+  optional string taxes_currency = 25;
+  optional int32 platform_tax_amount = 26;
+  optional string platform_tax_currency = 27;
+  optional int32 prepayment_amount = 28;
+  optional string prepayment_currency = 29;
+  optional int32 amount_amount = 30;
+  optional string amount_currency = 31;
+  optional int32 total_amount = 32;
+  optional string total_currency = 33;
   google.protobuf.Timestamp check_in = 6;
   google.protobuf.Timestamp check_out = 7;
   int32 guests_count = 8;
@@ -75,6 +123,30 @@ message ChangeBookingDatesRequest {
 message UpdateBookingRequest {
   string id = 1;
   optional string guest_name = 2;
+  // Контакты гостя
+  optional string guest_email = 7;
+  optional string guest_phone = 8;
+  optional string arrival_time = 9;
+  optional string departure_time = 10;
+  // Финансовые поля (в минимальных единицах валюты)
+  optional int32 base_price_amount = 11;
+  optional string base_price_currency = 12;
+  optional int32 price_per_day_amount = 13;
+  optional string price_per_day_currency = 14;
+  optional int32 cleaning_fee_amount = 15;
+  optional string cleaning_fee_currency = 16;
+  optional int32 service_fee_amount = 17;
+  optional string service_fee_currency = 18;
+  optional int32 taxes_amount = 19;
+  optional string taxes_currency = 20;
+  optional int32 platform_tax_amount = 21;
+  optional string platform_tax_currency = 22;
+  optional int32 prepayment_amount = 23;
+  optional string prepayment_currency = 24;
+  optional int32 amount_amount = 25;
+  optional string amount_currency = 26;
+  optional int32 total_amount = 27;
+  optional string total_currency = 28;
   optional google.protobuf.Timestamp check_in = 3;
   optional google.protobuf.Timestamp check_out = 4;
   optional int32 guests_count = 5;

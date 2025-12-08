@@ -59,33 +59,48 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: (id: s
       <div className="p-6 space-y-4">
         {/* Заголовок с гостем */}
         <div className="space-y-3">
-          <div>
-            <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-              {booking.guest.name}
-            </Text>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                {booking.guest.email}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                {booking.guest.name}
+              </Text>
+              <div className="space-y-1 text-sm text-gray-700 dark:text-gray-200">
+                {booking.guest.email && (
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <a
+                      href={`mailto:${booking.guest.email}`}
+                      className="hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {booking.guest.email}
+                    </a>
+                  </div>
+                )}
+                {booking.guest.phone && (
+                  <a 
+                    href={`tel:${booking.guest.phone}`}
+                    className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <PhoneIcon className="w-4 h-4" />
+                    {booking.guest.phone}
+                  </a>
+                )}
               </div>
-              {booking.guest.phone && (
-                <a 
-                  href={`tel:${booking.guest.phone}`}
-                  className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <PhoneIcon className="w-4 h-4" />
-                  {booking.guest.phone}
-                </a>
+            </div>
+            <div className="text-right space-y-2">
+              <Badge color={getStatusColor(booking.status) as any}>
+                {getStatusLabel(booking.status)}
+              </Badge>
+              {booking.source && (
+                <Badge color="blue" className="block ml-auto">
+                  {booking.source}
+                </Badge>
               )}
             </div>
-          </div>
-          <div>
-            <Badge color={getStatusColor(booking.status) as any}>
-              {getStatusLabel(booking.status)}
-            </Badge>
           </div>
         </div>
 
@@ -138,6 +153,14 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: (id: s
                 {booking.guestsCount}
               </Text>
             </div>
+            {booking.notes && (
+              <div className="max-w-[220px]">
+                <Text className="text-xs text-gray-500 dark:text-gray-400">Примечание</Text>
+                <Text className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2">
+                  {booking.notes}
+                </Text>
+              </div>
+            )}
           </div>
           <div className="text-right">
             <Text className="text-xs text-gray-500 dark:text-gray-400">Сумма</Text>
@@ -145,6 +168,25 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: (id: s
               {formatMoney(booking.priceBreakdown.total.amount, booking.priceBreakdown.total.currency)}
             </Text>
           </div>
+        </div>
+        {/* Стоимость и комиссии (если есть) */}
+        <div className="pt-2 grid grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-300">
+          {booking.priceBreakdown.basePrice?.amount !== undefined && (
+            <div className="flex flex-col">
+              <span className="text-gray-500 dark:text-gray-400">Базовая стоимость</span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {formatMoney(booking.priceBreakdown.basePrice.amount, booking.priceBreakdown.basePrice.currency)}
+              </span>
+            </div>
+          )}
+          {booking.priceBreakdown.taxes?.amount !== undefined && (
+            <div className="flex flex-col">
+              <span className="text-gray-500 dark:text-gray-400">Налоги/комиссии</span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {formatMoney(booking.priceBreakdown.taxes.amount, booking.priceBreakdown.taxes.currency)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -346,6 +388,8 @@ export default function BookingsPage() {
       guestPhone: '',
       checkIn: '',
       checkOut: '',
+      arrivalTime: '',
+      departureTime: '',
       guestsCount: 1,
       basePrice: 0,
       notes: ''
@@ -371,6 +415,8 @@ export default function BookingsPage() {
       },
       checkIn: createFormData.checkIn,
       checkOut: createFormData.checkOut,
+      arrivalTime: createFormData.arrivalTime || undefined,
+      departureTime: createFormData.departureTime || undefined,
       guestsCount: createFormData.guestsCount,
       priceBreakdown: {
         basePrice: {
@@ -951,6 +997,26 @@ export default function BookingsPage() {
                     value={createFormData.guestsCount}
                     onChange={(e) => setCreateFormData(prev => ({ ...prev, guestsCount: parseInt(e.target.value) || 1 }))}
                     required
+                  />
+                </Field>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <Field>
+                  <Label>Время прибытия</Label>
+                  <Input
+                    type="time"
+                    value={createFormData.arrivalTime}
+                    onChange={(e) => setCreateFormData(prev => ({ ...prev, arrivalTime: e.target.value }))}
+                    placeholder="14:00"
+                  />
+                </Field>
+                <Field>
+                  <Label>Время выезда</Label>
+                  <Input
+                    type="time"
+                    value={createFormData.departureTime}
+                    onChange={(e) => setCreateFormData(prev => ({ ...prev, departureTime: e.target.value }))}
+                    placeholder="12:00"
                   />
                 </Field>
               </div>

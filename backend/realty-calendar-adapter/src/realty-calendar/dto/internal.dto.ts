@@ -6,6 +6,7 @@ export interface InternalBookingDTO {
     source: 'REALTY_CALENDAR';
     id: string;
   };
+  source?: string;
   checkIn: Date;
   checkOut: Date;
   guest: {
@@ -22,9 +23,16 @@ export interface InternalBookingDTO {
     id: string;
   };
   address: string;
+  notes?: string;
   amount?: number;
+  totalAmount?: number;
+  pricePerDay?: number;
+  platformTax?: number;
   prepayment?: number;
   deposit?: number;
+  arrivalTime?: string;
+  departureTime?: string;
+  guestsCount?: number;
   cancellationReason?: string; // Причина отмены (для CANCEL action)
   canceledDate?: string; // Дата отмены (для CANCEL action)
 }

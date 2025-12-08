@@ -125,6 +125,17 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
+  const formatDateTime = (value: string | Date) => {
+    const date = value instanceof Date ? value : new Date(value)
+    return date.toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   const handleCancelBooking = () => {
     if (booking.id) {
       cancelBookingMutation.mutate({ id: booking.id })
@@ -227,13 +238,25 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
             <div>
               <Text className="text-sm text-gray-500 dark:text-gray-400">Заезд</Text>
               <Text className="font-medium text-gray-900 dark:text-white">
-                {new Date(booking.checkIn).toLocaleDateString('ru-RU')}
+                {formatDateTime(booking.checkIn)}
+              </Text>
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500 dark:text-gray-400">Время прибытия</Text>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {booking.arrivalTime || 'Не указано'}
               </Text>
             </div>
             <div>
               <Text className="text-sm text-gray-500 dark:text-gray-400">Выезд</Text>
               <Text className="font-medium text-gray-900 dark:text-white">
-                {new Date(booking.checkOut).toLocaleDateString('ru-RU')}
+                {formatDateTime(booking.checkOut)}
+              </Text>
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500 dark:text-gray-400">Время выезда</Text>
+              <Text className="font-medium text-gray-900 dark:text-white">
+                {booking.departureTime || 'Не указано'}
               </Text>
             </div>
             <div>
@@ -282,17 +305,73 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
             <CreditCardIcon className="w-5 h-5 mr-2" />
             Финансовая информация
           </Subheading>
-          <div className="space-y-4">
+          <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <Text className="text-sm text-gray-500 dark:text-gray-400">Базовая цена</Text>
+              <Text className="text-gray-500 dark:text-gray-400">Базовая цена</Text>
               <Text className="font-medium text-gray-900 dark:text-white">
                 {formatMoney(booking.priceBreakdown.basePrice.amount, booking.priceBreakdown.basePrice.currency)}
               </Text>
             </div>
-            {booking.priceBreakdown.total && booking.priceBreakdown.total.amount !== booking.priceBreakdown.basePrice.amount && (
+            {booking.priceBreakdown.cleaningFee && booking.priceBreakdown.cleaningFee.amount !== undefined && (
               <div className="flex justify-between">
-                <Text className="text-sm text-gray-500 dark:text-gray-400">Итого</Text>
+                <Text className="text-gray-500 dark:text-gray-400">Уборка</Text>
                 <Text className="font-medium text-gray-900 dark:text-white">
+                  {formatMoney(booking.priceBreakdown.cleaningFee.amount, booking.priceBreakdown.cleaningFee.currency)}
+                </Text>
+              </div>
+            )}
+            {booking.priceBreakdown.pricePerDay && (
+              <div className="flex justify-between">
+                <Text className="text-gray-500 dark:text-gray-400">Цена за сутки</Text>
+                <Text className="font-medium text-gray-900 dark:text-white">
+                  {formatMoney(booking.priceBreakdown.pricePerDay.amount, booking.priceBreakdown.pricePerDay.currency)}
+                </Text>
+              </div>
+            )}
+            {booking.priceBreakdown.serviceFee && booking.priceBreakdown.serviceFee.amount !== undefined && (
+              <div className="flex justify-between">
+                <Text className="text-gray-500 dark:text-gray-400">Сервисный сбор</Text>
+                <Text className="font-medium text-gray-900 dark:text-white">
+                  {formatMoney(booking.priceBreakdown.serviceFee.amount, booking.priceBreakdown.serviceFee.currency)}
+                </Text>
+              </div>
+            )}
+            {booking.priceBreakdown.taxes && booking.priceBreakdown.taxes.amount !== undefined && (
+              <div className="flex justify-between">
+                <Text className="text-gray-500 dark:text-gray-400">Налоги / комиссии</Text>
+                <Text className="font-medium text-gray-900 dark:text-white">
+                  {formatMoney(booking.priceBreakdown.taxes.amount, booking.priceBreakdown.taxes.currency)}
+                </Text>
+              </div>
+            )}
+            {booking.priceBreakdown.platformTax && (
+              <div className="flex justify-between">
+                <Text className="text-gray-500 dark:text-gray-400">Комиссия платформы</Text>
+                <Text className="font-medium text-gray-900 dark:text-white">
+                  {formatMoney(booking.priceBreakdown.platformTax.amount, booking.priceBreakdown.platformTax.currency)}
+                </Text>
+              </div>
+            )}
+            {booking.priceBreakdown.prepayment && (
+              <div className="flex justify-between">
+                <Text className="text-gray-500 dark:text-gray-400">Предоплата</Text>
+                <Text className="font-medium text-gray-900 dark:text-white">
+                  {formatMoney(booking.priceBreakdown.prepayment.amount, booking.priceBreakdown.prepayment.currency)}
+                </Text>
+              </div>
+            )}
+            {booking.priceBreakdown.amount && (
+              <div className="flex justify-between">
+                <Text className="text-gray-500 dark:text-gray-400">Сумма (внешняя)</Text>
+                <Text className="font-medium text-gray-900 dark:text-white">
+                  {formatMoney(booking.priceBreakdown.amount.amount, booking.priceBreakdown.amount.currency)}
+                </Text>
+              </div>
+            )}
+            {booking.priceBreakdown.total && (
+              <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 pt-2">
+                <Text className="text-gray-700 dark:text-gray-200 font-semibold">Итого</Text>
+                <Text className="font-semibold text-gray-900 dark:text-white">
                   {formatMoney(booking.priceBreakdown.total.amount, booking.priceBreakdown.total.currency)}
                 </Text>
               </div>

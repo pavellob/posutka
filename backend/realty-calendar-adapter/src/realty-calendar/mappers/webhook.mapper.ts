@@ -21,12 +21,31 @@ export class WebhookMapper {
     const clientEmail = webhook.client?.email ?? undefined;
     const guestName = clientFio || clientName || 'Guest';
 
+    // Финансовые данные (в копейках)
+    const toCents = (value?: number | string | null): number | undefined => {
+      if (value === null || value === undefined) return undefined;
+      const num = Number(value);
+      if (Number.isNaN(num)) return undefined;
+      return Math.round(num * 100);
+    };
+
+    const totalAmount = toCents(webhook.booking.booking_amount ?? webhook.booking.amount);
+    const amount = toCents(webhook.booking.amount);
+    const pricePerDay = toCents(webhook.booking.price_per_day);
+    const platformTax = toCents(webhook.booking.platform_tax);
+    const prepayment = toCents(webhook.booking.prepayment);
+    const deposit = toCents(webhook.booking.deposit);
+    const guestsCount = webhook.booking.guests_count ?? webhook.booking.partner_guests_count ?? 1;
+    const source = webhook.booking.source || webhook.booking.booking_origin?.title || undefined;
+    const notes = webhook.booking.notes ?? undefined;
+
     return {
       action: actionMap[webhook.action] || 'CREATE',
       externalRef: {
         source: 'REALTY_CALENDAR',
         id: webhook.booking.id,
       },
+      source,
       checkIn,
       checkOut,
       guest: {
@@ -34,6 +53,9 @@ export class WebhookMapper {
         phone: clientPhone,
         email: clientEmail,
       },
+      notes,
+      arrivalTime: webhook.booking.arrival_time ?? undefined,
+      departureTime: webhook.booking.departure_time ?? undefined,
       propertyExternalRef: webhook.booking.realty_id ? {
         source: 'REALTY_CALENDAR',
         id: webhook.booking.realty_id,
@@ -43,9 +65,13 @@ export class WebhookMapper {
         id: webhook.booking.realty_room_id,
       } : undefined,
       address: webhook.booking.address || 'Адрес не указан', // Предоставляем дефолтное значение, если address отсутствует
-      amount: webhook.booking.amount,
-      prepayment: webhook.booking.prepayment,
-      deposit: webhook.booking.deposit ?? undefined,
+      amount,
+      totalAmount,
+      pricePerDay,
+      platformTax,
+      guestsCount,
+      prepayment,
+      deposit,
       cancellationReason: this.buildCancellationReason(webhook),
       canceledDate: webhook.booking.canceled_date ?? undefined,
     };

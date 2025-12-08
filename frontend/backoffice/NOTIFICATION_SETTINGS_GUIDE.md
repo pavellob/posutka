@@ -180,6 +180,7 @@ const canEnable =
 **Бронирования:**
 - `BOOKING_CREATED` - Бронирование создано
 - `BOOKING_CONFIRMED` - Подтверждено
+- `BOOKING_UPDATED` - Обновлено
 - `BOOKING_CANCELLED` - Отменено
 - `BOOKING_CHECKIN` - Заселение
 - `BOOKING_CHECKOUT` - Выселение

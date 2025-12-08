@@ -959,6 +959,10 @@ type Booking @join__type(graph: BOOKINGS_SUBGRAPH, key: "id") @join__type(graph:
   checkIn: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
   """Дата и время выезда"""
   checkOut: DateTime! @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Время прибытия (если известно)"""
+  arrivalTime: String @join__field(graph: BOOKINGS_SUBGRAPH)
+  """Время выезда гостя (если известно)"""
+  departureTime: String @join__field(graph: BOOKINGS_SUBGRAPH)
   """Количество гостей"""
   guestsCount: Int! @join__field(graph: BOOKINGS_SUBGRAPH)
   """Детализация стоимости бронирования"""
@@ -1003,12 +1007,20 @@ type Guest @join__type(graph: BOOKINGS_SUBGRAPH) {
 type PriceBreakdown @join__type(graph: BOOKINGS_SUBGRAPH) {
   """Базовая стоимость проживания"""
   basePrice: Money!
+  """Цена за сутки (опционально)"""
+  pricePerDay: Money
   """Стоимость уборки (опционально)"""
   cleaningFee: Money
   """Сервисный сбор (опционально)"""
   serviceFee: Money
   """Налоги (опционально)"""
   taxes: Money
+  """Комиссия платформы (опционально)"""
+  platformTax: Money
+  """Предоплата (опционально)"""
+  prepayment: Money
+  """Сумма, переданная внешней системой (опционально)"""
+  amount: Money
   """Общая стоимость бронирования"""
   total: Money!
 }
@@ -2654,7 +2666,20 @@ enum SortDirection @join__type(graph: IAM_SUBGRAPH) {
   DESC @join__enumValue(graph: IAM_SUBGRAPH)
 }
 
-"""Градация юнита по размеру (0-10)."""
+"""
+Градация юнита по размеру (0-10).
+0 - Комната
+1 - Маленькая студия
+2 - Студия
+3 - Маленькая однушка
+4 - Однушка
+5 - Маленькая двушка/Большая однушка
+6 - Двушка
+7 - Маленькая трешка
+8 - Трешка
+9 - 4+
+10 - Элитные апартаменты
+"""
 enum UnitGrade @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) {
   GRADE_0 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
   GRADE_1 @join__enumValue(graph: INVENTORY_SUBGRAPH) @join__enumValue(graph: PRICING_SUBGRAPH)
@@ -2703,6 +2728,8 @@ enum EventType @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
   BOOKING_CONFIRMED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Бронирование отменено"""
   BOOKING_CANCELLED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
+  """Бронирование обновлено"""
+  BOOKING_UPDATED @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Заселение гостя"""
   BOOKING_CHECKIN @join__enumValue(graph: NOTIFICATIONS_SUBGRAPH)
   """Выселение гостя"""
@@ -3023,6 +3050,10 @@ input CreateBookingInput @join__type(graph: BOOKINGS_SUBGRAPH) {
   checkIn: DateTime!
   """Дата и время выезда"""
   checkOut: DateTime!
+  """Время прибытия (опционально)"""
+  arrivalTime: String
+  """Время выезда (опционально)"""
+  departureTime: String
   """Количество гостей"""
   guestsCount: Int!
   """Детализация стоимости"""
@@ -3051,12 +3082,20 @@ input GuestInput @join__type(graph: BOOKINGS_SUBGRAPH) {
 input PriceBreakdownInput @join__type(graph: BOOKINGS_SUBGRAPH) {
   """Базовая стоимость проживания"""
   basePrice: MoneyInput!
+  """Цена за сутки (опционально)"""
+  pricePerDay: MoneyInput
   """Стоимость уборки (опционально)"""
   cleaningFee: MoneyInput
   """Сервисный сбор (опционально)"""
   serviceFee: MoneyInput
   """Налоги (опционально)"""
   taxes: MoneyInput
+  """Комиссия платформы (опционально)"""
+  platformTax: MoneyInput
+  """Предоплата (опционально)"""
+  prepayment: MoneyInput
+  """Сумма, переданная внешней системой (опционально)"""
+  amount: MoneyInput
   """Общая стоимость бронирования"""
   total: MoneyInput!
 }
@@ -3071,6 +3110,10 @@ input UpdateBookingInput @join__type(graph: BOOKINGS_SUBGRAPH) {
   checkIn: DateTime
   """Дата и время выезда (опционально)"""
   checkOut: DateTime
+  """Время прибытия (опционально)"""
+  arrivalTime: String
+  """Время выезда (опционально)"""
+  departureTime: String
   """Количество гостей (опционально)"""
   guestsCount: Int
   """Статус бронирования (опционально)"""
