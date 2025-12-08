@@ -25,6 +25,8 @@ query GetBookings(
         source
         checkIn
         checkOut
+        arrivalTime
+        departureTime
         guestsCount
         notes
         cancellationReason
@@ -49,6 +51,10 @@ query GetBookings(
             amount
             currency
           }
+          pricePerDay {
+            amount
+            currency
+          }
           cleaningFee {
             amount
             currency
@@ -58,6 +64,18 @@ query GetBookings(
             currency
           }
           taxes {
+            amount
+            currency
+          }
+          platformTax {
+            amount
+            currency
+          }
+          prepayment {
+            amount
+            currency
+          }
+          amount {
             amount
             currency
           }
@@ -86,6 +104,8 @@ query GetBookingById($id: UUID!) {
     source
     checkIn
     checkOut
+    arrivalTime
+    departureTime
     guestsCount
     notes
     cancellationReason
@@ -121,6 +141,10 @@ query GetBookingById($id: UUID!) {
         amount
         currency
       }
+      pricePerDay {
+        amount
+        currency
+      }
       cleaningFee {
         amount
         currency
@@ -130,6 +154,18 @@ query GetBookingById($id: UUID!) {
         currency
       }
       taxes {
+        amount
+        currency
+      }
+      platformTax {
+        amount
+        currency
+      }
+      prepayment {
+        amount
+        currency
+      }
+      amount {
         amount
         currency
       }
@@ -204,6 +240,8 @@ mutation UpdateBooking($input: UpdateBookingInput!) {
     status
     checkIn
     checkOut
+    arrivalTime
+    departureTime
     guestsCount
     notes
     updatedAt

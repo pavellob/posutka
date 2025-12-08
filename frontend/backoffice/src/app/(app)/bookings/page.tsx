@@ -227,6 +227,8 @@ export default function BookingsPage() {
     guestPhone: '',
     checkIn: '',
     checkOut: '',
+    arrivalTime: '',
+    departureTime: '',
     guestsCount: 1,
     basePrice: 0,
     notes: ''

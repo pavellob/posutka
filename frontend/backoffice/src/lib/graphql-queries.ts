@@ -148,10 +148,8 @@ export const GET_BOOKINGS = gql`
           source
           checkIn
           checkOut
-      arrivalTime
-      departureTime
-      arrivalTime
-      departureTime
+          arrivalTime
+          departureTime
           guestsCount
           notes
           cancellationReason
@@ -231,8 +229,6 @@ export const GET_BOOKING_BY_ID = gql`
       source
       checkIn
       checkOut
-      arrivalTime
-      departureTime
       arrivalTime
       departureTime
       guestsCount
