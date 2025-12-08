@@ -141,4 +141,5 @@ export interface UpdateBookingInput {
   status?: BookingStatus;
   notes?: string;
   cancellationReason?: string;
+  priceBreakdown?: PriceBreakdown;
 }

@@ -36,7 +36,11 @@ export class WebhookMapper {
     const prepayment = toCents(webhook.booking.prepayment);
     const deposit = toCents(webhook.booking.deposit);
     const guestsCount = webhook.booking.guests_count ?? webhook.booking.partner_guests_count ?? 1;
-    const source = webhook.booking.source || webhook.booking.booking_origin?.title || undefined;
+    // source может быть строкой или объектом, приводим к строке
+    const sourceRaw = (webhook.booking as any).source;
+    const source = typeof sourceRaw === 'string' 
+      ? sourceRaw 
+      : (webhook.booking.booking_origin?.title || undefined);
     const notes = webhook.booking.notes ?? undefined;
 
     return {
