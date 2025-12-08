@@ -65,6 +65,13 @@ export class RealtyCalendarController {
       // Безопасное логирование структуры webhook до валидации
       const safeWebhookInfo = this.safeLogWebhook(rawWebhook);
       logger.info('Webhook parsed successfully, validating...', safeWebhookInfo);
+
+      // Специальный кейс: create_basket нам не нужен — отвечаем 200 и выходим
+      if (rawWebhook?.action === 'create_basket') {
+        logger.info('Webhook action create_basket ignored, responding 200');
+        this.sendResponse(res, 200, { ok: true, outcome: 'IGNORED', reason: 'create_basket ignored' });
+        return;
+      }
       
       // Логируем структуру клиента для отладки
       const hasClientAtTopLevel = !!(rawWebhook as any)?.client;
@@ -187,7 +194,8 @@ export class RealtyCalendarController {
         outcome: 'ERROR',
         reason: error?.message || 'Internal server error',
       };
-      this.sendResponse(res, 500, errorResponse);
+      // По требованию возвращаем 200 даже при ошибке, но логируем
+      this.sendResponse(res, 200, errorResponse);
     }
   }
 
