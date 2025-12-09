@@ -7,6 +7,7 @@ const GET_USER_NOTIFICATION_SETTINGS = gql`
     userNotificationSettings(userId: $userId) {
       userId
       telegramChatId
+      telegramUsername
       email
       phone
       enabled
@@ -23,6 +24,7 @@ const UPDATE_NOTIFICATION_SETTINGS = gql`
     updateNotificationSettings(input: $input) {
       userId
       telegramChatId
+      telegramUsername
       email
       phone
       enabled
@@ -36,6 +38,7 @@ const UPDATE_NOTIFICATION_SETTINGS = gql`
 export interface NotificationSettings {
   userId: string;
   telegramChatId?: string | null;
+  telegramUsername?: string | null;
   email?: string | null;
   phone?: string | null;
   enabled: boolean;
@@ -48,6 +51,7 @@ export interface NotificationSettings {
 export interface UpdateSettingsInput {
   userId: string;
   telegramChatId?: string;
+  telegramUsername?: string;
   email?: string;
   phone?: string;
   enabled?: boolean;

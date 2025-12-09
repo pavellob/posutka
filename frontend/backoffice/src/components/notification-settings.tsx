@@ -90,6 +90,8 @@ export function NotificationSettings({ userId }: NotificationSettingsProps) {
 
   const [telegramChatId, setTelegramChatId] = useState('');
   const [isSavingTelegram, setIsSavingTelegram] = useState(false);
+  const [telegramUsername, setTelegramUsername] = useState('');
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
 
   if (isLoading) {
     return (
@@ -111,6 +113,22 @@ export function NotificationSettings({ userId }: NotificationSettingsProps) {
       alert('Не удалось сохранить Telegram ID. Проверьте подключение и повторите попытку.');
     } finally {
       setIsSavingTelegram(false);
+    }
+  };
+
+  const handleSaveTelegramUsername = async () => {
+    const value = telegramUsername.trim().replace('@', '');
+    if (!value) return;
+
+    setIsSavingUsername(true);
+    try {
+      await updateSettings({ telegramUsername: value.toLowerCase() });
+      setTelegramUsername('');
+    } catch (error) {
+      console.error('Failed to save Telegram username:', error);
+      alert('Не удалось сохранить Telegram username. Повторите попытку.');
+    } finally {
+      setIsSavingUsername(false);
     }
   };
 
@@ -145,7 +163,7 @@ export function NotificationSettings({ userId }: NotificationSettingsProps) {
       <div>
         <Subheading>Telegram</Subheading>
         <Text className="mt-1">
-          Для получения уведомлений в Telegram, отправьте команду <code className="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm">/start</code> боту
+          Для подключения достаточно указать свой Telegram username и отправить команду <code className="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm">/start</code> боту. Chat ID подтянется автоматически.
         </Text>
         
         {settings?.telegramChatId ? (
@@ -165,6 +183,33 @@ export function NotificationSettings({ userId }: NotificationSettingsProps) {
             </Text>
           </div>
         )}
+
+        {/* Username для авто-привязки */}
+        <div className="mt-4 space-y-2">
+          <Text className="text-sm text-zinc-700 dark:text-zinc-300">
+            Укажите свой Telegram username (без @). После этого отправьте /start боту — система сама привяжет чат.
+          </Text>
+          {settings?.telegramUsername && (
+            <Text className="text-sm text-green-700 dark:text-green-300">
+              Текущий username: @{settings.telegramUsername}
+            </Text>
+          )}
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              placeholder="@username"
+              value={telegramUsername}
+              onChange={(e) => setTelegramUsername(e.target.value)}
+              disabled={isSavingUsername}
+            />
+            <Button
+              onClick={handleSaveTelegramUsername}
+              disabled={!telegramUsername.trim() || isSavingUsername}
+            >
+              {isSavingUsername ? 'Сохранение...' : 'Сохранить'}
+            </Button>
+          </div>
+        </div>
 
         {/* Ручной ввод Chat ID (опционально) */}
         <details className="mt-4">

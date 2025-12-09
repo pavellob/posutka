@@ -43,6 +43,8 @@ export function NotificationSettingsCompact({ userId, showTitle = true }: Notifi
 
   const [telegramChatId, setTelegramChatId] = useState('');
   const [showTelegramInput, setShowTelegramInput] = useState(false);
+  const [telegramUsername, setTelegramUsername] = useState('');
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
 
   if (isLoading) {
     return (
@@ -61,6 +63,21 @@ export function NotificationSettingsCompact({ userId, showTitle = true }: Notifi
       setShowTelegramInput(false);
     } catch (error) {
       console.error('Failed to save Telegram chat ID:', error);
+    }
+  };
+
+  const handleSaveTelegramUsername = async () => {
+    const value = telegramUsername.trim().replace('@', '');
+    if (!value) return;
+
+    setIsSavingUsername(true);
+    try {
+      await updateSettings({ telegramUsername: value.toLowerCase() });
+      setTelegramUsername('');
+    } catch (error) {
+      console.error('Failed to save Telegram username:', error);
+    } finally {
+      setIsSavingUsername(false);
     }
   };
 
@@ -117,8 +134,31 @@ export function NotificationSettingsCompact({ userId, showTitle = true }: Notifi
         ) : (
           <div className="space-y-2">
             <Text className="text-xs text-gray-600 dark:text-gray-400">
-              Отправьте <code className="bg-gray-100 dark:bg-zinc-700 px-1 py-0.5 rounded">/start</code> боту для подключения
+              Укажите username и отправьте <code className="bg-gray-100 dark:bg-zinc-700 px-1 py-0.5 rounded">/start</code> боту — чат привяжется автоматически.
             </Text>
+            {settings?.telegramUsername && (
+              <Text className="text-xs text-green-700 dark:text-green-300">
+                Username: @{settings.telegramUsername}
+              </Text>
+            )}
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="@username"
+                value={telegramUsername}
+                onChange={(e) => setTelegramUsername(e.target.value)}
+                className="text-sm"
+                disabled={isSavingUsername}
+              />
+              <Button
+                type="button"
+                onClick={handleSaveTelegramUsername}
+                disabled={!telegramUsername.trim() || isSavingUsername}
+                className="text-xs"
+              >
+                {isSavingUsername ? '...' : 'Сохранить'}
+              </Button>
+            </div>
             
             {!showTelegramInput ? (
               <button

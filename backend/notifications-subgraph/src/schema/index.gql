@@ -253,6 +253,8 @@ type UserNotificationSettings {
   userId: UUID!
   """Telegram Chat ID"""
   telegramChatId: String
+  """Telegram username (без @)"""
+  telegramUsername: String
   """Email"""
   email: String
   """Телефон"""
@@ -447,6 +449,8 @@ input UpdateNotificationSettingsInput {
   userId: UUID!
   """Telegram Chat ID"""
   telegramChatId: String
+  """Telegram username (без @)"""
+  telegramUsername: String
   """Email"""
   email: String
   """Телефон"""

@@ -1082,6 +1082,8 @@ enum DeliveryStatus {
 model UserNotificationSettings {
   userId           String   @id
   telegramChatId   String?
+  /// Telegram username (без @) для автопривязки через бота
+  telegramUsername String?
   email            String?
   phone            String?
   enabled          Boolean  @default(true)
@@ -1092,6 +1094,7 @@ model UserNotificationSettings {
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([telegramChatId])
+  @@index([telegramUsername])
 }
 
 model NotificationTemplate {

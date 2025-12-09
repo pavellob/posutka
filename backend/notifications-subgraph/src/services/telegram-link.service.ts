@@ -25,6 +25,34 @@ export class TelegramLinkService {
       
       logger.info(`Attempting to link user with Telegram username: ${cleanUsername}`);
       
+      // 1) Пытаемся найти пользователя по сохраненному telegramUsername в настройках
+      const settingsByUsername = await this.prisma.userNotificationSettings.findFirst({
+        where: {
+          telegramUsername: {
+            equals: cleanUsername,
+            mode: 'insensitive',
+          },
+        },
+      });
+
+      if (settingsByUsername) {
+        const mergedChannels = Array.from(new Set([...(settingsByUsername.enabledChannels || []), 'TELEGRAM', 'WEBSOCKET']));
+
+        await this.prisma.userNotificationSettings.update({
+          where: { userId: settingsByUsername.userId },
+          data: {
+            telegramChatId: chatId,
+            telegramUsername: cleanUsername,
+            enabled: true,
+            enabledChannels: mergedChannels,
+            updatedAt: new Date(),
+          },
+        });
+
+        logger.info(`Linked telegram username to user settings (userId: ${settingsByUsername.userId}, chatId: ${chatId})`);
+        return true;
+      }
+
       // Ищем уборщика с таким username
       const cleaner = await this.prisma.cleaner.findFirst({
         where: {
@@ -56,6 +84,7 @@ export class TelegramLinkService {
           where: { userId: targetUserId },
           data: {
             telegramChatId: chatId,
+            telegramUsername: cleanUsername,
             enabled: true,
             enabledChannels: ['TELEGRAM', 'WEBSOCKET'],
             subscribedEvents: [
@@ -78,6 +107,7 @@ export class TelegramLinkService {
           data: {
             userId: targetUserId,
             telegramChatId: chatId,
+            telegramUsername: cleanUsername,
             enabled: true,
             enabledChannels: ['TELEGRAM', 'WEBSOCKET'],
             subscribedEvents: [

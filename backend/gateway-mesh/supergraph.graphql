@@ -2200,6 +2200,8 @@ type UserNotificationSettings @join__type(graph: NOTIFICATIONS_SUBGRAPH, key: "u
   userId: UUID!
   """Telegram Chat ID"""
   telegramChatId: String
+  """Telegram username (без @)"""
+  telegramUsername: String
   """Email"""
   email: String
   """Телефон"""
@@ -3787,6 +3789,8 @@ input UpdateNotificationSettingsInput @join__type(graph: NOTIFICATIONS_SUBGRAPH)
   userId: UUID!
   """Telegram Chat ID"""
   telegramChatId: String
+  """Telegram username (без @)"""
+  telegramUsername: String
   """Email"""
   email: String
   """Телефон"""

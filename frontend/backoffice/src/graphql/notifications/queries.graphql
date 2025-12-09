@@ -4,6 +4,7 @@ query GetUserNotificationSettings($userId: UUID!) {
   userNotificationSettings(userId: $userId) {
     userId
     telegramChatId
+    telegramUsername
     email
     phone
     enabled
@@ -59,6 +60,7 @@ mutation UpdateNotificationSettings($input: UpdateNotificationSettingsInput!) {
   updateNotificationSettings(input: $input) {
     userId
     telegramChatId
+    telegramUsername
     email
     phone
     enabled

@@ -282,6 +282,8 @@ export class NotificationService {
           enabled: true,
           enabledChannels: ['TELEGRAM', 'WEBSOCKET'],
           subscribedEvents: [],
+          telegramChatId: null,
+          telegramUsername: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -290,6 +292,7 @@ export class NotificationService {
       return {
         userId: settings.userId,
         telegramChatId: settings.telegramChatId,
+        telegramUsername: settings.telegramUsername,
         email: settings.email,
         phone: settings.phone,
         enabled: settings.enabled,
@@ -316,8 +319,14 @@ export class NotificationService {
         updatedAt: new Date(),
       };
       
+      // Нормализуем telegramUsername (убираем @ и приводим к нижнему регистру)
+      const normalizedUsername = settings.telegramUsername
+        ? String(settings.telegramUsername).replace('@', '').toLowerCase()
+        : undefined;
+      
       // Добавляем только те поля, которые переданы
       if (settings.telegramChatId !== undefined) updateData.telegramChatId = settings.telegramChatId;
+      if (normalizedUsername !== undefined) updateData.telegramUsername = normalizedUsername;
       if (settings.email !== undefined) updateData.email = settings.email;
       if (settings.phone !== undefined) updateData.phone = settings.phone;
       if (settings.enabled !== undefined) updateData.enabled = settings.enabled;
@@ -331,6 +340,7 @@ export class NotificationService {
         create: {
           userId,
           telegramChatId: settings.telegramChatId || null,
+          telegramUsername: normalizedUsername || null,
           email: settings.email || null,
           phone: settings.phone || null,
           enabled: settings.enabled !== undefined ? settings.enabled : true,
@@ -342,6 +352,7 @@ export class NotificationService {
       return {
         userId: result.userId,
         telegramChatId: result.telegramChatId,
+        telegramUsername: result.telegramUsername,
         email: result.email,
         phone: result.phone,
         enabled: result.enabled,
