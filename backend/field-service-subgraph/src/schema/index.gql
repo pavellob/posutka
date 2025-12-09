@@ -183,6 +183,9 @@ type Mutation {
   """Запланировать уборку"""
   scheduleCleaning(input: ScheduleCleaningInput!): Cleaning!
   
+  """Обновить дату и время уборки"""
+  updateCleaningScheduledAt(id: UUID!, scheduledAt: DateTime!): Cleaning!
+  
   """Начать уборку"""
   startCleaning(id: UUID!): Cleaning!
   

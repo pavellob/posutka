@@ -432,6 +432,8 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   deleteRepairTemplate(id: UUID!): Boolean! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Запланировать уборку"""
   scheduleCleaning(input: ScheduleCleaningInput!): Cleaning! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
+  """Обновить дату и время уборки"""
+  updateCleaningScheduledAt(id: UUID!, scheduledAt: DateTime!): Cleaning! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Начать уборку"""
   startCleaning(id: UUID!): Cleaning! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Завершить уборку"""

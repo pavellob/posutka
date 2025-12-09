@@ -14,13 +14,15 @@ interface CleanerDetailsDialogProps {
   onClose: () => void
   cleanerId: string | null
   orgId: string
+  onEdit?: (cleanerId: string) => void
 }
 
 export function CleanerDetailsDialog({
   isOpen,
   onClose,
   cleanerId,
-  orgId
+  orgId,
+  onEdit
 }: CleanerDetailsDialogProps) {
   // Запрос деталей уборщика
   const { data: cleanerData, isLoading: cleanerLoading } = useQuery<any>({
@@ -129,7 +131,11 @@ export function CleanerDetailsDialog({
             {/* Быстрые действия */}
             <div className="space-x-2">
               <Button 
-                onClick={() => alert('Редактирование в разработке')}
+                onClick={() => {
+                  if (cleanerId && onEdit) {
+                    onEdit(cleanerId)
+                  }
+                }}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Редактировать

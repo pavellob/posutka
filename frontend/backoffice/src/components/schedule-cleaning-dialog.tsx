@@ -36,7 +36,7 @@ export function ScheduleCleaningDialog({
   const [selectedCleaner, setSelectedCleaner] = useState('')
   const [selectedUnit, setSelectedUnit] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
-  const [scheduledTime, setScheduledTime] = useState('')
+  const [scheduledTime, setScheduledTime] = useState('12:00')
   const [requiresLinenChange, setRequiresLinenChange] = useState(false)
   const [notes, setNotes] = useState('')
   
@@ -69,7 +69,7 @@ export function ScheduleCleaningDialog({
     setSelectedCleaner('')
     setSelectedUnit('')
     setScheduledDate('')
-    setScheduledTime('')
+    setScheduledTime('12:00')
     setRequiresLinenChange(false)
     setNotes('')
     onClose()

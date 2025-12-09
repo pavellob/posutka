@@ -818,6 +818,8 @@ function CleaningsPageContent() {
           router.push('/cleanings')
         }}
         cleaningId={selectedCleaningId}
+        onTake={(id) => assignCleaningToMeMutation.mutate(id)}
+        onCreateChecklist={(id) => router.push(`/cleanings/${id}?action=create-checklist`)}
       />
 
       {/* Диалог создания уборщика */}
@@ -836,6 +838,11 @@ function CleaningsPageContent() {
         }}
         cleanerId={selectedCleanerId}
         orgId={orgId || ''}
+        onEdit={(id) => {
+          setSelectedCleanerId(id)
+          setIsCleanerDetailsDialogOpen(false)
+          setIsEditCleanerDialogOpen(true)
+        }}
       />
 
       {/* Диалог редактирования уборщика */}
@@ -846,6 +853,7 @@ function CleaningsPageContent() {
           setSelectedCleanerId(null)
         }}
         cleanerId={selectedCleanerId}
+        orgId={orgId || ''}
       />
 
       <CreateChecklistDialog

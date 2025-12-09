@@ -1921,6 +1921,16 @@ export const SCHEDULE_CLEANING = gql`
   }
 `
 
+export const UPDATE_CLEANING_SCHEDULED_AT = gql`
+  mutation UpdateCleaningScheduledAt($id: UUID!, $scheduledAt: DateTime!) {
+    updateCleaningScheduledAt(id: $id, scheduledAt: $scheduledAt) {
+      id
+      scheduledAt
+      updatedAt
+    }
+  }
+`
+
 export const GET_CLEANING_BY_TASK = gql`
   query GetCleaningByTask($taskId: UUID!) {
     cleaningByTask(taskId: $taskId) {

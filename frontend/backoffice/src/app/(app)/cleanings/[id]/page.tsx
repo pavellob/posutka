@@ -31,6 +31,7 @@ import {
   ASSIGN_TASK,
   GET_MASTERS,
   GET_TASKS_BY_CLEANING,
+  UPDATE_CLEANING_SCHEDULED_AT,
 } from '@/lib/graphql-queries'
 import {
   ArrowLeftIcon,
@@ -74,6 +75,8 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
   const { currentOrgId } = useCurrentOrganization()
   const [assignDialogOpen, setAssignDialogOpen] = useState(false)
   const [assignDialogStage, setAssignDialogStage] = useState<Stage | null>(null)
+  const [scheduledAtLocal, setScheduledAtLocal] = useState('')
+  const [isEditingTime, setIsEditingTime] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['cleaning', params.id],
@@ -101,6 +104,26 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
   })
   const hasTemplate = !!templateData
   const templateMissing = !isTemplateLoading && !templateData && !templateError
+
+  useEffect(() => {
+    if (data?.scheduledAt) {
+      const dt = new Date(data.scheduledAt)
+      const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000)
+      setScheduledAtLocal(local.toISOString().slice(0, 16))
+    }
+  }, [data?.scheduledAt])
+
+  const updateTimeMutation = useMutation({
+    mutationFn: ({ id, scheduledAt }: { id: string; scheduledAt: string }) =>
+      graphqlClient.request(UPDATE_CLEANING_SCHEDULED_AT, { id, scheduledAt }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
+      setIsEditingTime(false)
+    },
+    onError: (err: any) => {
+      alert(`Не удалось обновить время: ${err.message || 'Ошибка'}`)
+    }
+  })
 
   const { data: preCleaningData } = useQuery({
     queryKey: ['checklist-instance', cleaningId, 'PRE_CLEANING'],
@@ -716,7 +739,44 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
                 <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"><UserIcon className="w-4 h-4" /> Уборщик не назначен</span>
               )}
               {data.scheduledAt && (
-                <span className="inline-flex items-center gap-1"><CalendarIcon className="w-4 h-4" />{new Date(data.scheduledAt).toLocaleString('ru-RU')}</span>
+                <span className="inline-flex items-center gap-2 text-zinc-700 dark:text-zinc-200">
+                  <CalendarIcon className="w-4 h-4 text-zinc-400" />
+                  {!isEditingTime && (
+                    <div className="inline-flex items-center gap-2">
+                      <span className="font-medium">{new Date(data.scheduledAt).toLocaleString('ru-RU')}</span>
+                      <button
+                        onClick={() => setIsEditingTime(true)}
+                        className="text-xs px-2 py-1 rounded-full border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+                        aria-label="Редактировать время"
+                      >
+                        Редактировать
+                      </button>
+                    </div>
+                  )}
+                  {isEditingTime && (
+                    <div className="inline-flex items-center gap-2">
+                      <input
+                        type="datetime-local"
+                        value={scheduledAtLocal}
+                        onChange={(e) => setScheduledAtLocal(e.target.value)}
+                        className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-md px-2 py-1 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                      />
+                      <button
+                        disabled={updateTimeMutation.isPending}
+                        onClick={() => scheduledAtLocal && data.id && updateTimeMutation.mutate({ id: data.id, scheduledAt: new Date(scheduledAtLocal).toISOString() })}
+                        className="px-3 py-1 text-xs rounded-full bg-black text-white hover:bg-zinc-800 disabled:bg-zinc-400 disabled:text-zinc-200 transition-colors"
+                      >
+                        {updateTimeMutation.isPending ? 'Сохранение…' : 'Сохранить'}
+                      </button>
+                      <button
+                        onClick={() => setIsEditingTime(false)}
+                        className="px-3 py-1 text-xs rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        Отмена
+                      </button>
+                    </div>
+                  )}
+                </span>
               )}
               {data.startedAt && (
                 <span className="inline-flex items-center gap-1"><ClockIcon className="w-4 h-4" />Старт: {new Date(data.startedAt).toLocaleString('ru-RU')}</span>

@@ -300,6 +300,32 @@ export const resolvers: any = {
       
       return cleaning;
     },
+
+    updateCleaningScheduledAt: async (_: unknown, { id, scheduledAt }: { id: string; scheduledAt: string }, { prisma, dl }: Context) => {
+      logger.info('Updating cleaning scheduledAt', { id, scheduledAt });
+      await prisma.cleaning.update({
+        where: { id },
+        data: { scheduledAt: new Date(scheduledAt) },
+      });
+
+      // При необходимости можно синхронизировать связанную задачу
+      try {
+        const cleaning = await prisma.cleaning.findUnique({ where: { id }, select: { taskId: true } });
+        if (cleaning?.taskId) {
+          await prisma.task.update({
+            where: { id: cleaning.taskId },
+            data: { dueAt: new Date(scheduledAt) }
+          }).catch((err) => {
+            logger.warn('Failed to update related task dueAt for cleaning', { cleaningId: id, taskId: cleaning.taskId, err });
+          });
+        }
+      } catch (err) {
+        logger.warn('Failed to sync task for cleaning scheduledAt update', { cleaningId: id, err });
+      }
+
+      // Возвращаем полные данные через datalayer, чтобы сохранить shape
+      return dl.getCleaningById(id);
+    },
     
     startCleaning: async (_: unknown, { id }: { id: string }, { dl, prisma }: Context) => {
       logger.info('Starting cleaning', { id });
