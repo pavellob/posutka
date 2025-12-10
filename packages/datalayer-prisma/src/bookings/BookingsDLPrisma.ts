@@ -93,7 +93,18 @@ export class BookingsDLPrisma implements IBookingsDL {
     // First, upsert the guest
     const guest = await this.upsertGuest(input.guest);
     
+    // Логируем arrivalTime и departureTime для отладки
+    console.log('BookingsDLPrisma.createBooking - input times:', {
+      arrivalTime: input.arrivalTime,
+      departureTime: input.departureTime,
+      hasArrivalTime: !!input.arrivalTime,
+      hasDepartureTime: !!input.departureTime,
+      arrivalTimeType: typeof input.arrivalTime,
+      departureTimeType: typeof input.departureTime,
+    });
+    
     // Create the booking
+    // Для Prisma используем null вместо undefined для опциональных полей
     const booking = await this.prisma.booking.create({
       data: {
         orgId: input.orgId,
@@ -101,8 +112,8 @@ export class BookingsDLPrisma implements IBookingsDL {
         guestId: guest.id,
         checkIn: new Date(input.checkIn),
         checkOut: new Date(input.checkOut),
-        arrivalTime: input.arrivalTime,
-        departureTime: input.departureTime,
+        arrivalTime: input.arrivalTime ?? null,
+        departureTime: input.departureTime ?? null,
         guestsCount: input.guestsCount,
         basePriceAmount: input.priceBreakdown.basePrice.amount,
         basePriceCurrency: input.priceBreakdown.basePrice.currency,

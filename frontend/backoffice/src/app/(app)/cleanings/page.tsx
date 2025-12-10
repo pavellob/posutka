@@ -33,11 +33,17 @@ import {
   ACTIVATE_CLEANER
 } from '@/lib/graphql-queries'
 
+const tabs = ['cleanings', 'cleaners', 'templates'] as const
+type Tab = typeof tabs[number]
+
 function CleaningsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   
-  const [activeTab, setActiveTab] = useState<'cleanings' | 'cleaners' | 'templates'>('cleanings')
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tabParam = searchParams.get('tab')
+    return tabs.includes(tabParam as Tab) ? (tabParam as Tab) : 'cleanings'
+  })
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'kanban'>('table')
   const [filters, setFilters] = useState({
     status: '',
@@ -64,6 +70,23 @@ function CleaningsPageContent() {
       setIsDetailsDialogOpen(true)
     }
   }, [searchParams])
+
+  // Синхронизация таба с URL
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam && tabs.includes(tabParam as Tab) && tabParam !== activeTab) {
+      setActiveTab(tabParam as Tab)
+    }
+  }, [searchParams, activeTab])
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab)
+    const newParams = new URLSearchParams(searchParams.toString())
+    newParams.set('tab', tab)
+    const query = newParams.toString()
+    const targetUrl = query ? `/cleanings?${query}` : '/cleanings'
+    router.replace(targetUrl, { scroll: false })
+  }
 
   // Запрос уборок
   const { data: cleaningsData, isLoading: cleaningsLoading } = useQuery({

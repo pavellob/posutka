@@ -133,7 +133,16 @@ export class RealtyCalendarService {
     const currency = 'RUB'; // Валюта по умолчанию
     const basePriceAmount = dto.totalAmount ?? dto.amount ?? 0;
     
-    const created = await this.bookingsClient.createBooking({
+    logger.info('Creating booking via gRPC with times', {
+      arrivalTime: dto.arrivalTime,
+      departureTime: dto.departureTime,
+      hasArrivalTime: !!dto.arrivalTime,
+      hasDepartureTime: !!dto.departureTime,
+    });
+    
+    // Подготавливаем запрос для gRPC
+    // nice-grpc автоматически конвертирует camelCase в snake_case при отправке
+    const grpcRequest: any = {
       orgId,
       unitId,
       propertyId,
@@ -143,8 +152,8 @@ export class RealtyCalendarService {
       guestPhone: dto.guest.phone, // Передаем phone для создания гостя
       checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
       checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
-      arrivalTime: dto.arrivalTime,
-      departureTime: dto.departureTime,
+      arrivalTime: dto.arrivalTime, // nice-grpc автоматически конвертирует в arrival_time
+      departureTime: dto.departureTime, // nice-grpc автоматически конвертирует в departure_time
       guestsCount: dto.guestsCount || 1,
       notes: dto.notes ?? dto.address,
       source: dto.source,
@@ -163,7 +172,22 @@ export class RealtyCalendarService {
       amountCurrency: currency,
       totalAmount: dto.totalAmount ?? basePriceAmount,
       totalCurrency: currency,
-    } as any);
+    };
+    
+    logger.info('Sending gRPC request with times', {
+      arrivalTime: grpcRequest.arrivalTime,
+      departureTime: grpcRequest.departureTime,
+      requestKeys: Object.keys(grpcRequest),
+      fullRequest: JSON.stringify(grpcRequest, null, 2),
+    });
+    
+    const created = await this.bookingsClient.createBooking(grpcRequest);
+    
+    logger.info('Booking created via gRPC', {
+      bookingId: created.booking?.id,
+      arrivalTime: created.booking?.arrivalTime,
+      departureTime: created.booking?.departureTime,
+    });
 
     if (!created.booking) {
       throw new Error('Failed to create booking: booking is undefined');
@@ -255,6 +279,10 @@ export class RealtyCalendarService {
         externalId: dto.externalRef.id,
       });
       
+      // Преобразуем финансовые данные в формат gRPC (в копейках)
+      const currency = 'RUB';
+      const basePriceAmount = dto.totalAmount ?? dto.amount ?? 0;
+      
       const created = await this.bookingsClient.createBooking({
         orgId,
         unitId,
@@ -265,9 +293,26 @@ export class RealtyCalendarService {
         guestPhone: dto.guest.phone,
         checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
         checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
-        guestsCount: 1,
+        arrivalTime: dto.arrivalTime,
+        departureTime: dto.departureTime,
+        guestsCount: dto.guestsCount || 1,
+        notes: dto.notes ?? dto.address,
+        source: dto.source,
         externalSource: dto.externalRef.source,
         externalId: dto.externalRef.id,
+        // Финансовые поля в формате gRPC (в копейках)
+        basePriceAmount: basePriceAmount,
+        basePriceCurrency: currency,
+        pricePerDayAmount: dto.pricePerDay,
+        pricePerDayCurrency: currency,
+        platformTaxAmount: dto.platformTax,
+        platformTaxCurrency: currency,
+        prepaymentAmount: dto.prepayment,
+        prepaymentCurrency: currency,
+        amountAmount: dto.amount,
+        amountCurrency: currency,
+        totalAmount: dto.totalAmount ?? basePriceAmount,
+        totalCurrency: currency,
       } as any);
 
       if (!created.booking) {

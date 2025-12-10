@@ -153,14 +153,22 @@ export class BookingService {
         };
       };
 
+      logger.info('Creating booking with arrival/departure times', {
+        arrivalTime: bookingData.arrivalTime,
+        departureTime: bookingData.departureTime,
+        bookingDataKeys: Object.keys(bookingData),
+        hasArrivalTime: bookingData.arrivalTime !== undefined && bookingData.arrivalTime !== null,
+        hasDepartureTime: bookingData.departureTime !== undefined && bookingData.departureTime !== null,
+      });
+      
       const createBookingInput: any = {
         orgId: bookingData.orgId,
         unitId: bookingData.unitId,
         propertyId: bookingData.propertyId,
         checkIn: checkInDate,
         checkOut: checkOutDate,
-        arrivalTime: bookingData.arrivalTime,
-        departureTime: bookingData.departureTime,
+        arrivalTime: bookingData.arrivalTime || undefined,
+        departureTime: bookingData.departureTime || undefined,
         guestsCount: bookingData.guestsCount || 1,
         priceBreakdown: buildPriceBreakdown(),
         notes: bookingData.notes,

@@ -19,7 +19,8 @@ import {
   REMOVE_PREFERRED_CLEANER,
   UPDATE_UNIT,
   GET_CLEANING_PRICING_RULE,
-  CALCULATE_CLEANING_COST
+  CALCULATE_CLEANING_COST,
+  GET_UNITS_BY_PROPERTY
 } from '@/lib/graphql-queries'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 import { useRouter } from 'next/navigation'
@@ -32,7 +33,8 @@ import {
   XMarkIcon,
   MagnifyingGlassIcon,
   UserPlusIcon,
-  StarIcon
+  StarIcon,
+  ArrowRightIcon
 } from '@heroicons/react/24/outline'
 import { UnitChecklistTemplate } from '@/components/unit-checklist-template'
 import { UnitChecklistView } from '@/components/unit-checklist-view'
@@ -90,6 +92,30 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
     },
     enabled: !!params.id
   })
+
+  const { data: siblingUnitsData } = useQuery({
+    queryKey: ['unitsByProperty', unitData?.property?.id],
+    queryFn: async () => {
+      const response = await graphqlClient.request(GET_UNITS_BY_PROPERTY, {
+        propertyId: unitData!.property.id
+      }) as any
+      return response.unitsByPropertyId
+    },
+    enabled: !!unitData?.property?.id
+  })
+
+  const unitsInProperty = siblingUnitsData || []
+  const currentIndex = unitsInProperty.findIndex((u: any) => u.id === params.id)
+  const prevUnit = currentIndex > 0 ? unitsInProperty[currentIndex - 1] : null
+  const nextUnit = currentIndex >= 0 && currentIndex < unitsInProperty.length - 1
+    ? unitsInProperty[currentIndex + 1]
+    : null
+
+  const buildUnitUrl = (unitId: string) => {
+    const paramsCopy = new URLSearchParams(searchParams.toString())
+    const qs = paramsCopy.toString()
+    return `/inventory/units/${unitId}${qs ? `?${qs}` : ''}`
+  }
 
   const { data: cleanersData, isLoading: cleanersLoading } = useQuery({
     queryKey: ['cleaners', currentOrgId],
@@ -181,6 +207,38 @@ export default function UnitDetailsPage(props: UnitDetailsPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Сквозная навигация по юнитам в объекте */}
+      <div className="fixed top-4 left-4 right-4 z-30 flex justify-between pointer-events-none">
+        <div className="pointer-events-auto">
+          <Button
+            outline
+            onClick={() => prevUnit && router.push(buildUnitUrl(prevUnit.id))}
+            disabled={!prevUnit}
+            title={prevUnit ? `Предыдущий: ${prevUnit.property?.address || prevUnit.property?.title || prevUnit.name}` : 'Нет предыдущего юнита'}
+            className="flex items-center gap-2 px-3 py-2"
+          >
+            <ArrowLeftIcon className="w-4 h-4" />
+            <span className="hidden md:inline">
+              {prevUnit ? (prevUnit.property?.address || prevUnit.name) : 'Нет предыдущего'}
+            </span>
+          </Button>
+        </div>
+        <div className="pointer-events-auto">
+          <Button
+            outline
+            onClick={() => nextUnit && router.push(buildUnitUrl(nextUnit.id))}
+            disabled={!nextUnit}
+            title={nextUnit ? `Следующий: ${nextUnit.property?.address || nextUnit.property?.title || nextUnit.name}` : 'Нет следующего юнита'}
+            className="flex items-center gap-2 justify-end px-3 py-2"
+          >
+            <span className="hidden md:inline">
+              {nextUnit ? (nextUnit.property?.address || nextUnit.name) : 'Нет следующего'}
+            </span>
+            <ArrowRightIcon className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
       {/* Хлебные крошки */}
       <div className="flex items-center gap-2 text-sm mb-6">
         <button 

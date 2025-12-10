@@ -43,6 +43,20 @@ export class WebhookMapper {
       : (webhook.booking.booking_origin?.title || undefined);
     const notes = webhook.booking.notes ?? undefined;
 
+    // Извлекаем arrivalTime и departureTime
+    const arrivalTime = webhook.booking.arrival_time ?? undefined;
+    const departureTime = webhook.booking.departure_time ?? undefined;
+    
+    // Логируем для отладки
+    console.log('WebhookMapper - extracted times from webhook:', {
+      raw_arrival_time: webhook.booking.arrival_time,
+      raw_departure_time: webhook.booking.departure_time,
+      arrivalTime,
+      departureTime,
+      hasArrivalTime: !!arrivalTime,
+      hasDepartureTime: !!departureTime,
+    });
+
     return {
       action: actionMap[webhook.action] || 'CREATE',
       externalRef: {
@@ -58,8 +72,8 @@ export class WebhookMapper {
         email: clientEmail,
       },
       notes,
-      arrivalTime: webhook.booking.arrival_time ?? undefined,
-      departureTime: webhook.booking.departure_time ?? undefined,
+      arrivalTime,
+      departureTime,
       propertyExternalRef: webhook.booking.realty_id ? {
         source: 'REALTY_CALENDAR',
         id: webhook.booking.realty_id,

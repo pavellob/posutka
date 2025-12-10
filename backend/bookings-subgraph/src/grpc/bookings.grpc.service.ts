@@ -19,6 +19,15 @@ export class BookingsGrpcService {
     try {
       logger.info('GRPC CreateBooking called', request);
       
+      // Логируем arrivalTime и departureTime для отладки
+      logger.info('GRPC CreateBooking - arrival/departure times', {
+        arrivalTime: (request as any).arrivalTime,
+        arrival_time: (request as any).arrival_time,
+        departureTime: (request as any).departureTime,
+        departure_time: (request as any).departure_time,
+        requestKeys: Object.keys(request),
+      });
+      
       // Собираем priceBreakdown из gRPC полей (опционально)
       const buildPriceBreakdown = () => {
         const currency = request.basePriceCurrency || request.totalCurrency || 'RUB';
@@ -77,11 +86,39 @@ export class BookingsGrpcService {
         };
       };
 
+      // Извлекаем arrivalTime и departureTime (nice-grpc конвертирует snake_case в camelCase)
+      // Проверяем оба варианта на случай, если конвертация не сработала
+      const arrivalTime = (request as any).arrivalTime ?? (request as any).arrival_time ?? undefined;
+      const departureTime = (request as any).departureTime ?? (request as any).departure_time ?? undefined;
+      
+      logger.info('GRPC CreateBooking - extracted times', {
+        arrivalTime,
+        departureTime,
+        requestArrivalTime: (request as any).arrivalTime,
+        requestArrival_time: (request as any).arrival_time,
+        requestDepartureTime: (request as any).departureTime,
+        requestDeparture_time: (request as any).departure_time,
+      });
+      
       // Создаем бронирование через сервис
+      // Важно: передаем arrivalTime и departureTime ПОСЛЕ ...request, чтобы они не перезаписались
       const booking = await this.bookingService.createBooking({
-        ...request,
+        orgId: request.orgId,
+        unitId: request.unitId,
+        propertyId: request.propertyId,
+        guestId: request.guestId,
+        guestName: request.guestName,
         guestEmail: (request as any).guestEmail || undefined,
         guestPhone: (request as any).guestPhone || undefined,
+        checkIn: request.checkIn,
+        checkOut: request.checkOut,
+        arrivalTime,
+        departureTime,
+        guestsCount: request.guestsCount,
+        notes: (request as any).notes || undefined,
+        source: (request as any).source || undefined,
+        externalSource: (request as any).externalSource || undefined,
+        externalId: (request as any).externalId || undefined,
         priceBreakdown: buildPriceBreakdown(),
       });
       

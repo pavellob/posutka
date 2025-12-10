@@ -44,6 +44,8 @@ export const resolvers = {
         guestPhone: input.guest?.phone,
         checkIn: input.checkIn ? new Date(input.checkIn) : undefined,
         checkOut: input.checkOut ? new Date(input.checkOut) : undefined,
+        arrivalTime: input.arrivalTime,
+        departureTime: input.departureTime,
         guestsCount: input.guestsCount,
         status: input.status,
         notes: input.notes,

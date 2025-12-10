@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Heading, Subheading } from '@/components/heading'
 import { Text } from '@/components/text'
@@ -117,12 +117,19 @@ type UserDetailsPageProps = {
   }>
 }
 
+const tabs = ['profile', 'activity', 'notifications'] as const
+type Tab = typeof tabs[number]
+
 export default function UserDetailsPage(props: UserDetailsPageProps) {
   const params = use(props.params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const { currentOrgId, currentOrganization } = useCurrentOrganization()
-  const [activeTab, setActiveTab] = useState<'profile' | 'activity' | 'notifications'>('profile')
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tabParam = searchParams.get('tab')
+    return tabs.includes(tabParam as Tab) ? (tabParam as Tab) : 'profile'
+  })
   const [isLockDialogOpen, setIsLockDialogOpen] = useState(false)
   const [lockReason, setLockReason] = useState('')
   const [formData, setFormData] = useState({
@@ -166,6 +173,22 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
       setSelectedRoles([])
     }
   }, [userData, currentOrgId])
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam && tabs.includes(tabParam as Tab) && tabParam !== activeTab) {
+      setActiveTab(tabParam as Tab)
+    }
+  }, [searchParams, activeTab])
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab)
+    const newParams = new URLSearchParams(searchParams.toString())
+    newParams.set('tab', tab)
+    const queryString = newParams.toString()
+    const targetUrl = queryString ? `/iam/${params.id}?${queryString}` : `/iam/${params.id}`
+    router.replace(targetUrl, { scroll: false })
+  }
 
   const updateUserMutation = useMutation({
     mutationFn: async (input: any) => {
@@ -497,7 +520,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
       <div className="border-b border-zinc-200 dark:border-zinc-700">
         <div className="flex gap-6">
           <button
-            onClick={() => setActiveTab('profile')}
+            onClick={() => handleTabChange('profile')}
             className={`pb-3 px-1 border-b-2 transition-colors ${
               activeTab === 'profile'
                 ? 'border-blue-600 text-blue-600 dark:text-blue-400'
@@ -507,7 +530,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
             Профиль
           </button>
           <button
-            onClick={() => setActiveTab('activity')}
+            onClick={() => handleTabChange('activity')}
             className={`pb-3 px-1 border-b-2 transition-colors ${
               activeTab === 'activity'
                 ? 'border-blue-600 text-blue-600 dark:text-blue-400'
@@ -517,7 +540,7 @@ export default function UserDetailsPage(props: UserDetailsPageProps) {
             Активность
           </button>
           <button
-            onClick={() => setActiveTab('notifications')}
+            onClick={() => handleTabChange('notifications')}
             className={`pb-3 px-1 border-b-2 transition-colors ${
               activeTab === 'notifications'
                 ? 'border-blue-600 text-blue-600 dark:text-blue-400'
