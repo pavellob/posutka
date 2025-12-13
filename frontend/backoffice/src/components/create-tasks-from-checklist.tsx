@@ -174,12 +174,27 @@ export function CreateTasksFromChecklist({
   const { data: mastersData } = useQuery({
     queryKey: ['masters', orgId],
     queryFn: async () => {
-      const response = await graphqlClient.request(GET_MASTERS, {
-        orgId,
-        isActive: true,
-        first: 100,
-      }) as any
-      return response.masters?.edges?.map((edge: any) => edge.node) || []
+      try {
+        const response = await graphqlClient.request(GET_MASTERS, {
+          orgId,
+          isActive: true,
+          first: 100,
+        }) as any
+        // Проверяем разные возможные структуры ответа
+        if (Array.isArray(response.masters)) {
+          return response.masters
+        }
+        if (response.masters?.edges && Array.isArray(response.masters.edges)) {
+          return response.masters.edges.map((edge: any) => edge.node) || []
+        }
+        if (response.masters?.nodes && Array.isArray(response.masters.nodes)) {
+          return response.masters.nodes
+        }
+        return []
+      } catch (error) {
+        console.error('Error fetching masters:', error)
+        return []
+      }
     },
     enabled: !!orgId,
   })
@@ -522,19 +537,19 @@ export function CreateTasksFromChecklist({
                     >
                       <option value="">Выберите исполнителя</option>
                       {taskItem.assigneeType === 'MASTER'
-                        ? mastersData?.map((master: any) => (
+                        ? (Array.isArray(mastersData) ? mastersData : []).map((master: any) => (
                             <option key={master.id} value={master.id}>
                               {master.firstName} {master.lastName}
                               {master.type && ` (${master.type})`}
                             </option>
                           ))
                         : taskItem.assigneeType === 'PROVIDER'
-                          ? providersData?.map((provider: any) => (
+                          ? (Array.isArray(providersData) ? providersData : []).map((provider: any) => (
                               <option key={provider.id} value={provider.id}>
                                 {provider.name}
                               </option>
                             ))
-                          : cleanersData?.map((cleaner: any) => (
+                          : (Array.isArray(cleanersData) ? cleanersData : []).map((cleaner: any) => (
                               <option key={cleaner.id} value={cleaner.id}>
                                 {cleaner.firstName} {cleaner.lastName}
                               </option>
