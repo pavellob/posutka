@@ -29,11 +29,10 @@ interface NotificationTasksViewProps {
   editedItems: Record<string, EditedItem>
   setEditedItems: (items: Record<string, EditedItem>) => void
   handleEditItem: (item: any) => void
-  handleSaveItem: (item: any) => void
+  handleSaveItem: (item: any, executorIdOverride?: string) => void
   setEditingItemId: (id: string | null) => void
   removeTaskItem: (itemId: string) => void
   removeTaskItemMutation: { isPending: boolean }
-  setSelectedCleaningId: (id: string | null) => void
   task: Task
   isCleaning: boolean
   isDailyNotification: boolean
@@ -55,7 +54,6 @@ export function NotificationTasksView({
   setEditingItemId,
   removeTaskItem,
   removeTaskItemMutation,
-  setSelectedCleaningId,
   task,
   isCleaning,
   isDailyNotification,
@@ -136,7 +134,6 @@ export function NotificationTasksView({
                       setEditingItemId={setEditingItemId}
                       removeTaskItem={removeTaskItem}
                       removeTaskItemMutation={removeTaskItemMutation}
-                      setSelectedCleaningId={setSelectedCleaningId}
                       task={task}
                       isCleaning={isCleaning}
                       isDailyNotification={isDailyNotification}
@@ -185,7 +182,6 @@ export function NotificationTasksView({
                     setEditingItemId={setEditingItemId}
                     removeTaskItem={removeTaskItem}
                     removeTaskItemMutation={removeTaskItemMutation}
-                    setSelectedCleaningId={setSelectedCleaningId}
                     task={task}
                     isCleaning={isCleaning}
                     isDailyNotification={isDailyNotification}
@@ -240,7 +236,6 @@ export function NotificationTasksView({
                     setEditingItemId={setEditingItemId}
                     removeTaskItem={removeTaskItem}
                     removeTaskItemMutation={removeTaskItemMutation}
-                    setSelectedCleaningId={setSelectedCleaningId}
                     task={task}
                     isCleaning={isCleaning}
                     isDailyNotification={isDailyNotification}
@@ -287,7 +282,6 @@ export function NotificationTasksView({
                   setEditingItemId={setEditingItemId}
                   removeTaskItem={removeTaskItem}
                   removeTaskItemMutation={removeTaskItemMutation}
-                  setSelectedCleaningId={setSelectedCleaningId}
                   task={task}
                   isCleaning={isCleaning}
                   isDailyNotification={isDailyNotification}

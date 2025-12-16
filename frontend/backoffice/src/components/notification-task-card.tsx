@@ -1,6 +1,6 @@
 'use client'
 
-import { ClockIcon, ArrowTopRightOnSquareIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { ClockIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/components/button'
 import { Text } from '@/components/text'
 import { NotificationTaskEditForm } from '@/components/notification-task-edit-form'
@@ -31,11 +31,10 @@ interface NotificationTaskCardProps {
   editedItems: Record<string, EditedItem>
   setEditedItems: (items: Record<string, EditedItem>) => void
   handleEditItem: (item: any) => void
-  handleSaveItem: (item: any) => void
+  handleSaveItem: (item: any, executorIdOverride?: string) => void
   setEditingItemId: (id: string | null) => void
   removeTaskItem: (itemId: string) => void
   removeTaskItemMutation: { isPending: boolean }
-  setSelectedCleaningId: (id: string | null) => void
   task: Task
   isCleaning: boolean
   isDailyNotification: boolean
@@ -58,7 +57,6 @@ export function NotificationTaskCard({
   setEditingItemId,
   removeTaskItem,
   removeTaskItemMutation,
-  setSelectedCleaningId,
   task,
   isCleaning,
   isDailyNotification,
@@ -69,15 +67,21 @@ export function NotificationTaskCard({
   mastersData,
 }: NotificationTaskCardProps) {
   const scheduledDate = new Date(item.scheduledAt)
+  // Получаем компоненты даты в UTC, чтобы избежать сдвига из-за часового пояса
+  const dateUTC = new Date(Date.UTC(
+    scheduledDate.getUTCFullYear(),
+    scheduledDate.getUTCMonth(),
+    scheduledDate.getUTCDate()
+  ))
+  const formattedDate = dateUTC.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+  })
   const formattedTime = scheduledDate.toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  })
-  const formattedDate = scheduledDate.toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    hour12: false,
   })
 
   const canEdit = isDailyNotification 
@@ -132,19 +136,6 @@ export function NotificationTaskCard({
             </div>
           </div>
           <div className="flex items-center gap-1 ml-2">
-            {/* Кнопка для открытия уборки в модалке (только для уборок) */}
-            {isCleaning && item.cleaningId && (
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setSelectedCleaningId(item.cleaningId)
-                }}
-                className="h-8 w-8 p-0 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600 border-transparent bg-transparent"
-                title="Открыть уборку"
-              >
-                <ArrowTopRightOnSquareIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              </Button>
-            )}
             {canEdit && (
               <Button
                 onClick={(e) => {

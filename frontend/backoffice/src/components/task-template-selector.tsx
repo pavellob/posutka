@@ -21,7 +21,7 @@ export function TaskTemplateSelector({
   edited: any
   editedItems: any
   setEditedItems: any
-  handleSaveItem: (item: any) => void
+  handleSaveItem: (item: any, executorIdOverride?: string) => void
   task: Task
 }) {
   // Получаем unitId из задачи

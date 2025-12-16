@@ -27,7 +27,7 @@ interface NotificationTaskEditFormProps {
   edited: EditedItem
   editedItems: Record<string, EditedItem>
   setEditedItems: (items: Record<string, EditedItem>) => void
-  handleSaveItem: (item: any) => void
+  handleSaveItem: (item: any, executorIdOverride?: string) => void
   setEditingItemId: (id: string | null) => void
   task: Task
   isCleaning: boolean
@@ -68,7 +68,9 @@ export function NotificationTaskEditForm({
             })
           }}
           onBlur={() => {
-            if (edited.timeString && edited.initialTimeString && edited.timeString !== edited.initialTimeString) {
+            const currentTime = edited.timeString !== undefined ? edited.timeString : (item.timeString || '')
+            const initialTime = edited.initialTimeString !== undefined ? edited.initialTimeString : ''
+            if (currentTime && initialTime && currentTime !== initialTime) {
               handleSaveItem(item)
             }
           }}
@@ -87,18 +89,18 @@ export function NotificationTaskEditForm({
           value={edited.executorId !== undefined ? (edited.executorId || '') : (item.executorId || item.cleanerId || item.masterId || '')}
           onChange={(e) => {
             const newExecutorId = e.target.value
-            setEditedItems({
-              ...editedItems,
-              [itemId]: {
-                ...edited,
-                executorId: newExecutorId,
-              },
-            })
-          }}
-          onBlur={() => {
-            if (edited.executorId !== edited.initialExecutorId) {
-              handleSaveItem(item)
+            const updatedEdited = {
+              ...edited,
+              executorId: newExecutorId,
             }
+            const updatedEditedItems = {
+              ...editedItems,
+              [itemId]: updatedEdited,
+            }
+            setEditedItems(updatedEditedItems)
+            // Сохраняем сразу при изменении исполнителя, передавая обновленный edited через executorIdOverride
+            // handleSaveItem будет использовать executorIdOverride, который имеет приоритет над edited.executorId
+            handleSaveItem(item, newExecutorId)
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -201,29 +203,6 @@ export function NotificationTaskEditForm({
           />
         </>
       )}
-
-      {/* Кнопки сохранения/отмены */}
-      <div className="flex items-center gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
-        <Button
-          onClick={(e) => {
-            e.stopPropagation()
-            handleSaveItem(item)
-          }}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          Сохранить
-        </Button>
-        <Button
-          onClick={(e) => {
-            e.stopPropagation()
-            setEditingItemId(null)
-            setEditedItems({})
-          }}
-          className="flex-1 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-900 dark:text-zinc-100"
-        >
-          Отмена
-        </Button>
-      </div>
     </div>
   )
 }

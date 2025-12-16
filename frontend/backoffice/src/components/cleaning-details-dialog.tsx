@@ -187,27 +187,28 @@ export function CleaningDetailsDialog({
                   </>
                 )}
                 {isEditingTime && (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="datetime-local"
-                      value={scheduledAtLocal}
-                      onChange={(e) => setScheduledAtLocal(e.target.value)}
-                      className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-md px-2 py-1 text-sm text-gray-900 dark:text-gray-100"
-                    />
-                    <Button
-                        onClick={() => scheduledAtLocal && cleaning.id && updateTimeMutation.mutate({ id: cleaning.id, scheduledAt: new Date(scheduledAtLocal).toISOString() })}
-                      disabled={updateTimeMutation.isPending}
-                      className="h-8 px-3 bg-black text-white hover:bg-gray-800"
-                    >
-                      {updateTimeMutation.isPending ? 'Сохранение...' : 'Сохранить'}
-                    </Button>
-                    <Button
-                      onClick={() => setIsEditingTime(false)}
-                      className="h-8 px-3 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    >
-                      Отмена
-                    </Button>
-                  </div>
+                  <input
+                    type="datetime-local"
+                    value={scheduledAtLocal}
+                    onChange={(e) => setScheduledAtLocal(e.target.value)}
+                    onBlur={() => {
+                      if (scheduledAtLocal && cleaning.id) {
+                        updateTimeMutation.mutate({ 
+                          id: cleaning.id, 
+                          scheduledAt: new Date(scheduledAtLocal).toISOString() 
+                        })
+                      } else {
+                        setIsEditingTime(false)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setIsEditingTime(false)
+                      }
+                    }}
+                    autoFocus
+                    className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-md px-2 py-1 text-sm text-gray-900 dark:text-gray-100"
+                  />
                 )}
               </div>
             </div>

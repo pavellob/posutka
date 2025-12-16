@@ -277,13 +277,44 @@ export class BookingService {
         return;
       }
 
+      // Получаем информацию о госте
+      let guest: any = null;
+      try {
+        guest = booking.guest || await this.dl.getGuestById(booking.guestId);
+      } catch (guestError: any) {
+        logger.warn('Failed to get guest for cleaning task', {
+          bookingId: booking.id,
+          guestId: booking.guestId,
+          error: guestError.message,
+        });
+      }
+      const guestName = guest?.name || 'Неизвестный гость';
+
+      // Получаем адрес из property
+      let property: any = null;
+      let address = 'Адрес не указан';
+      try {
+        if (unit.propertyId) {
+          property = await this.inventoryDL.getPropertyById(unit.propertyId);
+          address = property?.address || unit?.address || 'Адрес не указан';
+        } else if (unit.address) {
+          address = unit.address;
+        }
+      } catch (propertyError: any) {
+        logger.warn('Failed to get property for cleaning task', {
+          bookingId: booking.id,
+          propertyId: unit.propertyId,
+          error: propertyError.message,
+        });
+      }
+
       const request = {
         orgId: booking.orgId, // Use orgId from booking
         propertyId: unit.propertyId, // Get from unit
         roomId: booking.unitId, // Use unitId as roomId
         bookingId: booking.id,
         scheduledAt,
-        notes: `Уборка для бронирования ${booking.id}. Гость: ${booking.guestId}`,
+        notes: `Уборка для бронирования. Гость: ${guestName}. Адрес: ${address}`,
         priority: TaskPriority.TASK_PRIORITY_MEDIUM
       };
 

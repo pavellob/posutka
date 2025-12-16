@@ -33,7 +33,6 @@ import { GET_TASK_BY_ID, UPDATE_TASK_STATUS, ASSIGN_TASK, GET_SERVICE_PROVIDERS,
 import { Input } from '@/components/input'
 import { Select } from '@/components/select'
 import { TrashIcon } from '@heroicons/react/24/outline'
-import { CleaningDetailsDialog } from '@/components/cleaning-details-dialog'
 import { TaskTemplateNameDisplay } from '@/components/task-template-name-display'
 import { TaskTemplateSelector } from '@/components/task-template-selector'
 import { NotificationTasksView, type EditedItem } from '@/components/notification-tasks-view'
@@ -58,7 +57,6 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
   const [showAssignDailyDialog, setShowAssignDailyDialog] = useState(false)
   const [selectedManagerId, setSelectedManagerId] = useState<string>('')
-  const [selectedCleaningId, setSelectedCleaningId] = useState<string | null>(null)
 
   // Разворачиваем params с помощью React.use()
   const { id } = use(params)
@@ -167,18 +165,26 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
 
   // Мутация обновления задачи в DAILY_NOTIFICATION
   const updateDailyTaskItemMutation = useMutation({
-    mutationFn: async ({ itemId, scheduledAt, executorId, notes, difficulty, templateId }: { itemId: string; scheduledAt?: string; executorId?: string; notes?: string; difficulty?: number; templateId?: string }) => {
-      return graphqlRequest(UPDATE_DAILY_NOTIFICATION_TASK_ITEM, {
-        input: {
-          taskId: id,
-          itemId,
-          scheduledAt,
-          executorId,
-          notes,
-          difficulty,
-          templateId,
-        },
-      });
+    mutationFn: async ({ itemId, scheduledAt, executorId, notes, difficulty, templateId }: { itemId: string; scheduledAt?: string; executorId?: string | null; notes?: string; difficulty?: number; templateId?: string }) => {
+      // Создаем input объект, исключая undefined поля
+      // Если executorId это пустая строка '', передаем null для удаления исполнителя
+      const input: any = {
+        taskId: id,
+        itemId,
+      };
+      if (scheduledAt !== undefined) input.scheduledAt = scheduledAt;
+      // Если executorId это пустая строка, передаем null для удаления
+      // Если executorId это undefined, не передаем поле вообще
+      if (executorId !== undefined) {
+        input.executorId = executorId === '' ? null : executorId;
+      }
+      if (notes !== undefined) input.notes = notes;
+      if (difficulty !== undefined) input.difficulty = difficulty;
+      if (templateId !== undefined) input.templateId = templateId;
+      
+      console.log('📤 Mutation input:', input);
+      
+      return graphqlRequest(UPDATE_DAILY_NOTIFICATION_TASK_ITEM, { input });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['task', id] });
@@ -278,32 +284,54 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     const executorId = executorIdOverride !== undefined ? executorIdOverride : edited?.executorId;
     
     // Проверяем, что изменилось
-    const timeChanged = edited?.timeString && edited.initialTimeString !== edited.timeString;
-    const executorChanged = executorIdOverride !== undefined || (executorId !== undefined && executorId !== edited?.initialExecutorId);
+    // Для времени: проверяем, что timeString установлен и отличается от initialTimeString
+    const currentTimeString = edited?.timeString !== undefined ? edited.timeString : null;
+    const initialTimeString = edited?.initialTimeString !== undefined ? edited.initialTimeString : null;
+    const timeChanged = currentTimeString !== null && initialTimeString !== null && currentTimeString !== initialTimeString;
+    
+    // Для исполнителя: если передан executorIdOverride, это явное изменение
+    // Также проверяем, изменился ли edited.executorId от initialExecutorId
+    const currentExecutorId = item.cleanerId || item.masterId || item.executorId || '';
+    const newExecutorId = executorIdOverride !== undefined ? executorIdOverride : (edited?.executorId !== undefined ? edited.executorId : '');
+    const initialExecutorId = edited?.initialExecutorId || '';
+    
+    // Исполнитель изменился, если:
+    // 1. Передан executorIdOverride (даже если это пустая строка для удаления)
+    // 2. Или edited.executorId отличается от initialExecutorId
+    const executorChanged = executorIdOverride !== undefined || (edited?.executorId !== undefined && newExecutorId !== initialExecutorId);
+    
     const notesChanged = edited?.notes !== undefined && edited.notes !== edited.initialNotes;
     const difficultyChanged = edited?.difficulty !== undefined && edited.difficulty !== edited.initialDifficulty;
     const templateChanged = edited?.templateId !== undefined && edited.templateId !== edited.initialTemplateId;
     
-    // Если ничего не изменилось, выходим
-    if (!timeChanged && !executorChanged && !notesChanged && !difficultyChanged && !templateChanged) {
-      return;
-    }
-    
     // Если передан executorIdOverride или изменяется только исполнитель (без времени)
     if (executorIdOverride !== undefined || (!timeChanged && executorChanged)) {
-      // Проверяем, изменилось ли значение (нормализуем для сравнения)
-      const currentExecutorId = item.cleanerId || item.masterId || item.executorId;
-      const normalizedNew = executorId || '';
+      // Нормализуем значения для сравнения
+      const normalizedNew = newExecutorId || '';
       const normalizedCurrent = currentExecutorId || '';
       
-      // Если исполнитель не изменился и нет других изменений, проверяем notes/difficulty отдельно
-      if (normalizedNew === normalizedCurrent && !notesChanged && !difficultyChanged) {
+      // Если исполнитель не изменился и нет других изменений, выходим
+      if (normalizedNew === normalizedCurrent && !notesChanged && !difficultyChanged && !templateChanged) {
         return;
       }
       
+      // Если newExecutorId пустая строка, передаем null для удаления исполнителя
+      // Важно: явно проверяем на пустую строку, чтобы отличить удаление от отсутствия изменений
+      // Попробуем передавать пустую строку вместо null, так как бэкенд может не обрабатывать null
+      const executorIdToSave = normalizedNew === '' ? '' : normalizedNew;
+      
+      console.log('🔄 Saving executor change:', {
+        itemId,
+        currentExecutorId: normalizedCurrent,
+        newExecutorId: normalizedNew,
+        executorIdToSave,
+        executorIdOverride,
+        executorChanged
+      });
+      
       updateDailyTaskItemMutation.mutate({
         itemId,
-        executorId: executorChanged ? (executorId || undefined) : undefined, // Передаем только если изменился
+        executorId: executorIdToSave, // Всегда передаем, если мы в этой ветке
         notes: notesChanged ? edited.notes : undefined,
         difficulty: difficultyChanged ? (edited.difficulty !== null && edited.difficulty !== undefined ? edited.difficulty : undefined) : undefined,
         templateId: templateChanged ? edited.templateId : undefined,
@@ -357,17 +385,27 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     
     // Берем исходную дату и меняем только время
     const originalDate = new Date(item.scheduledAt);
-    const [hours, minutes] = (edited.timeString || '00:00').split(':').map(Number);
+    const timeString = edited.timeString || '00:00';
+    const [hours, minutes] = timeString.split(':').map(Number);
     
     // Создаем новую дату с тем же днем, но новым временем
     const newDate = new Date(originalDate);
     newDate.setHours(hours, minutes, 0, 0);
     
+    // Обрабатываем executorId: если он изменился или нужно удалить (пустая строка)
+    let executorIdToSave: string | undefined = undefined;
+    if (executorChanged) {
+      const newExecutorId = executorIdOverride !== undefined ? executorIdOverride : (edited?.executorId || '');
+      executorIdToSave = newExecutorId === '' ? undefined : newExecutorId;
+    } else if (edited?.executorId !== undefined) {
+      // Если executorId был установлен в edited, но не изменился, используем его
+      executorIdToSave = edited.executorId === '' ? undefined : edited.executorId;
+    }
+    
     updateDailyTaskItemMutation.mutate({
       itemId,
       scheduledAt: newDate.toISOString(),
-      // Используем executorId из edited, если он есть, иначе из item
-      executorId: edited.executorId !== undefined ? edited.executorId : item.executorId,
+      executorId: executorIdToSave,
       notes: notesChanged ? edited.notes : undefined,
       difficulty: difficultyChanged ? (edited.difficulty ?? undefined) : undefined,
       templateId: templateChanged ? edited.templateId : undefined,
@@ -588,7 +626,9 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
             try {
               const taskInfo = JSON.parse(task.note);
               const isCleaning = taskInfo.taskType === 'CLEANING';
-              const formattedDate = new Date(taskInfo.targetDate).toLocaleDateString('ru-RU', {
+              const targetDate = new Date(taskInfo.targetDate);
+              const dateUTC = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate()));
+              const formattedDate = dateUTC.toLocaleDateString('ru-RU', {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric',
@@ -656,7 +696,6 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                     setEditingItemId={setEditingItemId}
                     removeTaskItem={removeTaskItem}
                     removeTaskItemMutation={removeTaskItemMutation}
-                    setSelectedCleaningId={setSelectedCleaningId}
                     task={task}
                     isCleaning={isCleaning}
                     isDailyNotification={isDailyNotification}
@@ -770,7 +809,13 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                       {task.booking.guest.email}
                     </Text>
                     <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {new Date(task.booking.checkIn).toLocaleDateString('ru-RU')} - {new Date(task.booking.checkOut).toLocaleDateString('ru-RU')}
+                      {(() => {
+                        const checkIn = new Date(task.booking.checkIn)
+                        const checkOut = new Date(task.booking.checkOut)
+                        const checkInUTC = new Date(Date.UTC(checkIn.getUTCFullYear(), checkIn.getUTCMonth(), checkIn.getUTCDate()))
+                        const checkOutUTC = new Date(Date.UTC(checkOut.getUTCFullYear(), checkOut.getUTCMonth(), checkOut.getUTCDate()))
+                        return `${checkInUTC.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' })} - ${checkOutUTC.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' })}`
+                      })()}
                     </Text>
                     <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                       🔗 Нажмите для перехода к бронированию
@@ -813,12 +858,24 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                     )}
                     {(taskData?.task as any)?.source?.cleaning?.scheduledAt && (
                       <Text className="text-sm text-gray-500 dark:text-gray-400">
-                        Запланирована: {new Date((taskData?.task as any)?.source?.cleaning?.scheduledAt).toLocaleString('ru-RU')}
+                        Запланирована: {(() => {
+                          const date = new Date((taskData?.task as any)?.source?.cleaning?.scheduledAt)
+                          const dateUTC = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+                          const dateStr = dateUTC.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' })
+                          const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
+                          return `${dateStr} ${timeStr}`
+                        })()}
                       </Text>
                     )}
                     {(taskData?.task as any)?.source?.cleaning?.completedAt && (
                       <Text className="text-sm text-gray-500 dark:text-gray-400">
-                        Завершена: {new Date((taskData?.task as any)?.source?.cleaning?.completedAt).toLocaleString('ru-RU')}
+                        Завершена: {(() => {
+                          const date = new Date((taskData?.task as any)?.source?.cleaning?.completedAt)
+                          const dateUTC = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+                          const dateStr = dateUTC.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' })
+                          const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
+                          return `${dateStr} ${timeStr}`
+                        })()}
                       </Text>
                     )}
                     <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
@@ -862,12 +919,24 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                     )}
                     {(taskData?.task as any)?.source?.repair?.scheduledAt && (
                       <Text className="text-sm text-gray-500 dark:text-gray-400">
-                        Запланирован: {new Date((taskData?.task as any)?.source?.repair?.scheduledAt).toLocaleString('ru-RU')}
+                        Запланирован: {(() => {
+                          const date = new Date((taskData?.task as any)?.source?.repair?.scheduledAt)
+                          const dateUTC = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+                          const dateStr = dateUTC.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' })
+                          const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
+                          return `${dateStr} ${timeStr}`
+                        })()}
                       </Text>
                     )}
                     {(taskData?.task as any)?.source?.repair?.completedAt && (
                       <Text className="text-sm text-gray-500 dark:text-gray-400">
-                        Завершен: {new Date((taskData?.task as any)?.source?.repair?.completedAt).toLocaleString('ru-RU')}
+                        Завершен: {(() => {
+                          const date = new Date((taskData?.task as any)?.source?.repair?.completedAt)
+                          const dateUTC = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+                          const dateStr = dateUTC.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' })
+                          const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
+                          return `${dateStr} ${timeStr}`
+                        })()}
                       </Text>
                     )}
                     <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
@@ -929,7 +998,12 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                 <div>
                   <Text className="text-sm font-medium">Создано:</Text>
                   <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                    {new Date(task.createdAt).toLocaleString('ru-RU')}
+                    {(() => {
+                      const date = new Date(task.createdAt)
+                      const dateStr = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' })
+                      const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
+                      return `${dateStr} ${timeStr}`
+                    })()}
                   </Text>
                 </div>
               </div>
@@ -939,7 +1013,13 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                   <div>
                     <Text className="text-sm font-medium">Срок выполнения:</Text>
                     <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                      {new Date(task.dueAt).toLocaleString('ru-RU')}
+                      {(() => {
+                        const date = new Date(task.dueAt)
+                        const dateUTC = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+                        const dateStr = dateUTC.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' })
+                        const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
+                        return `${dateStr} ${timeStr}`
+                      })()}
                     </Text>
                   </div>
                 </div>
@@ -949,7 +1029,12 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                 <div>
                   <Text className="text-sm font-medium">Обновлено:</Text>
                   <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                    {new Date(task.updatedAt).toLocaleString('ru-RU')}
+                    {(() => {
+                      const date = new Date(task.updatedAt)
+                      const dateStr = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' })
+                      const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
+                      return `${dateStr} ${timeStr}`
+                    })()}
                   </Text>
                 </div>
               </div>
@@ -1078,8 +1163,9 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
               )}
               {(isTodoStatus || isInProgressStatus) && (
                 <Button 
+                  outline
                   onClick={() => handleUpdateStatus('CANCELED')}
-                  className="w-full border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                  className="w-full !text-zinc-800 dark:!text-zinc-100"
                 >
                   Отменить задачу
                 </Button>
@@ -1422,12 +1508,6 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
         </Dialog>
       )}
 
-      {/* Модалка для просмотра уборки */}
-      <CleaningDetailsDialog
-        isOpen={selectedCleaningId !== null}
-        onClose={() => setSelectedCleaningId(null)}
-        cleaningId={selectedCleaningId}
-      />
     </div>
   )
 }
