@@ -12,6 +12,7 @@ import { Textarea } from '@/components/textarea'
 import { Address } from './address'
 import { NotificationSettingsCompact } from '@/components/notification-settings-compact'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import Link from 'next/link'
 
 export default function Settings() {
   const { user } = useCurrentUser()
@@ -96,6 +97,22 @@ export default function Settings() {
             </div>
             <div>
               <NotificationSettingsCompact userId={user.id} showTitle={false} />
+            </div>
+          </section>
+
+          <Divider className="my-10" soft />
+
+          <section className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Subheading>Уведомления организации</Subheading>
+              <Text>Настройте ежедневные рассылки уведомлений о задачах на день для организации.</Text>
+            </div>
+            <div>
+              <Link href="/settings/organization-notifications/daily-tasks">
+                <Button type="button">
+                  Настроить уведомления организации
+                </Button>
+              </Link>
             </div>
           </section>
 

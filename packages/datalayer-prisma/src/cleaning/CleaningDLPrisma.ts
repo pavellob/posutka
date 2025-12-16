@@ -223,6 +223,7 @@ export class CleaningDLPrisma implements ICleaningDL {
         description: input.description,
         requiresLinenChange: input.requiresLinenChange ?? false,
         estimatedDuration: input.estimatedDuration,
+        difficultyModifier: input.difficultyModifier,
         checklistItems: input.checklistItems
           ? {
               create: input.checklistItems.map((item, index) => ({
@@ -277,6 +278,7 @@ export class CleaningDLPrisma implements ICleaningDL {
         description: input.description,
         requiresLinenChange: input.requiresLinenChange,
         estimatedDuration: input.estimatedDuration,
+        difficultyModifier: input.difficultyModifier,
         checklistItems: deduplicatedItems
           ? {
               create: deduplicatedItems,
@@ -454,7 +456,13 @@ export class CleaningDLPrisma implements ICleaningDL {
     if (params.cleanerId) where.cleanerId = params.cleanerId;
     if (params.bookingId) where.bookingId = params.bookingId;
     if (params.taskId) where.taskId = params.taskId;
-    if (params.status) where.status = params.status;
+    if (params.status) {
+      if (Array.isArray(params.status)) {
+        where.status = { in: params.status };
+      } else {
+        where.status = params.status;
+      }
+    }
     if (params.from || params.to) {
       where.scheduledAt = {};
       if (params.from) where.scheduledAt.gte = new Date(params.from);
@@ -888,6 +896,7 @@ export class CleaningDLPrisma implements ICleaningDL {
       description: template.description,
       requiresLinenChange: template.requiresLinenChange,
       estimatedDuration: template.estimatedDuration,
+      difficultyModifier: template.difficultyModifier ?? undefined,
       checklistItems: template.checklistItems
         ? template.checklistItems.map((item: any) => ({
             id: item.id,
@@ -1180,7 +1189,13 @@ export class CleaningDLPrisma implements ICleaningDL {
     if (params.orgId) where.orgId = params.orgId;
     if (params.unitId) where.unitId = params.unitId;
     if (params.masterId) where.masterId = params.masterId;
-    if (params.status) where.status = params.status;
+    if (params.status) {
+      if (Array.isArray(params.status)) {
+        where.status = { in: params.status };
+      } else {
+        where.status = params.status;
+      }
+    }
     if (params.from || params.to) {
       where.scheduledAt = {};
       if (params.from) where.scheduledAt.gte = new Date(params.from);

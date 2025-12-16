@@ -70,6 +70,7 @@ query GetCleaningTemplates($unitId: UUID!) {
     description
     requiresLinenChange
     estimatedDuration
+    difficultyModifier
     checklistItems {
       id
       label

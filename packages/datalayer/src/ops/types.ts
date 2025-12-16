@@ -2,8 +2,8 @@ import type { UUID, DateTime, Money } from '@repo/shared/types-only';
 
 export type { UUID, DateTime, Money };
 
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELED';
-export type TaskType = 'CLEANING' | 'CHECKIN' | 'CHECKOUT' | 'MAINTENANCE' | 'INVENTORY';
+export type TaskStatus = 'DRAFT' | 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELED';
+export type TaskType = 'CLEANING' | 'CHECKIN' | 'CHECKOUT' | 'MAINTENANCE' | 'INVENTORY' | 'DAILY_NOTIFICATION';
 
 export interface ServiceProvider {
   id: UUID;
@@ -68,6 +68,7 @@ export interface TaskConnection {
 export interface CreateTaskInput {
   orgId: UUID;
   type: TaskType;
+  status?: TaskStatus; // Статус задачи (по умолчанию TODO)
   unitId?: UUID;
   bookingId?: UUID;
   sourceId?: UUID; // Связь с источником задачи (cleaning, repair, booking и т.д.)

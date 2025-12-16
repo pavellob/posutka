@@ -709,6 +709,25 @@ export const resolvers: any = {
             }
           }
           
+          // Получаем информацию о шаблоне чеклиста из ChecklistInstance
+          let templateId: string | undefined;
+          let templateName: string | undefined;
+          try {
+            const checklistInstance = await prisma.checklistInstance.findFirst({
+              where: { cleaningId: cleaning.id },
+              include: { template: { select: { id: true, name: true } } }
+            });
+            if (checklistInstance?.template) {
+              templateId = checklistInstance.template.id;
+              templateName = checklistInstance.template.name || undefined;
+            }
+          } catch (error) {
+            logger.warn('Failed to fetch template name for notification', {
+              cleaningId: cleaning.id,
+              error
+            });
+          }
+          
           await eventsClient.publishCleaningAssigned({
             cleaningId: cleaning.id,
             cleanerId: currentCleaner.id,
@@ -726,6 +745,8 @@ export const resolvers: any = {
             cleaningDifficulty,
             priceAmount,
             priceCurrency,
+            templateId,
+            templateName,
           });
           logger.info('✅ CLEANING_ASSIGNED event published', { 
             cleaningId,
@@ -1204,6 +1225,10 @@ export const resolvers: any = {
     unit: (parent: any, _: unknown, { inventoryDL }: Context) => {
       return { id: parent.unitId };
     },
+    name: (parent: any) => {
+      // Если name равно null или undefined, возвращаем дефолтное значение
+      return parent.name || `Чеклист ${parent.version || 1}`;
+    },
   },
   
   ChecklistItemTemplate: {
@@ -1494,15 +1519,10 @@ Object.assign(resolvers.Query, {
   ) => {
     try {
       logger.info('Getting checklists by unit', { unitId });
-      // Возвращаем шаблоны чек-листов для юнита (новая модель)
-      const template = await checklistInstanceService.getChecklistTemplate(unitId);
-      if (!template) {
-        logger.info('No template found for unit', { unitId });
-        return [];
-      }
-      logger.info('Template found', { templateId: template.id, unitId, itemsCount: template.items?.length || 0 });
-      // Возвращаем шаблон в формате новой модели
-      return [template];
+      // Возвращаем все шаблоны чек-листов для юнита
+      const templates = await checklistInstanceService.getAllChecklistTemplates(unitId);
+      logger.info('Templates found', { unitId, count: templates.length });
+      return templates;
     } catch (error: any) {
       logger.error('Error getting checklists by unit', { unitId, error: error.message, stack: error.stack });
       throw error;
@@ -1945,11 +1965,11 @@ Object.assign(resolvers.Mutation, {
     
     createChecklistTemplate: async (
       _: unknown,
-      { unitId }: { unitId: string },
+      { unitId, name }: { unitId: string; name?: string },
       { checklistInstanceService }: Context
     ) => {
-      logger.info('Creating checklist template', { unitId });
-      return checklistInstanceService.createChecklistTemplate(unitId);
+      logger.info('Creating checklist template', { unitId, name });
+      return checklistInstanceService.createChecklistTemplate(unitId, name);
     },
     
     addTemplateItem: async (
@@ -1986,6 +2006,15 @@ Object.assign(resolvers.Mutation, {
     ) => {
       logger.info('Updating item order in checklist template', { templateId, itemCount: itemKeys.length });
       return checklistInstanceService.updateTemplateItemOrder({ templateId, itemKeys });
+    },
+
+    updateChecklistTemplate: async (
+      _: unknown,
+      { templateId, input }: { templateId: string; input: any },
+      { checklistInstanceService }: Context
+    ) => {
+      logger.info('Updating checklist template', { templateId, input });
+      return checklistInstanceService.updateChecklistTemplate(templateId, input);
     },
     
     addTemplateItemExampleMedia: async (

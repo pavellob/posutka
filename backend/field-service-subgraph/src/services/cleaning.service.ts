@@ -240,6 +240,25 @@ export class CleaningService {
           const targetUserId = cleaner.userId || cleaner.id;
           const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim();
 
+          // Получаем информацию о шаблоне чеклиста из ChecklistInstance
+          let templateId: string | undefined;
+          let templateName: string | undefined;
+          try {
+            const checklistInstance = await this.prisma.checklistInstance.findFirst({
+              where: { cleaningId: cleaning.id },
+              include: { template: { select: { id: true, name: true } } }
+            });
+            if (checklistInstance?.template) {
+              templateId = checklistInstance.template.id;
+              templateName = checklistInstance.template.name || undefined;
+            }
+          } catch (error) {
+            logger.warn('Failed to fetch template name for notification', {
+              cleaningId: cleaning.id,
+              error
+            });
+          }
+
           const publishParams = {
             cleaningId: cleaning.id,
             cleanerId: cleaning.cleanerId,
@@ -257,6 +276,8 @@ export class CleaningService {
             cleaningDifficulty: additionalData.cleaningDifficulty,
             priceAmount: additionalData.priceAmount,
             priceCurrency: additionalData.priceCurrency,
+            templateId,
+            templateName,
           };
 
           logger.info('📤 Publishing CLEANING_ASSIGNED event from CleaningService', {

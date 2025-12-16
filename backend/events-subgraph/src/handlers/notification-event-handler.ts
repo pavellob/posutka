@@ -35,7 +35,7 @@ export class NotificationEventHandler {
     });
     
     // Подключаемся асинхронно (не блокируем старт)
-    this.notificationsClient.connect().catch((error) => {
+    this.notificationsClient.connect().catch((error: unknown) => {
       logger.warn('Failed to connect to notifications-subgraph gRPC', { error });
     });
   }
@@ -207,13 +207,23 @@ export class NotificationEventHandler {
       logger.info('🔍 Processing notification for user', { userId, eventType: event.type });
       
       // Загружаем настройки
-      const settings = await this.prisma.userNotificationSettings.findUnique({
+      let settings = await this.prisma.userNotificationSettings.findUnique({
         where: { userId }
       });
       
+      // Если настроек нет, создаем настройки по умолчанию
+      // Особенно важно для ежедневных уведомлений, которые должны работать автоматически
       if (!settings) {
-        logger.warn('⚠️ No notification settings found for user', { userId });
-        return false;
+        logger.info('No notification settings found for user, creating default settings', { userId });
+        settings = await this.prisma.userNotificationSettings.create({
+          data: {
+            userId,
+            enabled: true,
+            enabledChannels: ['TELEGRAM', 'WEBSOCKET'],
+            subscribedEvents: [],
+          },
+        });
+        logger.info('✅ Default notification settings created for user', { userId });
       }
       
       logger.info('📋 User settings found', {
@@ -336,6 +346,27 @@ export class NotificationEventHandler {
         settings.subscribedEvents = updatedEvents as any;
         logger.info('Auto-subscribed user to REPAIR_COMPLETED', { userId });
       }
+
+      // Автоподписка на TASK_CREATED для ежедневных уведомлений
+      // Важно: делаем это ДО проверки подписки, чтобы пользователь автоматически получал ежедневные уведомления
+      if (event.type === 'TASK_CREATED' && event.payload?.taskType) {
+        const taskType = event.payload.taskType;
+        if ((taskType === 'DAILY_CLEANING_NOTIFICATION' || taskType === 'DAILY_REPAIR_NOTIFICATION') 
+            && !settings.subscribedEvents.includes('TASK_CREATED')) {
+          const updatedEvents = [...settings.subscribedEvents, 'TASK_CREATED'];
+          await this.prisma.userNotificationSettings.update({
+            where: { userId },
+            data: { subscribedEvents: updatedEvents },
+          });
+          settings.subscribedEvents = updatedEvents as any;
+          logger.info('✅ Auto-subscribed user to TASK_CREATED for daily notifications', { 
+            userId, 
+            taskType,
+            previousEvents: settings.subscribedEvents.length,
+            newEvents: updatedEvents.length
+          });
+        }
+      }
       
       // Проверяем подписку на событие
       // Для CLEANING_AVAILABLE, CLEANING_READY_FOR_REVIEW, CLEANING_PRECHECK_COMPLETED, CLEANING_STARTED, CLEANING_COMPLETED уже сделана автоподписка выше
@@ -393,6 +424,16 @@ export class NotificationEventHandler {
       
       // Рендерим сообщение
       const rendered = await this.renderNotification(event);
+      
+      // Если рендеринг вернул null, пропускаем создание уведомления
+      if (!rendered) {
+        logger.info('Notification rendering returned null, skipping notification creation', {
+          eventType: event.type,
+          userId,
+        });
+        return false;
+      }
+      
       const { title, message, actionUrl, actionButtons } = rendered;
       
       logger.info('Rendered notification', {
@@ -535,9 +576,16 @@ export class NotificationEventHandler {
       };
 
       // Маппинг каналов
+      // Важно: notifications-subgraph сам найдет telegramChatId по userId, поэтому добавляем TELEGRAM
+      // если он включен в enabledChannels, даже если telegramChatId еще не установлен
       const channels: NotificationChannel[] = [];
-      if (settings.enabledChannels.includes('TELEGRAM') && settings.telegramChatId) {
+      if (settings.enabledChannels.includes('TELEGRAM')) {
         channels.push(NotificationChannel.CHANNEL_TELEGRAM);
+        logger.info('Adding TELEGRAM channel', { 
+          userId, 
+          hasTelegramChatId: !!settings.telegramChatId,
+          note: settings.telegramChatId ? 'Will use existing chatId' : 'notifications-subgraph will find chatId'
+        });
       }
       if (settings.enabledChannels.includes('WEBSOCKET')) {
         channels.push(NotificationChannel.CHANNEL_WEBSOCKET);
@@ -680,7 +728,7 @@ export class NotificationEventHandler {
     message: string; 
     actionUrl?: string; 
     actionButtons?: Array<{ text: string; url: string; useWebApp?: boolean }> 
-  }> {
+  } | null> {
     // Попытаться загрузить шаблон из БД
     const template = await this.getTemplateForEvent(event.type);
     
@@ -756,7 +804,7 @@ export class NotificationEventHandler {
     }
     
     // Fallback на захардкоженные шаблоны
-    return this.renderNotificationFallback(event);
+    return await this.renderNotificationFallback(event);
   }
   
   /**
@@ -851,12 +899,12 @@ export class NotificationEventHandler {
   /**
    * Fallback метод с захардкоженными шаблонами (для обратной совместимости)
    */
-  private renderNotificationFallback(event: any): { 
+  private async renderNotificationFallback(event: any): Promise<{ 
     title: string; 
     message: string; 
     actionUrl?: string; 
     actionButtons?: Array<{ text: string; url: string; useWebApp?: boolean }> 
-  } {
+  } | null> {
     const payload = event.payload;
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const useWebApp = process.env.TELEGRAM_USE_MINIAPP === 'true';
@@ -1458,12 +1506,192 @@ export class NotificationEventHandler {
         };
       
       // Task events
-      case 'TASK_CREATED':
+      case 'TASK_CREATED': {
+        // Специальная обработка для ежедневных уведомлений
+        const taskType = payload.taskType;
+        if (taskType === 'DAILY_CLEANING_NOTIFICATION' || taskType === 'DAILY_REPAIR_NOTIFICATION') {
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+          const tasks = payload.tasks || [];
+          logger.info('Processing daily notification task', {
+            taskType,
+            tasksCount: tasks.length,
+            taskId: payload.taskId,
+            targetDate: payload.targetDate,
+          });
+          
+          // Форматируем дату
+          const formattedDate = payload.targetDate
+            ? new Date(payload.targetDate).toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              })
+            : 'не указана';
+          
+          const isCleaning = taskType === 'DAILY_CLEANING_NOTIFICATION';
+          
+          // Если нет задач, отправляем информационное сообщение
+          if (tasks.length === 0) {
+            logger.info('No tasks found for daily notification, sending informational message', {
+              taskType,
+              taskId: payload.taskId,
+              targetDate: payload.targetDate,
+            });
+            
+            return {
+              title: isCleaning 
+                ? `📋 Уборки на ${formattedDate}`
+                : `🔧 Ремонты на ${formattedDate}`,
+              message: `${isCleaning ? '📋' : '🔧'} На ${formattedDate} ${isCleaning ? 'уборок' : 'ремонтов'} не запланировано.`,
+              actionUrl: `${frontendUrl}/tasks`
+            };
+          }
+          
+          // Если есть задачи, формируем список
+          const title = isCleaning 
+            ? `📋 Уборки на ${formattedDate}`
+            : `🔧 Ремонты на ${formattedDate}`;
+          
+          let message = `${isCleaning ? '📋' : '🔧'} ${isCleaning ? 'Уборки' : 'Ремонты'} на ${formattedDate}:\n\n`;
+          
+          // Получаем все templateId из задач для предзагрузки шаблонов
+          const templateIds = tasks
+            .filter((t: any) => t.templateId)
+            .map((t: any) => t.templateId);
+          
+          // Предзагружаем шаблоны
+          const templatesMap = new Map<string, string>();
+          if (templateIds.length > 0) {
+            try {
+              const templates = await this.prisma.checklistTemplate.findMany({
+                where: { id: { in: templateIds } },
+              });
+              for (const template of templates) {
+                templatesMap.set(template.id, (template as any).name || 'Без названия');
+              }
+            } catch (error) {
+              logger.warn('Failed to load checklist templates', {
+                error: error instanceof Error ? error.message : String(error),
+                templateIds,
+              });
+            }
+          }
+          
+          for (let index = 0; index < tasks.length; index++) {
+            const task = tasks[index];
+            logger.info('Processing task for notification', {
+              index,
+              taskId: task.cleaningId || task.repairId,
+              unitName: task.unitName,
+              unitAddress: task.unitAddress,
+              scheduledAt: task.scheduledAt,
+              scheduledAtType: typeof task.scheduledAt,
+              executorName: task.executorName,
+              fullTask: task,
+            });
+
+            const unitName = task.unitName || 'Неизвестная квартира';
+            message += `${index + 1}. ${unitName}\n`;
+            
+            if (task.unitAddress) {
+              message += `📍 Адрес: ${task.unitAddress}\n`;
+            } else {
+              logger.warn('No unitAddress for task', {
+                taskId: task.cleaningId || task.repairId,
+                unitName: task.unitName,
+              });
+            }
+            
+            let time = 'не указано';
+            if (task.scheduledAt) {
+              try {
+                const scheduledDate = new Date(task.scheduledAt);
+                if (!isNaN(scheduledDate.getTime())) {
+                  time = scheduledDate.toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Europe/Moscow',
+                  });
+                  logger.info('Time formatted successfully', {
+                    taskId: task.cleaningId || task.repairId,
+                    original: task.scheduledAt,
+                    formatted: time,
+                    iso: scheduledDate.toISOString(),
+                  });
+                } else {
+                  logger.warn('Invalid scheduledAt date', {
+                    taskId: task.cleaningId || task.repairId,
+                    scheduledAt: task.scheduledAt,
+                  });
+                }
+              } catch (error) {
+                logger.error('Failed to format time', {
+                  taskId: task.cleaningId || task.repairId,
+                  scheduledAt: task.scheduledAt,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              }
+            } else {
+              logger.warn('No scheduledAt for task', {
+                taskId: task.cleaningId || task.repairId,
+                unitName: task.unitName,
+              });
+            }
+            message += `📅 Время: ${time}\n`;
+            
+            if (task.executorName) {
+              message += `👤 Исполнитель: ${task.executorName}\n`;
+            } else {
+              logger.warn('No executorName for task', {
+                taskId: task.cleaningId || task.repairId,
+                unitName: task.unitName,
+              });
+            }
+            
+            // Добавляем сложность для уборок
+            if (isCleaning && task.difficulty !== undefined && task.difficulty !== null) {
+              const difficultyText = task.difficulty === 0 ? 'Очень легко' : 
+                                     task.difficulty === 1 ? 'Легко' : 
+                                     task.difficulty === 2 ? 'Средне' : 
+                                     task.difficulty === 3 ? 'Сложно' : 
+                                     task.difficulty === 4 ? 'Очень сложно' : 
+                                     'Экстремально';
+              message += `⚡ Сложность: D${task.difficulty} (${difficultyText})\n`;
+            }
+            
+            // Добавляем notes, если есть
+            if (task.notes) {
+              message += `📝 Заметки: ${task.notes}\n`;
+            }
+            
+            // Добавляем шаблон чеклиста для уборок
+            if (isCleaning && task.templateId) {
+              const templateName = templatesMap.get(task.templateId) || 'Неизвестный шаблон';
+              message += `📋 Шаблон чеклиста: ${templateName}\n`;
+            }
+            
+            // Добавляем ссылку на уборку, если это уборка
+            if (isCleaning && task.cleaningId) {
+              message += `🔗 Уборка: ${frontendUrl}/cleanings/${task.cleaningId}\n`;
+            }
+            
+            message += '\n';
+          }
+          
+          return {
+            title,
+            message: message.trim(),
+            actionUrl: `${frontendUrl}/tasks/${payload.taskId}`
+          };
+        }
+        
+        // Обычная обработка TASK_CREATED
         return {
           title: '📋 Новая задача',
           message: `Создана задача: ${payload.taskName || payload.title || 'Без названия'}`,
           actionUrl: `${frontendUrl}/tasks/${payload.taskId}`
         };
+      }
       
       case 'TASK_ASSIGNED':
         return {

@@ -294,6 +294,27 @@ export const resolvers: any = {
             const unitName = `${unit.property?.title || ''} - ${unit.name}`.trim();
             const unitAddress = unit.property?.address;
             
+            // Получаем информацию о шаблоне чеклиста, если он назначен
+            let templateId: string | undefined;
+            let templateName: string | undefined;
+            if (cleaning.templateId) {
+              templateId = cleaning.templateId;
+              try {
+                const template = await prisma.checklistTemplate.findUnique({
+                  where: { id: cleaning.templateId },
+                  select: { name: true }
+                });
+                if (template) {
+                  templateName = template.name || undefined;
+                }
+              } catch (error) {
+                logger.warn('Failed to fetch template name for notification', {
+                  templateId: cleaning.templateId,
+                  error
+                });
+              }
+            }
+            
             await eventsClient.publishCleaningAssigned({
               cleaningId: cleaning.id,
               cleanerId: cleaning.cleanerId,
@@ -306,6 +327,8 @@ export const resolvers: any = {
               notes: cleaning.notes || undefined,
               orgId: cleaning.orgId || undefined,
               targetUserId,
+              templateId,
+              templateName,
             });
             
             logger.info('✅ CLEANING_ASSIGNED event published in scheduleCleaning', { 
@@ -704,6 +727,27 @@ export const resolvers: any = {
             }
           }
           
+          // Получаем информацию о шаблоне чеклиста, если он назначен
+          let templateId: string | undefined;
+          let templateName: string | undefined;
+          if (cleaning.templateId) {
+            templateId = cleaning.templateId;
+            try {
+              const template = await prisma.checklistTemplate.findUnique({
+                where: { id: cleaning.templateId },
+                select: { name: true }
+              });
+              if (template) {
+                templateName = template.name || undefined;
+              }
+            } catch (error) {
+              logger.warn('Failed to fetch template name for notification', {
+                templateId: cleaning.templateId,
+                error
+              });
+            }
+          }
+          
           await eventsClient.publishCleaningAssigned({
             cleaningId: cleaning.id,
             cleanerId: currentCleaner.id,
@@ -721,6 +765,8 @@ export const resolvers: any = {
             cleaningDifficulty,
             priceAmount,
             priceCurrency,
+            templateId,
+            templateName,
           });
           logger.info('✅ CLEANING_ASSIGNED event published', { 
             cleaningId,

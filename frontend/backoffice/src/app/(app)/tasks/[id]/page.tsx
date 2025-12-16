@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState, use, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Heading, Subheading } from '@/components/heading'
@@ -20,12 +20,23 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   PencilIcon,
-  SparklesIcon
+  SparklesIcon,
+  Squares2X2Icon,
+  ListBulletIcon,
+  UserPlusIcon,
+  ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/outline'
 import { graphqlClient } from '@/lib/graphql-client'
+import { graphqlRequest } from '@/lib/graphql-wrapper'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
-import { GET_TASK_BY_ID, UPDATE_TASK_STATUS, ASSIGN_TASK, GET_SERVICE_PROVIDERS, GET_CLEANERS, GET_MASTERS, SCHEDULE_CLEANING, SCHEDULE_REPAIR, GET_UNITS_BY_PROPERTY, GET_PROPERTIES_BY_ORG } from '@/lib/graphql-queries'
+import { GET_TASK_BY_ID, UPDATE_TASK_STATUS, ASSIGN_TASK, GET_SERVICE_PROVIDERS, GET_CLEANERS, GET_MASTERS, SCHEDULE_CLEANING, SCHEDULE_REPAIR, GET_UNITS_BY_PROPERTY, GET_PROPERTIES_BY_ORG, UPDATE_DAILY_NOTIFICATION_TASK_ITEM, SEND_DAILY_NOTIFICATION_TASK, UPDATE_TASK, GET_MEMBERSHIPS_BY_ORG, GET_CHECKLISTS_BY_UNIT, GET_CHECKLIST_TEMPLATE, GET_CLEANING } from '@/lib/graphql-queries'
+import { Input } from '@/components/input'
 import { Select } from '@/components/select'
+import { TrashIcon } from '@heroicons/react/24/outline'
+import { CleaningDetailsDialog } from '@/components/cleaning-details-dialog'
+import { TaskTemplateNameDisplay } from '@/components/task-template-name-display'
+import { TaskTemplateSelector } from '@/components/task-template-selector'
+import { NotificationTasksView, type EditedItem } from '@/components/notification-tasks-view'
 import type { GetTaskByIdQuery } from '@/lib/generated/graphql'
 
 type Task = NonNullable<GetTaskByIdQuery['task']>
@@ -40,6 +51,14 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const [assigneeType, setAssigneeType] = useState<'master' | 'provider'>('master')
   const [showCreateCleaningDialog, setShowCreateCleaningDialog] = useState(false)
   const [showCreateRepairDialog, setShowCreateRepairDialog] = useState(false)
+  
+  // Состояние для редактирования карточек DAILY_NOTIFICATION
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editedItems, setEditedItems] = useState<Record<string, EditedItem>>({})
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
+  const [showAssignDailyDialog, setShowAssignDailyDialog] = useState(false)
+  const [selectedManagerId, setSelectedManagerId] = useState<string>('')
+  const [selectedCleaningId, setSelectedCleaningId] = useState<string | null>(null)
 
   // Разворачиваем params с помощью React.use()
   const { id } = use(params)
@@ -64,7 +83,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     enabled: !!taskData?.task && taskData.task.type !== 'CLEANING'
   })
 
-  // Запрос уборщиков (для CLEANING задач)
+  // Запрос уборщиков (для CLEANING задач и DAILY_NOTIFICATION)
   const { data: cleanersData } = useQuery<any>({
     queryKey: ['cleaners', currentOrgId],
     queryFn: () => graphqlClient.request(GET_CLEANERS, {
@@ -72,10 +91,38 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
       isActive: true,
       first: 100
     }),
-    enabled: !!currentOrgId && taskData?.task?.type === 'CLEANING'
+    enabled: !!currentOrgId && ((taskData?.task?.type as any) === 'CLEANING' || (taskData?.task?.type as any) === 'DAILY_NOTIFICATION')
   })
 
-  // Запрос мастеров (для MAINTENANCE задач)
+  const cleaners = cleanersData?.cleaners?.edges?.map((edge: any) => edge.node) || []
+
+  // Запрос менеджеров (для DAILY_NOTIFICATION задач)
+  const { data: managersData } = useQuery<any>({
+    queryKey: ['managers', currentOrgId],
+    queryFn: () => graphqlClient.request(GET_MEMBERSHIPS_BY_ORG, {
+      orgId: currentOrgId!,
+    }),
+    enabled: !!currentOrgId && (taskData?.task?.type as any) === 'DAILY_NOTIFICATION',
+  });
+
+  const managers = managersData?.membershipsByOrg
+    ?.filter((m: any) => m.role === 'MANAGER' && m.user)
+    .map((m: any) => ({
+      id: m.user.id,
+      firstName: m.user.name?.split(' ')[0] || '',
+      lastName: m.user.name?.split(' ').slice(1).join(' ') || '',
+      email: m.user.email,
+      name: m.user.name,
+    })) || [];
+  const taskNoteInfo = useMemo(() => {
+    try {
+      return taskData?.task?.note ? JSON.parse(taskData.task.note) : {};
+    } catch {
+      return {};
+    }
+  }, [taskData?.task?.note]);
+
+  // Запрос мастеров (для MAINTENANCE задач и DAILY_NOTIFICATION с типом REPAIR)
   const { data: mastersData } = useQuery<any>({
     queryKey: ['masters', currentOrgId],
     queryFn: () => graphqlClient.request(GET_MASTERS, {
@@ -83,8 +130,10 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
       isActive: true,
       first: 100
     }),
-    enabled: !!currentOrgId && taskData?.task?.type === 'MAINTENANCE'
+    enabled: !!currentOrgId && ((taskData?.task?.type as any) === 'MAINTENANCE' || (taskData?.task?.type as any) === 'DAILY_NOTIFICATION')
   })
+
+  const masters = mastersData?.masters?.edges?.map((edge: any) => edge.node) || []
 
   // Мутация обновления статуса
   const updateTaskStatusMutation = useMutation({
@@ -105,6 +154,267 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
       setShowAssignDialog(false)
     }
   })
+
+  // Мутация обновления задачи
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) => 
+      graphqlClient.request(UPDATE_TASK, { id, input: { note } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', id] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    }
+  })
+
+  // Мутация обновления задачи в DAILY_NOTIFICATION
+  const updateDailyTaskItemMutation = useMutation({
+    mutationFn: async ({ itemId, scheduledAt, executorId, notes, difficulty, templateId }: { itemId: string; scheduledAt?: string; executorId?: string; notes?: string; difficulty?: number; templateId?: string }) => {
+      return graphqlRequest(UPDATE_DAILY_NOTIFICATION_TASK_ITEM, {
+        input: {
+          taskId: id,
+          itemId,
+          scheduledAt,
+          executorId,
+          notes,
+          difficulty,
+          templateId,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', id] });
+      // Не закрываем карточку автоматически - она закроется только при изменении времени
+    },
+  });
+
+  // Мутация отправки DAILY_NOTIFICATION
+  const sendDailyNotificationMutation = useMutation({
+    mutationFn: async () => {
+      return graphqlRequest(SEND_DAILY_NOTIFICATION_TASK, { taskId: id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  // Мутация для удаления задачи из списка
+  const removeTaskItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      if (!taskData?.task?.note) throw new Error('Task note not found');
+      
+      const taskInfo = JSON.parse(taskData.task.note);
+      const tasksList = taskInfo.tasks || [];
+      const filteredTasks = tasksList.filter((t: any) => 
+        t.cleaningId !== itemId && t.repairId !== itemId
+      );
+      
+      taskInfo.tasks = filteredTasks;
+      taskInfo.tasksCount = filteredTasks.length;
+      
+      return graphqlClient.request(UPDATE_TASK, {
+        id: id,
+        input: {
+          note: JSON.stringify(taskInfo),
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', id] });
+    },
+  });
+
+  const removeTaskItem = (itemId: string) => {
+    removeTaskItemMutation.mutate(itemId);
+  };
+
+  // Обработчики для редактирования
+  const handleEditItem = (item: any) => {
+    const itemId = item.cleaningId || item.repairId || '';
+    const scheduledDate = new Date(item.scheduledAt);
+    // Извлекаем только время в формате HH:mm для редактирования
+    const timeString = scheduledDate.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    
+    // Определяем executorId в зависимости от типа задачи
+    let executorId = item.executorId;
+    if (isDailyNotification && task.note) {
+      try {
+        const taskInfo = JSON.parse(task.note);
+        if (taskInfo.taskType === 'CLEANING') {
+          executorId = item.cleanerId;
+        } else if (taskInfo.taskType === 'REPAIR') {
+          executorId = item.masterId;
+        }
+      } catch (e) {
+        // Если не удалось распарсить, используем executorId
+      }
+    }
+    
+    setEditingItemId(itemId);
+    setEditedItems({
+      ...editedItems,
+      [itemId]: {
+        scheduledAt: item.scheduledAt, // Сохраняем исходную дату для восстановления
+        timeString: timeString, // Сохраняем время как строку для редактирования
+        initialTimeString: timeString, // Фиксируем исходное время
+        executorId: executorId, // Сохраняем текущего исполнителя (cleanerId/masterId)
+        initialExecutorId: executorId, // Фиксируем исходное значение, чтобы не триггерить сохранение при открытии селекта
+        notes: item.notes || '', // Загружаем notes
+        initialNotes: item.notes || '', // Фиксируем исходные notes
+        difficulty: item.difficulty !== undefined ? item.difficulty : null, // Загружаем difficulty
+        initialDifficulty: item.difficulty !== undefined ? item.difficulty : null, // Фиксируем исходную difficulty
+        templateId: item.templateId || '', // Загружаем templateId
+        initialTemplateId: item.templateId || '', // Фиксируем исходный templateId
+      },
+    });
+  };
+
+  const handleSaveItem = (item: any, executorIdOverride?: string) => {
+    const itemId = item.cleaningId || item.repairId || '';
+    const edited = editedItems[itemId];
+    const executorId = executorIdOverride !== undefined ? executorIdOverride : edited?.executorId;
+    
+    // Проверяем, что изменилось
+    const timeChanged = edited?.timeString && edited.initialTimeString !== edited.timeString;
+    const executorChanged = executorIdOverride !== undefined || (executorId !== undefined && executorId !== edited?.initialExecutorId);
+    const notesChanged = edited?.notes !== undefined && edited.notes !== edited.initialNotes;
+    const difficultyChanged = edited?.difficulty !== undefined && edited.difficulty !== edited.initialDifficulty;
+    const templateChanged = edited?.templateId !== undefined && edited.templateId !== edited.initialTemplateId;
+    
+    // Если ничего не изменилось, выходим
+    if (!timeChanged && !executorChanged && !notesChanged && !difficultyChanged && !templateChanged) {
+      return;
+    }
+    
+    // Если передан executorIdOverride или изменяется только исполнитель (без времени)
+    if (executorIdOverride !== undefined || (!timeChanged && executorChanged)) {
+      // Проверяем, изменилось ли значение (нормализуем для сравнения)
+      const currentExecutorId = item.cleanerId || item.masterId || item.executorId;
+      const normalizedNew = executorId || '';
+      const normalizedCurrent = currentExecutorId || '';
+      
+      // Если исполнитель не изменился и нет других изменений, проверяем notes/difficulty отдельно
+      if (normalizedNew === normalizedCurrent && !notesChanged && !difficultyChanged) {
+        return;
+      }
+      
+      updateDailyTaskItemMutation.mutate({
+        itemId,
+        executorId: executorChanged ? (executorId || undefined) : undefined, // Передаем только если изменился
+        notes: notesChanged ? edited.notes : undefined,
+        difficulty: difficultyChanged ? (edited.difficulty !== null && edited.difficulty !== undefined ? edited.difficulty : undefined) : undefined,
+        templateId: templateChanged ? edited.templateId : undefined,
+      }, {
+        onSuccess: () => {
+          // Оставляем executorId в editedItems, чтобы селект сохранял выбранное значение,
+          // пока данные не подтянутся после invalidateQueries
+          queryClient.invalidateQueries({ queryKey: ['task', id] });
+        }
+      });
+      return;
+    }
+    
+    // Если изменяются только notes, difficulty или templateId (без времени и исполнителя)
+    if (!timeChanged && !executorChanged && (notesChanged || difficultyChanged || templateChanged)) {
+      updateDailyTaskItemMutation.mutate({
+        itemId,
+        notes: notesChanged ? edited.notes : undefined,
+        difficulty: difficultyChanged ? (edited.difficulty !== null && edited.difficulty !== undefined ? edited.difficulty : undefined) : undefined,
+        templateId: templateChanged ? edited.templateId : undefined,
+      }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['task', id] });
+        }
+      });
+      return;
+    }
+    
+    // Если executorIdOverride === undefined и нет edited.executorId, значит удаляем исполнителя
+    if (executorIdOverride === undefined && !edited?.executorId && !timeChanged && !notesChanged && !difficultyChanged && !templateChanged) {
+      const currentExecutorId = item.cleanerId || item.masterId || item.executorId;
+      if (currentExecutorId) {
+        // Удаляем исполнителя
+        updateDailyTaskItemMutation.mutate({
+          itemId,
+          executorId: undefined,
+        }, {
+          onSuccess: () => {
+            // Не выходим из режима редактирования
+          }
+        });
+      }
+      return;
+    }
+    
+    // Если время не изменено и нет других изменений, выходим из режима редактирования
+    if (!timeChanged && !executorChanged && !notesChanged && !difficultyChanged && !templateChanged) {
+      setEditingItemId(null);
+      return;
+    }
+    
+    // Берем исходную дату и меняем только время
+    const originalDate = new Date(item.scheduledAt);
+    const [hours, minutes] = (edited.timeString || '00:00').split(':').map(Number);
+    
+    // Создаем новую дату с тем же днем, но новым временем
+    const newDate = new Date(originalDate);
+    newDate.setHours(hours, minutes, 0, 0);
+    
+    updateDailyTaskItemMutation.mutate({
+      itemId,
+      scheduledAt: newDate.toISOString(),
+      // Используем executorId из edited, если он есть, иначе из item
+      executorId: edited.executorId !== undefined ? edited.executorId : item.executorId,
+      notes: notesChanged ? edited.notes : undefined,
+      difficulty: difficultyChanged ? (edited.difficulty ?? undefined) : undefined,
+      templateId: templateChanged ? edited.templateId : undefined,
+    }, {
+      onSuccess: () => {
+        // Выходим из режима редактирования после успешного сохранения
+        setEditingItemId(null);
+        // Очищаем editedItems для этого элемента
+        const newEditedItems = { ...editedItems };
+        delete newEditedItems[itemId];
+        setEditedItems(newEditedItems);
+      }
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+  };
+
+  // Обертка для setEditedItems для соответствия типу компонента
+  const handleSetEditedItems = (items: Record<string, EditedItem>) => {
+    setEditedItems(items);
+  };
+
+  // Функция для назначения менеджера на саму задачу DAILY_NOTIFICATION
+  const handleAssignDailyExecutor = async () => {
+    if (!selectedManagerId || !taskData?.task) return;
+    
+    // Для DAILY_NOTIFICATION задач назначаем менеджера через updateTask
+    // Сохраняем информацию о менеджере в note
+    const taskInfo = JSON.parse(taskData.task.note || '{}');
+    taskInfo.assignedManagerId = selectedManagerId;
+    
+    // Находим имя менеджера
+    const manager = managers.find((m: any) => m.id === selectedManagerId);
+    if (manager) {
+      taskInfo.assignedManagerName = manager.name || `${manager.firstName} ${manager.lastName}`.trim();
+    }
+    
+    await updateTaskMutation.mutateAsync({
+      id: taskData.task.id,
+      note: JSON.stringify(taskInfo),
+    });
+
+    setShowAssignDailyDialog(false);
+    setSelectedManagerId('');
+  };
 
   const handleUpdateStatus = async (status: string) => {
     if (taskData?.task) {
@@ -144,6 +454,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
+      'DRAFT': { color: 'yellow' as const, text: 'Черновик' },
       'TODO': { color: 'orange' as const, text: 'Ожидает' },
       'IN_PROGRESS': { color: 'blue' as const, text: 'В работе' },
       'DONE': { color: 'green' as const, text: 'Завершена' },
@@ -159,7 +470,8 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
       'CHECKIN': { color: 'green' as const, text: 'Заселение' },
       'CHECKOUT': { color: 'purple' as const, text: 'Выселение' },
       'MAINTENANCE': { color: 'orange' as const, text: 'Обслуживание' },
-      'INVENTORY': { color: 'cyan' as const, text: 'Инвентаризация' }
+      'INVENTORY': { color: 'cyan' as const, text: 'Инвентаризация' },
+      'DAILY_NOTIFICATION': { color: 'blue' as const, text: 'Ежедневное уведомление' }
     }
     const typeInfo = typeMap[type as keyof typeof typeMap] || { color: 'zinc' as const, text: type }
     return <Badge color={typeInfo.color}>{typeInfo.text}</Badge>
@@ -192,6 +504,12 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   const task = taskData.task
+  const isDailyNotification = (task.type as any) === 'DAILY_NOTIFICATION'
+  const isDraftStatus = (task.status as any) === 'DRAFT'
+  const isTodoStatus = (task.status as any) === 'TODO'
+  const isInProgressStatus = (task.status as any) === 'IN_PROGRESS'
+  const isDoneStatus = (task.status as any) === 'DONE'
+  const isCanceledStatus = (task.status as any) === 'CANCELED'
 
   return (
     <div className="space-y-8">
@@ -216,35 +534,48 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
         <div className="flex items-center gap-2">
           {getTypeBadge(task.type)}
           {getStatusBadge(task.status)}
-          <Dropdown>
-            <DropdownButton className="bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-700 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300">
-              <EllipsisVerticalIcon className="w-5 h-5" />
-            </DropdownButton>
-            <DropdownMenu className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg">
-              <DropdownItem onClick={() => router.push(`/tasks/${task.id}/edit`)}>
-                <PencilIcon className="w-4 h-4 mr-2" />
-                Редактировать
-              </DropdownItem>
-              {task.status === 'TODO' && (
-                <DropdownItem onClick={() => setShowAssignDialog(true)}>
-                  <UserIcon className="w-4 h-4 mr-2" />
-                  Назначить исполнителя
+          {/* Кнопка назначения исполнителя для DAILY_NOTIFICATION вместо кебаба */}
+          {isDailyNotification && (isDraftStatus || isTodoStatus) && managers.length > 0 && !task.assignedTo && (
+            <Button
+              onClick={() => setShowAssignDailyDialog(true)}
+              className="flex items-center gap-2 border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              <UserPlusIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Назначить исполнителя</span>
+            </Button>
+          )}
+          {/* Кебаб для других типов задач */}
+          {!isDailyNotification && (
+            <Dropdown>
+              <DropdownButton className="bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-700 border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-gray-300">
+                <EllipsisVerticalIcon className="w-5 h-5" />
+              </DropdownButton>
+              <DropdownMenu className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg">
+                <DropdownItem onClick={() => router.push(`/tasks/${task.id}/edit`)}>
+                  <PencilIcon className="w-4 h-4 mr-2" />
+                  Редактировать
                 </DropdownItem>
-              )}
-              {task.status === 'IN_PROGRESS' && (
-                <DropdownItem onClick={() => handleUpdateStatus('DONE')}>
-                  <CheckCircleIcon className="w-4 h-4 mr-2" />
-                  Завершить
-                </DropdownItem>
-              )}
-              {(task.status === 'TODO' || task.status === 'IN_PROGRESS') && (
-                <DropdownItem onClick={() => handleUpdateStatus('CANCELED')}>
-                  <XCircleIcon className="w-4 h-4 mr-2" />
-                  Отменить
-                </DropdownItem>
-              )}
-            </DropdownMenu>
-          </Dropdown>
+                {isTodoStatus && (
+                  <DropdownItem onClick={() => setShowAssignDialog(true)}>
+                    <UserIcon className="w-4 h-4 mr-2" />
+                    Назначить исполнителя
+                  </DropdownItem>
+                )}
+                {task.status === 'IN_PROGRESS' && (
+                  <DropdownItem onClick={() => handleUpdateStatus('DONE')}>
+                    <CheckCircleIcon className="w-4 h-4 mr-2" />
+                    Завершить
+                  </DropdownItem>
+                )}
+                {(isTodoStatus || isInProgressStatus) && (
+                  <DropdownItem onClick={() => handleUpdateStatus('CANCELED')}>
+                    <XCircleIcon className="w-4 h-4 mr-2" />
+                    Отменить
+                  </DropdownItem>
+                )}
+              </DropdownMenu>
+            </Dropdown>
+          )}
         </div>
       </div>
 
@@ -252,17 +583,131 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Левая колонка - основная информация */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Описание задачи */}
-          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
-            <Subheading className="mb-4">Описание</Subheading>
-            {task.note ? (
-              <Text className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
-                {task.note}
-              </Text>
-            ) : (
-              <Text className="text-zinc-500 italic">Описание не указано</Text>
-            )}
-          </div>
+          {/* Описание задачи или карточки для DAILY_NOTIFICATION */}
+          {isDailyNotification && task.note ? (() => {
+            try {
+              const taskInfo = JSON.parse(task.note);
+              const isCleaning = taskInfo.taskType === 'CLEANING';
+              const formattedDate = new Date(taskInfo.targetDate).toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              });
+
+              return (
+                <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                  {/* Заголовок с переключателем вида */}
+                  <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Subheading className="mb-1 text-zinc-900 dark:text-zinc-100">
+                          {isCleaning ? '📋 Уборки' : '🔧 Ремонты'} на {formattedDate}
+                        </Subheading>
+                        <div className="flex items-center gap-4 mt-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                            <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                              Всего: <span className="font-semibold text-zinc-900 dark:text-zinc-100">{taskInfo.tasksCount || taskInfo.tasks?.length || 0}</span>
+                            </Text>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                            <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                              С исполнителем: <span className="font-semibold text-zinc-900 dark:text-zinc-100">{taskInfo.tasks?.filter((t: any) => t.executorName).length || 0}</span>
+                            </Text>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge color={isCleaning ? 'blue' : 'orange'} className="text-sm px-3 py-1">
+                          {isCleaning ? 'Уборки' : 'Ремонты'}
+                        </Badge>
+                        {/* Переключатель вида */}
+                        <div className="flex items-center gap-1 bg-white dark:bg-zinc-800 rounded-lg p-1 border border-zinc-200 dark:border-zinc-700 shadow-sm">
+                          <Button
+                            onClick={() => setViewMode('cards')}
+                            className={`p-2 h-8 w-8 ${viewMode === 'cards' ? 'bg-blue-500 text-white shadow-md' : 'bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'}`}
+                            title="Карточки"
+                          >
+                            <Squares2X2Icon className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 h-8 w-8 ${viewMode === 'list' ? 'bg-blue-500 text-white shadow-md' : 'bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'}`}
+                            title="Список"
+                          >
+                            <ListBulletIcon className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6">
+                  {/* Карточки задач */}
+                  <NotificationTasksView
+                    tasks={taskInfo.tasks || []}
+                    viewMode={viewMode}
+                    editingItemId={editingItemId}
+                    editedItems={editedItems}
+                    setEditedItems={handleSetEditedItems}
+                    handleEditItem={handleEditItem}
+                    handleSaveItem={handleSaveItem}
+                    setEditingItemId={setEditingItemId}
+                    removeTaskItem={removeTaskItem}
+                    removeTaskItemMutation={removeTaskItemMutation}
+                    setSelectedCleaningId={setSelectedCleaningId}
+                    task={task}
+                    isCleaning={isCleaning}
+                    isDailyNotification={isDailyNotification}
+                    isDoneStatus={isDoneStatus}
+                    isCanceledStatus={isCanceledStatus}
+                    isDraftStatus={isDraftStatus}
+                    cleanersData={cleanersData}
+                    mastersData={mastersData}
+                  />
+                  {/* Кнопка отправки уведомлений - всегда доступна для DAILY_NOTIFICATION */}
+                  {isDailyNotification && (
+                    <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-zinc-200 dark:border-zinc-700">
+                      <Button
+                        onClick={() => {
+                          if (confirm('Отправить уведомления? Задача будет отправлена всем менеджерам организации.')) {
+                            sendDailyNotificationMutation.mutate();
+                          }
+                        }}
+                        disabled={sendDailyNotificationMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all px-6 py-2.5 rounded-lg font-medium"
+                      >
+                        {sendDailyNotificationMutation.isPending ? 'Отправка...' : '📤 Отправить уведомления'}
+                      </Button>
+                    </div>
+                  )}
+                  </div>
+                </div>
+              );
+            } catch (e) {
+              // Если не удалось распарсить JSON, показываем как обычный текст
+              return (
+                <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+                  <Subheading className="mb-4">Описание</Subheading>
+                  <Text className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
+                    {task.note}
+                  </Text>
+                </div>
+              );
+            }
+          })() : (
+            <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+              <Subheading className="mb-4">Описание</Subheading>
+              {task.note ? (
+                <Text className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
+                  {task.note}
+                </Text>
+              ) : (
+                <Text className="text-zinc-500 italic">Описание не указано</Text>
+              )}
+            </div>
+          )}
 
           {/* Связанные объекты */}
           <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
@@ -563,10 +1008,20 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                   )}
                 </div>
               </div>
+            ) : (isDailyNotification && taskNoteInfo?.assignedManagerId) ? (
+              <div className="flex items-center gap-3">
+                <UserIcon className="w-5 h-5 text-blue-600" />
+                <div>
+                  <Text className="font-medium">{taskNoteInfo.assignedManagerName || 'Менеджер назначен'}</Text>
+                  <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                    ID: {taskNoteInfo.assignedManagerId}
+                  </Text>
+                </div>
+              </div>
             ) : (
               <div className="text-center py-4">
                 <Text className="text-zinc-500 mb-3">Исполнитель не назначен</Text>
-                {task.status === 'TODO' && (
+                {isTodoStatus && !isDailyNotification && (
                   <Button 
                     onClick={() => setShowAssignDialog(true)}
                     className="text-sm px-3 py-1"
@@ -582,7 +1037,29 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
             <Subheading className="mb-4">Действия</Subheading>
             <div className="space-y-2">
-              {task.status === 'TODO' && (
+              {/* Выпадающий список для изменения статуса */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Изменить статус
+                </label>
+                <Select
+                  value={task.status}
+                  onChange={(e) => {
+                    if (e.target.value !== task.status) {
+                      handleUpdateStatus(e.target.value);
+                    }
+                  }}
+                  className="w-full"
+                  disabled={updateTaskStatusMutation.isPending}
+                >
+                  <option value="DRAFT">Черновик</option>
+                  <option value="TODO">Ожидает</option>
+                  <option value="IN_PROGRESS">В работе</option>
+                  <option value="DONE">Завершена</option>
+                  <option value="CANCELED">Отменена</option>
+                </Select>
+              </div>
+              {isTodoStatus && !isDailyNotification && (
                 <Button 
                   onClick={() => setShowAssignDialog(true)}
                   className="w-full"
@@ -599,7 +1076,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                   Завершить задачу
                 </Button>
               )}
-              {(task.status === 'TODO' || task.status === 'IN_PROGRESS') && (
+              {(isTodoStatus || isInProgressStatus) && (
                 <Button 
                   onClick={() => handleUpdateStatus('CANCELED')}
                   className="w-full border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"
@@ -608,7 +1085,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                 </Button>
               )}
               {/* Создать уборку из задачи */}
-              {task.type === 'CLEANING' && task.unit && task.status === 'TODO' && !(taskData?.task as any)?.source?.cleaning && (
+              {task.type === 'CLEANING' && task.unit && isTodoStatus && !(taskData?.task as any)?.source?.cleaning && (
                 <Button 
                   onClick={() => setShowCreateCleaningDialog(true)}
                   className="w-full"
@@ -618,7 +1095,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                 </Button>
               )}
               {/* Создать ремонт из задачи */}
-              {task.type === 'MAINTENANCE' && task.unit && task.status === 'TODO' && (
+              {task.type === 'MAINTENANCE' && task.unit && isTodoStatus && (
                 <Button 
                   onClick={() => setShowCreateRepairDialog(true)}
                   className="w-full"
@@ -895,6 +1372,62 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           </DialogActions>
         </Dialog>
       )}
+
+      {/* Диалог назначения исполнителя для DAILY_NOTIFICATION */}
+      {isDailyNotification && (isDraftStatus || isTodoStatus) && (
+        <Dialog open={showAssignDailyDialog} onClose={() => setShowAssignDailyDialog(false)}>
+          <DialogTitle>Назначить исполнителя</DialogTitle>
+          <DialogDescription>
+            Выберите менеджера для назначения на задачу уведомления. Менеджер будет получать уведомления о задачах.
+          </DialogDescription>
+          <DialogBody>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                  Менеджер
+                </label>
+                <Select
+                  value={selectedManagerId}
+                  onChange={(e) => setSelectedManagerId(e.target.value)}
+                  className="w-full"
+                >
+                  <option value="">Выберите менеджера</option>
+                  {managers.map((manager: any) => (
+                    <option key={manager.id} value={manager.id}>
+                      {manager.name || `${manager.firstName} ${manager.lastName}`.trim()}
+                      {manager.email ? ` (${manager.email})` : ''}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          </DialogBody>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setShowAssignDailyDialog(false);
+                setSelectedManagerId('');
+              }}
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={handleAssignDailyExecutor}
+              disabled={!selectedManagerId || updateTaskMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {updateTaskMutation.isPending ? 'Назначение...' : 'Назначить'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Модалка для просмотра уборки */}
+      <CleaningDetailsDialog
+        isOpen={selectedCleaningId !== null}
+        onClose={() => setSelectedCleaningId(null)}
+        cleaningId={selectedCleaningId}
+      />
     </div>
   )
 }

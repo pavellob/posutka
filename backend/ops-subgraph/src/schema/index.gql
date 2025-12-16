@@ -132,6 +132,8 @@ type Invoice {
 Определяет текущее состояние выполнения задачи.
 """
 enum TaskStatus {
+  """Задача в черновике (для ежедневных уведомлений перед отправкой)"""
+  DRAFT
   """Задача создана, ожидает выполнения"""
   TODO
   """Задача в процессе выполнения"""
@@ -157,6 +159,8 @@ enum TaskType {
   MAINTENANCE
   """Инвентаризация"""
   INVENTORY
+  """Ежедневное уведомление о задачах"""
+  DAILY_NOTIFICATION
 }
 
 """
@@ -512,6 +516,38 @@ input CreateTaskForNextChecklistInput {
 }
 
 """
+Входные данные для создания ежедневного уведомления о задачах.
+"""
+input CreateDailyNotificationTaskInput {
+  """ID организации"""
+  orgId: UUID!
+  """Тип задач: CLEANING или REPAIR"""
+  taskType: String!
+  """Дата, на которую нужны задачи"""
+  targetDate: DateTime!
+}
+
+"""
+Входные данные для обновления задачи в ежедневном уведомлении.
+"""
+input UpdateDailyNotificationTaskItemInput {
+  """ID задачи типа DAILY_NOTIFICATION"""
+  taskId: UUID!
+  """ID задачи (cleaningId или repairId) для обновления"""
+  itemId: UUID!
+  """Новое время выполнения (опционально)"""
+  scheduledAt: DateTime
+  """ID нового исполнителя (cleanerId или masterId, опционально)"""
+  executorId: UUID
+  """Заметки к задаче (опционально)"""
+  notes: String
+  """Сложность уборки 0-5 (опционально, только для уборок)"""
+  difficulty: Int
+  """ID шаблона чеклиста для уборки (опционально, только для уборок)"""
+  templateId: UUID
+}
+
+"""
 Источник задачи.
 Может быть уборка, ремонт, бронирование и т.д.
 """
@@ -560,6 +596,12 @@ type Mutation {
   createTasksFromChecklist(input: CreateTasksFromChecklistInput!): [Task!]!
   """Создать задачу для следующего чек-листа"""
   createTaskForNextChecklist(input: CreateTaskForNextChecklistInput!): Task!
+  """Создать задачу ежедневного уведомления о задачах на день"""
+  createDailyNotificationTask(input: CreateDailyNotificationTaskInput!): Task!
+  """Обновить задачу в ежедневном уведомлении (время, исполнитель)"""
+  updateDailyNotificationTaskItem(input: UpdateDailyNotificationTaskItemInput!): Task!
+  """Отправить ежедневное уведомление (публикует событие и меняет статус на TODO)"""
+  sendDailyNotificationTask(taskId: UUID!): Task!
   """Назначить задачу поставщику услуг"""
   assignTask(input: AssignTaskInput!): Task!
   """Обновить статус задачи"""

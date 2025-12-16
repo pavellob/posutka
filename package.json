@@ -25,11 +25,13 @@
     "build:prod": "./scripts/build-prod.sh",
     "build:docker": "./scripts/build-docker.sh",
     "build:test": "./scripts/build-and-test.sh",
-    "test:setup": "./scripts/test-setup.sh"
+    "test:setup": "./scripts/test-setup.sh",
+    "fix:task-statuses": "tsx scripts/fix-task-statuses.ts"
   },
   "devDependencies": {
     "@graphql-mesh/compose-cli": "^1.4.17",
     "graphql-yoga": "^5.15.2",
+    "tsx": "^4.21.0",
     "turbo": "^2.0.0",
     "typescript": "^5.5.0"
   },

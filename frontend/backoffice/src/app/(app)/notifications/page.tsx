@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { usePathname } from 'next/navigation'
 import { Heading } from '@/components/heading'
 import { Text } from '@/components/text'
 import { Badge } from '@/components/badge'
@@ -14,6 +15,8 @@ import { GET_NOTIFICATIONS, MARK_AS_READ, MARK_ALL_AS_READ } from '@/lib/graphql
 import Link from 'next/link'
 
 export default function NotificationsPage() {
+  const pathname = usePathname()
+  const activeTab = pathname === '/notifications' ? 'list' : pathname === '/notifications/templates' ? 'templates' : 'list'
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [eventTypeFilter, setEventTypeFilter] = useState('')
   
@@ -134,7 +137,11 @@ export default function NotificationsPage() {
         <nav className="-mb-px flex space-x-8">
           <Link
             href="/notifications"
-            className="whitespace-nowrap border-b-2 border-blue-500 px-1 py-4 text-sm font-medium text-blue-600 dark:text-blue-400"
+            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium ${
+              activeTab === 'list'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'
+            }`}
           >
             Список уведомлений
           </Link>

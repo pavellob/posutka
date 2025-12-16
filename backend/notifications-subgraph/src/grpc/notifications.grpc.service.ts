@@ -129,11 +129,11 @@ export class NotificationsGrpcService implements NotificationsService {
         const userSettings = await this.notificationService.getUserSettings(userId).catch(() => null);
         
         for (const channel of channels) {
-          if (channel === 'TELEGRAM') {
+          if (channel === Channel.TELEGRAM) {
             // Для Telegram нужен telegramChatId из настроек
             if (userSettings?.telegramChatId) {
               deliveryTargets.push({
-                channel: 'TELEGRAM',
+                channel: Channel.TELEGRAM,
                 recipientType: 'TELEGRAM_CHAT_ID',
                 recipientId: userSettings.telegramChatId,
               });
@@ -142,12 +142,17 @@ export class NotificationsGrpcService implements NotificationsService {
                 telegramChatId: '***' + userSettings.telegramChatId.slice(-4) 
               });
             } else {
-              logger.warn('Skipping TELEGRAM channel - no telegramChatId in user settings', { userId });
+              logger.warn('⚠️ Skipping TELEGRAM channel - no telegramChatId in user settings', { 
+                userId,
+                hasUserSettings: !!userSettings,
+                enabledChannels: userSettings?.enabledChannels || [],
+                hint: 'User needs to link Telegram bot to receive Telegram notifications'
+              });
             }
-          } else if (channel === 'WEBSOCKET') {
+          } else if (channel === Channel.WEBSOCKET) {
             // Для WebSocket используем userId
             deliveryTargets.push({
-              channel: 'WEBSOCKET',
+              channel: Channel.WEBSOCKET,
               recipientType: 'USER_ID',
               recipientId: userId,
             });

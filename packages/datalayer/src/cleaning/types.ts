@@ -58,6 +58,7 @@ export interface CleaningTemplate {
   description?: string;
   requiresLinenChange: boolean;
   estimatedDuration?: number;
+  difficultyModifier?: number; // Модификатор сложности (0-5, как у уборки)
   checklistItems: CleaningTemplateCheckbox[];
   createdAt: DateTime;
   updatedAt: DateTime;
@@ -66,6 +67,7 @@ export interface CleaningTemplate {
 export interface CreateCleaningTemplateInput {
   unitId: UUID;
   name: string;
+  difficultyModifier?: number;
   description?: string;
   requiresLinenChange?: boolean;
   estimatedDuration?: number;
@@ -74,6 +76,7 @@ export interface CreateCleaningTemplateInput {
 
 export interface UpdateCleaningTemplateInput {
   name?: string;
+  difficultyModifier?: number;
   description?: string;
   requiresLinenChange?: boolean;
   estimatedDuration?: number;
@@ -229,7 +232,7 @@ export interface ListCleaningsParams {
   cleanerId?: UUID;
   bookingId?: UUID;
   taskId?: UUID;
-  status?: CleaningStatus;
+  status?: CleaningStatus | CleaningStatus[];
   from?: DateTime;
   to?: DateTime;
   first?: number;
@@ -420,7 +423,7 @@ export interface ListRepairsParams {
   orgId?: UUID;
   unitId?: UUID;
   masterId?: UUID;
-  status?: RepairStatus;
+  status?: RepairStatus | RepairStatus[];
   from?: DateTime;
   to?: DateTime;
   first?: number;

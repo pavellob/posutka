@@ -34,6 +34,17 @@ export class ChecklistInstanceService {
   }
 
   /**
+   * Гарантирует, что у шаблона есть значение name (для совместимости с GraphQL схемой)
+   */
+  private ensureTemplateName(template: any): any {
+    if (!template) return template;
+    return {
+      ...template,
+      name: template.name || `Чеклист ${template.version || 1}`
+    };
+  }
+
+  /**
    * Создает инстанс чек-листа для юнита и стадии
    * Копирует все items из актуальной версии шаблона
    */
@@ -899,8 +910,9 @@ export class ChecklistInstanceService {
    * Получает шаблон чек-листа для юнита
    */
   async getChecklistTemplate(unitId: string, version?: number) {
+    let template;
     if (version) {
-      return this.prisma.checklistTemplate.findUnique({
+      template = await this.prisma.checklistTemplate.findUnique({
         where: {
           unitId_version: {
             unitId,
@@ -918,9 +930,28 @@ export class ChecklistInstanceService {
           } 
         }
       });
+    } else {
+      template = await this.prisma.checklistTemplate.findFirst({
+        where: { unitId },
+        orderBy: { version: 'desc' },
+        include: { 
+          items: { 
+            orderBy: { order: 'asc' },
+            include: {
+              exampleMedia: {
+                orderBy: { order: 'asc' }
+              }
+            }
+          }
+        }
+      });
     }
+    
+    return template ? this.ensureTemplateName(template) : null;
+  }
 
-    return this.prisma.checklistTemplate.findFirst({
+  async getAllChecklistTemplates(unitId: string) {
+    const templates = await this.prisma.checklistTemplate.findMany({
       where: { unitId },
       orderBy: { version: 'desc' },
       include: { 
@@ -934,27 +965,31 @@ export class ChecklistInstanceService {
         } 
       }
     });
+    
+    // Убеждаемся, что name всегда имеет значение (для совместимости с GraphQL схемой)
+    return templates.map(template => this.ensureTemplateName(template));
   }
 
   /**
    * Создает шаблон для юнита
    */
-  async createChecklistTemplate(unitId: string) {
-    // Проверяем, есть ли уже шаблон для этого юнита
-    const existing = await this.prisma.checklistTemplate.findFirst({
+  async createChecklistTemplate(unitId: string, name?: string) {
+    // Находим максимальную версию для этого юнита
+    const maxVersion = await this.prisma.checklistTemplate.findFirst({
       where: { unitId },
-      orderBy: { version: 'desc' }
+      orderBy: { version: 'desc' },
+      select: { version: true }
     });
 
-    if (existing) {
-      return existing;
-    }
+    const nextVersion = maxVersion ? maxVersion.version + 1 : 1;
 
-    // Создаем новый шаблон версии 1
+    // Создаем новый шаблон
+    // Если name не передан, используем дефолтное значение, но разрешаем null
     const template = await this.prisma.checklistTemplate.create({
       data: {
         unitId,
-        version: 1
+        name: name !== undefined ? name : `Чеклист ${nextVersion}`,
+        version: nextVersion
       },
       include: {
         items: {
@@ -974,7 +1009,7 @@ export class ChecklistInstanceService {
       version: template.version
     });
 
-    return template;
+    return this.ensureTemplateName(template);
   }
 
   /**
@@ -1131,6 +1166,44 @@ export class ChecklistInstanceService {
   }
 
   /**
+   * Обновляет настройки шаблона чеклиста
+   */
+  async updateChecklistTemplate(templateId: string, input: { name?: string | null; difficultyModifier?: number | null }) {
+    const updateData: any = {};
+
+    if (input.name !== undefined) {
+      // Разрешаем явно установить null
+      updateData.name = input.name;
+    }
+    
+    if (input.difficultyModifier !== undefined) {
+      updateData.difficultyModifier = input.difficultyModifier !== null ? input.difficultyModifier : null;
+    }
+
+    const template = await this.prisma.checklistTemplate.update({
+      where: { id: templateId },
+      data: updateData,
+      include: {
+        items: {
+          orderBy: { order: 'asc' },
+          include: {
+            exampleMedia: {
+              orderBy: { order: 'asc' }
+            }
+          }
+        }
+      }
+    });
+
+    logger.info('Checklist template updated', {
+      templateId,
+      difficultyModifier: template.difficultyModifier,
+    });
+
+    return this.ensureTemplateName(template);
+  }
+
+  /**
    * Получает шаблон по ID
    */
   private async getChecklistTemplateById(templateId: string) {
@@ -1152,7 +1225,7 @@ export class ChecklistInstanceService {
       throw new Error(`ChecklistTemplate not found: ${templateId}`);
     }
 
-    return template;
+    return this.ensureTemplateName(template);
   }
 
   /**

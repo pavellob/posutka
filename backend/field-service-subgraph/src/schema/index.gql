@@ -278,7 +278,7 @@ type Mutation {
   # ===== Редактирование шаблона =====
   
   """Создать шаблон для юнита"""
-  createChecklistTemplate(unitId: UUID!): ChecklistTemplate!
+  createChecklistTemplate(unitId: UUID!, name: String): ChecklistTemplate!
   
   """Добавить пункт в шаблон"""
   addTemplateItem(input: AddTemplateItemInput!): ChecklistTemplate!
@@ -291,6 +291,9 @@ type Mutation {
   
   """Обновить порядок пунктов в шаблоне"""
   updateTemplateItemOrder(templateId: UUID!, itemKeys: [String!]!): ChecklistTemplate!
+
+  """Обновить настройки шаблона чеклиста"""
+  updateChecklistTemplate(templateId: UUID!, input: UpdateChecklistTemplateInput!): ChecklistTemplate!
   
   """Добавить пример фото к пункту шаблона"""
   addTemplateItemExampleMedia(input: AddTemplateItemExampleMediaInput!): [ChecklistItemTemplateMedia!]!
@@ -452,6 +455,8 @@ type CleaningTemplate {
   requiresLinenChange: Boolean!
   """Расчетная продолжительность в минутах"""
   estimatedDuration: Int
+  """Модификатор сложности (0-5, как у уборки)"""
+  difficultyModifier: Int
   """Чек-боксы для проверки"""
   checklistItems: [CleaningTemplateCheckbox!]!
   """Дата создания"""
@@ -799,6 +804,8 @@ input UpdateCleaningTemplateInput {
   requiresLinenChange: Boolean
   """Расчетная продолжительность в минутах"""
   estimatedDuration: Int
+  """Модификатор сложности (0-5, как у уборки)"""
+  difficultyModifier: Int
   """Чек-боксы"""
   checklistItems: [ChecklistTemplateItemInput!]
 }
@@ -813,6 +820,16 @@ input ChecklistTemplateItemInput {
   order: Int
   """Обязателен ли пункт"""
   isRequired: Boolean
+}
+
+"""
+Входные данные для обновления шаблона чеклиста.
+"""
+input UpdateChecklistTemplateInput {
+  """Название шаблона"""
+  name: String
+  """Модификатор сложности (0-5, как у уборки)"""
+  difficultyModifier: Int
 }
 
 """
@@ -1026,8 +1043,12 @@ type ChecklistTemplate {
   unitId: UUID!
   """Юнит"""
   unit: Unit!
+  """Название шаблона"""
+  name: String
   """Версия шаблона"""
   version: Int!
+  """Модификатор сложности (0-5, как у уборки)"""
+  difficultyModifier: Int
   """Пункты шаблона"""
   items: [ChecklistItemTemplate!]!
   """Дата создания"""

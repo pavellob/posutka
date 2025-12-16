@@ -366,5 +366,91 @@ export class NotificationService {
       throw error;
     }
   }
+  
+  /**
+   * Получить настройки уведомлений организации.
+   */
+  async getOrganizationSettings(orgId: string): Promise<any | null> {
+    try {
+      logger.info('Getting organization notification settings', { orgId });
+      
+      // Получаем настройки из БД
+      const settings = await this.prisma.organizationNotificationSettings.findUnique({
+        where: { orgId },
+      });
+      
+      // Если настроек нет, возвращаем дефолтные
+      if (!settings) {
+        return {
+          orgId,
+          dailyCleaningNotificationEnabled: false,
+          dailyCleaningNotificationTime: null,
+          dailyRepairNotificationEnabled: false,
+          dailyRepairNotificationTime: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      
+      return {
+        orgId: settings.orgId,
+        dailyCleaningNotificationEnabled: settings.dailyCleaningNotificationEnabled ?? false,
+        dailyCleaningNotificationTime: settings.dailyCleaningNotificationTime,
+        dailyRepairNotificationEnabled: settings.dailyRepairNotificationEnabled ?? false,
+        dailyRepairNotificationTime: settings.dailyRepairNotificationTime,
+        createdAt: settings.createdAt.toISOString(),
+        updatedAt: settings.updatedAt.toISOString(),
+      };
+    } catch (error) {
+      logger.error('Failed to get organization settings:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Обновить настройки уведомлений организации.
+   */
+  async updateOrganizationSettings(orgId: string, settings: any): Promise<any> {
+    try {
+      logger.info('Updating organization notification settings', { orgId, settings });
+      
+      // Подготавливаем данные для обновления
+      const updateData: any = {
+        updatedAt: new Date(),
+      };
+      
+      // Добавляем только те поля, которые переданы
+      if (settings.dailyCleaningNotificationEnabled !== undefined) updateData.dailyCleaningNotificationEnabled = settings.dailyCleaningNotificationEnabled;
+      if (settings.dailyCleaningNotificationTime !== undefined) updateData.dailyCleaningNotificationTime = settings.dailyCleaningNotificationTime;
+      if (settings.dailyRepairNotificationEnabled !== undefined) updateData.dailyRepairNotificationEnabled = settings.dailyRepairNotificationEnabled;
+      if (settings.dailyRepairNotificationTime !== undefined) updateData.dailyRepairNotificationTime = settings.dailyRepairNotificationTime;
+      
+      // Обновляем или создаем настройки
+      const result = await this.prisma.organizationNotificationSettings.upsert({
+        where: { orgId },
+        update: updateData,
+        create: {
+          orgId,
+          dailyCleaningNotificationEnabled: settings.dailyCleaningNotificationEnabled ?? false,
+          dailyCleaningNotificationTime: settings.dailyCleaningNotificationTime || null,
+          dailyRepairNotificationEnabled: settings.dailyRepairNotificationEnabled ?? false,
+          dailyRepairNotificationTime: settings.dailyRepairNotificationTime || null,
+        },
+      });
+      
+      return {
+        orgId: result.orgId,
+        dailyCleaningNotificationEnabled: result.dailyCleaningNotificationEnabled ?? false,
+        dailyCleaningNotificationTime: result.dailyCleaningNotificationTime,
+        dailyRepairNotificationEnabled: result.dailyRepairNotificationEnabled ?? false,
+        dailyRepairNotificationTime: result.dailyRepairNotificationTime,
+        createdAt: result.createdAt.toISOString(),
+        updatedAt: result.updatedAt.toISOString(),
+      };
+    } catch (error) {
+      logger.error('Failed to update organization settings:', error);
+      throw error;
+    }
+  }
 }
 

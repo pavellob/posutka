@@ -24,11 +24,13 @@
     "graphql": "^16.9.0",
     "graphql-tag": "^2.12.6",
     "graphql-yoga": "^5.6.0",
+    "jsonwebtoken": "^9.0.2",
     "nice-grpc": "^2.1.12",
     "pino": "^8.17.2",
     "pino-pretty": "^10.3.1"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.0.0",
     "tsx": "^4.20.5",
     "typescript": "^5.5.0",

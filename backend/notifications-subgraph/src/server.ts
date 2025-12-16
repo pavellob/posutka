@@ -23,6 +23,7 @@ import gql from 'graphql-tag';
 import { ProviderManager, TelegramProvider, WebSocketProvider } from './providers/index.js';
 import { NotificationService } from './services/notification.service.js';
 import { GrpcTransport } from './transport/grpc.transport.js';
+import { DailyNotificationSchedulerService } from './services/daily-notification-scheduler.service.js';
 
 const logger = createGraphQLLogger('notifications-subgraph');
 
@@ -210,6 +211,11 @@ async function start() {
     // Запускаем gRPC сервер
     await grpcTransport.start();
     logger.info(`📡 Notifications gRPC service ready at ${GRPC_HOST}:${GRPC_PORT}`);
+    
+    // Запускаем cron job для ежедневных уведомлений
+    const dailyNotificationScheduler = new DailyNotificationSchedulerService(prisma);
+    dailyNotificationScheduler.start();
+    logger.info('📅 Daily notification scheduler started');
     
     // Graceful shutdown
     process.on('SIGINT', async () => {

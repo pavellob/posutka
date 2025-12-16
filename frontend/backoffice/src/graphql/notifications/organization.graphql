@@ -1,0 +1,23 @@
+query GetOrganizationNotificationSettings($orgId: UUID!) {
+  organizationNotificationSettings(orgId: $orgId) {
+    orgId
+    dailyCleaningNotificationEnabled
+    dailyCleaningNotificationTime
+    dailyRepairNotificationEnabled
+    dailyRepairNotificationTime
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateOrganizationNotificationSettings($input: UpdateOrganizationNotificationSettingsInput!) {
+  updateOrganizationNotificationSettings(input: $input) {
+    orgId
+    dailyCleaningNotificationEnabled
+    dailyCleaningNotificationTime
+    dailyRepairNotificationEnabled
+    dailyRepairNotificationTime
+    updatedAt
+  }
+}
+

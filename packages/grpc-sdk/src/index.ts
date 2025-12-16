@@ -9,9 +9,9 @@ export * from './clients/pricing.client.js';
 
 // Экспорт фабрик для создания клиентов
 export { createBookingsGrpcClient } from './clients/bookings.client.js';
-export { createInventoryGrpcClient } from './clients/inventory.client.js';
+export { createInventoryGrpcClient, type InventoryGrpcClient } from './clients/inventory.client.js';
 export { createNotificationsGrpcClient } from './clients/notifications.client.js';
-export { createEventsGrpcClient } from './clients/events.client.js';
+export { createEventsGrpcClient, type EventsGrpcClient } from './clients/events.client.js';
 export { createPricingGrpcClient } from './clients/pricing.client.js';
 
 // Экспорт сгенерированных типов для ops

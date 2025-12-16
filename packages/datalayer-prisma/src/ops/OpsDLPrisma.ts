@@ -84,7 +84,7 @@ export class OpsDLPrisma implements IOpsDL {
         dueAt: input.dueAt ? new Date(input.dueAt) : null,
         checklist: input.checklist || [],
         note: input.note,
-        status: 'TODO'
+        status: input.status || 'TODO'
       },
       include: { assignedProvider: true, assignedMaster: true }
     });
@@ -122,7 +122,7 @@ export class OpsDLPrisma implements IOpsDL {
 
   async updateTask(id: string, input: any): Promise<Task> {
     const updateData: any = {};
-    
+
     if (input.type) updateData.type = input.type;
     if (input.status) updateData.status = input.status;
     if (input.note !== undefined) updateData.note = input.note;
@@ -232,6 +232,24 @@ export class OpsDLPrisma implements IOpsDL {
   }
 
   private mapTaskFromPrisma(task: any): Task {
+    // Преобразуем статус в строку, если это enum объект Prisma
+    let status: string = task.status;
+    if (status && typeof status !== 'string') {
+      // Если это enum объект Prisma, берем значение
+      status = (status as any).value || String(status);
+    }
+    // Если статус отсутствует, используем значение по умолчанию
+    if (!status) {
+      status = 'TODO';
+    }
+    // Валидация: проверяем, что статус соответствует допустимым значениям
+    const validStatuses = ['DRAFT', 'TODO', 'IN_PROGRESS', 'DONE', 'CANCELED'];
+    if (!validStatuses.includes(status)) {
+      // Если статус недопустим, логируем и используем значение по умолчанию
+      console.warn(`Invalid task status: ${status}, using TODO as default. Task ID: ${task.id}`);
+      status = 'TODO';
+    }
+    
     return {
       id: task.id,
       orgId: task.orgId,
@@ -242,7 +260,7 @@ export class OpsDLPrisma implements IOpsDL {
       checklistItemInstanceId: task.checklistItemInstanceId,
       authorId: task.authorId,
       type: task.type,
-      status: task.status,
+      status: status as any,
       dueAt: task.dueAt?.toISOString(),
       assignedProviderId: task.assignedProviderId,
       assignedCleanerId: task.assignedCleanerId,

@@ -272,6 +272,26 @@ type UserNotificationSettings {
 }
 
 """
+Настройки уведомлений организации.
+"""
+type OrganizationNotificationSettings {
+  """ID организации"""
+  orgId: UUID!
+  """Включена ли автоматическая рассылка уведомлений об уборках на день"""
+  dailyCleaningNotificationEnabled: Boolean!
+  """Время автоматической рассылки уведомлений об уборках (формат HH:mm)"""
+  dailyCleaningNotificationTime: String
+  """Включена ли автоматическая рассылка уведомлений о ремонтах на день"""
+  dailyRepairNotificationEnabled: Boolean!
+  """Время автоматической рассылки уведомлений о ремонтах (формат HH:mm)"""
+  dailyRepairNotificationTime: String
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
+"""
 Шаблон уведомления.
 """
 type NotificationTemplate {
@@ -347,6 +367,9 @@ type Query {
   """Получить настройки уведомлений пользователя"""
   userNotificationSettings(userId: UUID!): UserNotificationSettings
   
+  """Получить настройки уведомлений организации"""
+  organizationNotificationSettings(orgId: UUID!): OrganizationNotificationSettings
+  
   """Получить шаблон уведомления"""
   notificationTemplate(id: UUID!): NotificationTemplate
   
@@ -374,6 +397,9 @@ type Mutation {
   
   """Обновить настройки уведомлений пользователя"""
   updateNotificationSettings(input: UpdateNotificationSettingsInput!): UserNotificationSettings!
+  
+  """Обновить настройки уведомлений организации"""
+  updateOrganizationNotificationSettings(input: UpdateOrganizationNotificationSettingsInput!): OrganizationNotificationSettings!
   
   """Создать или обновить шаблон уведомления"""
   upsertNotificationTemplate(input: UpsertNotificationTemplateInput!): NotificationTemplate!
@@ -461,6 +487,22 @@ input UpdateNotificationSettingsInput {
   enabledChannels: [NotificationChannel!]
   """Подписка на события"""
   subscribedEvents: [EventType!]
+}
+
+"""
+Входные данные для обновления настроек уведомлений организации.
+"""
+input UpdateOrganizationNotificationSettingsInput {
+  """ID организации"""
+  orgId: UUID!
+  """Включена ли автоматическая рассылка уведомлений об уборках на день"""
+  dailyCleaningNotificationEnabled: Boolean
+  """Время автоматической рассылки уведомлений об уборках (формат HH:mm)"""
+  dailyCleaningNotificationTime: String
+  """Включена ли автоматическая рассылка уведомлений о ремонтах на день"""
+  dailyRepairNotificationEnabled: Boolean
+  """Время автоматической рассылки уведомлений о ремонтах (формат HH:mm)"""
+  dailyRepairNotificationTime: String
 }
 
 """

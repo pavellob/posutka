@@ -187,6 +187,8 @@ export class NotificationEventHandler {
         const scheduledDate = this.formatDate(payload.scheduledAt);
         const requiresLinen = payload.requiresLinenChange ? '\n\n🛏️ Требуется смена белья' : '';
         const notes = payload.notes ? `\n\n📝 Примечание: ${payload.notes}` : '';
+        const templateName = payload.templateName || payload.templateId;
+        const templateInfo = templateName ? `\n📋 Шаблон чеклиста: ${templateName}` : '';
         
         let message = `Вам назначена уборка в "${unitName}"`;
         if (unitAddress) {
@@ -196,7 +198,7 @@ export class NotificationEventHandler {
         if (cleanerName) {
           message += `\n👤 Исполнитель: ${cleanerName}`;
         }
-        message += requiresLinen + notes;
+        message += templateInfo + requiresLinen + notes;
         
         return {
           title: '🧹 Новая уборка назначена!',

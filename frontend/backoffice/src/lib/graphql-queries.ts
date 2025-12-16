@@ -1373,14 +1373,21 @@ export const UPDATE_TASK_STATUS = gql`
 `
 
 export const UPDATE_TASK = gql`
-  mutation UpdateTask($input: UpdateTaskInput!) {
-    updateTask(input: $input) {
+  mutation UpdateTask($id: UUID!, $input: UpdateTaskInput!) {
+    updateTask(id: $id, input: $input) {
       id
       type
       status
       dueAt
       note
       updatedAt
+      assignedTo {
+        id
+        name
+        rating
+        contact
+        serviceTypes
+      }
     }
   }
 `
@@ -1463,6 +1470,7 @@ export const GET_CLEANING_TEMPLATES = gql`
       description
       requiresLinenChange
       estimatedDuration
+      difficultyModifier
       checklistItems {
         id
         label
@@ -1868,6 +1876,7 @@ export const UPDATE_CLEANING_TEMPLATE = gql`
       description
       requiresLinenChange
       estimatedDuration
+      difficultyModifier
       checklistItems {
         id
         label
@@ -2087,7 +2096,9 @@ export const GET_CHECKLISTS_BY_UNIT = gql`
     checklistsByUnit(unitId: $unitId) {
       id
       unitId
+      name
       version
+      difficultyModifier
       items {
         id
         key
@@ -2446,6 +2457,7 @@ export const GET_CHECKLIST_TEMPLATE = gql`
       id
       unitId
       version
+      difficultyModifier
       createdAt
       updatedAt
       items {
@@ -2810,11 +2822,13 @@ export const REMOVE_CHECKLIST_ATTACHMENT = gql`
 // ===== Мутации для редактирования шаблона =====
 
 export const CREATE_CHECKLIST_TEMPLATE = gql`
-  mutation CreateChecklistTemplate($unitId: UUID!) {
-    createChecklistTemplate(unitId: $unitId) {
+  mutation CreateChecklistTemplate($unitId: UUID!, $name: String) {
+    createChecklistTemplate(unitId: $unitId, name: $name) {
       id
       unitId
+      name
       version
+      difficultyModifier
       createdAt
       updatedAt
       items {
@@ -2834,6 +2848,30 @@ export const CREATE_CHECKLIST_TEMPLATE = gql`
           caption
           order
         }
+      }
+    }
+  }
+`
+
+export const UPDATE_CHECKLIST_TEMPLATE = gql`
+  mutation UpdateChecklistTemplate($templateId: UUID!, $input: UpdateChecklistTemplateInput!) {
+    updateChecklistTemplate(templateId: $templateId, input: $input) {
+      id
+      unitId
+      version
+      difficultyModifier
+      createdAt
+      updatedAt
+      items {
+        id
+        key
+        title
+        description
+        type
+        required
+        requiresPhoto
+        photoMin
+        order
       }
     }
   }
@@ -3352,6 +3390,48 @@ export const ADD_PHOTO_TO_REPAIR_SHOPPING_ITEM = gql`
         caption
         order
       }
+    }
+  }
+`
+
+// ===== ЗАПРОСЫ ДЛЯ ЕЖЕДНЕВНЫХ УВЕДОМЛЕНИЙ =====
+
+export const GET_DAILY_NOTIFICATION_TASK = gql`
+  query GetDailyNotificationTask($taskId: UUID!) {
+    task(id: $taskId) {
+      id
+      type
+      status
+      org {
+        id
+      }
+      note
+      dueAt
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const UPDATE_DAILY_NOTIFICATION_TASK_ITEM = gql`
+  mutation UpdateDailyNotificationTaskItem($input: UpdateDailyNotificationTaskItemInput!) {
+    updateDailyNotificationTaskItem(input: $input) {
+      id
+      type
+      status
+      note
+      updatedAt
+    }
+  }
+`
+
+export const SEND_DAILY_NOTIFICATION_TASK = gql`
+  mutation SendDailyNotificationTask($taskId: UUID!) {
+    sendDailyNotificationTask(taskId: $taskId) {
+      id
+      type
+      status
+      updatedAt
     }
   }
 `

@@ -34,7 +34,10 @@ export const composeConfig = defineConfig({
     },
     {
       sourceHandler: loadGraphQLHTTPSubgraph('ops-subgraph', {
-        endpoint: 'http://localhost:4003/graphql'
+        endpoint: 'http://localhost:4003/graphql',
+        operationHeaders: {
+          Authorization: '{context.headers.authorization}'
+        }
       })
     },
     {

@@ -1,0 +1,48 @@
+mutation CreateDailyNotificationTask($input: CreateDailyNotificationTaskInput!) {
+  createDailyNotificationTask(input: $input) {
+    id
+    type
+    status
+    org {
+      id
+    }
+    note
+    dueAt
+    createdAt
+    updatedAt
+  }
+}
+
+query GetDailyNotificationTask($taskId: UUID!) {
+  task(id: $taskId) {
+    id
+    type
+    status
+    org {
+      id
+    }
+    note
+    dueAt
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateDailyNotificationTaskItem($input: UpdateDailyNotificationTaskItemInput!) {
+  updateDailyNotificationTaskItem(input: $input) {
+    id
+    type
+    status
+    note
+    updatedAt
+  }
+}
+
+mutation SendDailyNotificationTask($taskId: UUID!) {
+  sendDailyNotificationTask(taskId: $taskId) {
+    id
+    type
+    status
+    updatedAt
+  }
+}

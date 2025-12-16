@@ -81,7 +81,7 @@ scalar TransportOptions @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLI
 
 scalar Upload @join__type(graph: FIELD_SERVICE_SUBGRAPH)
 
-scalar _DirectiveExtensions @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH)
+scalar _DirectiveExtensions @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH)
 
 """
 Организация (компания, отель, хостел и т.д.).
@@ -134,7 +134,7 @@ type GraphQLQueryResult @join__type(graph: AI_SUBGRAPH) {
 }
 
 """Запросы для работы с AI-функциональностью."""
-type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) @join__type(graph: REALTY_CALENDAR_SUBGRAPH) {
+type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "iam-subgraph", location: "http://localhost:4009/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "identity-subgraph", location: "http://localhost:4005/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "inventory-subgraph", location: "http://localhost:4001/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http", subgraph: "ops-subgraph", location: "http://localhost:4003/graphql", headers: [["Authorization", "{context.headers.authorization}"]], options: {}}]}) @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAPH) @join__type(graph: BOOKINGS_SUBGRAPH) @join__type(graph: FIELD_SERVICE_SUBGRAPH) @join__type(graph: IAM_SUBGRAPH) @join__type(graph: IDENTITY_SUBGRAPH) @join__type(graph: INVENTORY_SUBGRAPH) @join__type(graph: LEGAL_SUBGRAPH) @join__type(graph: LISTINGS_SUBGRAPH) @join__type(graph: NOTIFICATIONS_SUBGRAPH) @join__type(graph: OPS_SUBGRAPH) @join__type(graph: PRICING_SUBGRAPH) @join__type(graph: REALTY_CALENDAR_SUBGRAPH) {
   """Пустой запрос (требуется для GraphQL схемы)"""
   _empty: Boolean @join__field(graph: AI_SUBGRAPH) @join__field(graph: REALTY_CALENDAR_SUBGRAPH)
   """Получить счет по ID"""
@@ -318,6 +318,8 @@ type Query @extraSchemaDefinitionDirective(directives: {transport: [{kind: "http
   ): NotificationConnection! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
   """Получить настройки уведомлений пользователя"""
   userNotificationSettings(userId: UUID!): UserNotificationSettings @merge(subgraph: "notifications-subgraph", keyField: "userId", keyArg: "userId") @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Получить настройки уведомлений организации"""
+  organizationNotificationSettings(orgId: UUID!): OrganizationNotificationSettings @merge(subgraph: "notifications-subgraph", keyField: "orgId", keyArg: "orgId") @join__field(graph: NOTIFICATIONS_SUBGRAPH)
   """Получить шаблон уведомления"""
   notificationTemplate(id: UUID!): NotificationTemplate @merge(subgraph: "notifications-subgraph", keyField: "id", keyArg: "id") @join__field(graph: NOTIFICATIONS_SUBGRAPH)
   """Получить все шаблоны"""
@@ -491,7 +493,7 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   """Удалить аттачмент (фото) из пункта"""
   removeChecklistAttachment(attachmentId: UUID!): Boolean! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Создать шаблон для юнита"""
-  createChecklistTemplate(unitId: UUID!): ChecklistTemplate! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
+  createChecklistTemplate(unitId: UUID!, name: String): ChecklistTemplate! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Добавить пункт в шаблон"""
   addTemplateItem(input: AddTemplateItemInput!): ChecklistTemplate! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Обновить пункт в шаблоне"""
@@ -500,6 +502,8 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   removeTemplateItem(templateId: UUID!, itemKey: String!): ChecklistTemplate! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Обновить порядок пунктов в шаблоне"""
   updateTemplateItemOrder(templateId: UUID!, itemKeys: [String!]!): ChecklistTemplate! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
+  """Обновить настройки шаблона чеклиста"""
+  updateChecklistTemplate(templateId: UUID!, input: UpdateChecklistTemplateInput!): ChecklistTemplate! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Добавить пример фото к пункту шаблона"""
   addTemplateItemExampleMedia(input: AddTemplateItemExampleMediaInput!): [ChecklistItemTemplateMedia!]! @join__field(graph: FIELD_SERVICE_SUBGRAPH)
   """Удалить пример фото из пункта шаблона"""
@@ -622,6 +626,8 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   deleteNotification(id: UUID!): Boolean! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
   """Обновить настройки уведомлений пользователя"""
   updateNotificationSettings(input: UpdateNotificationSettingsInput!): UserNotificationSettings! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
+  """Обновить настройки уведомлений организации"""
+  updateOrganizationNotificationSettings(input: UpdateOrganizationNotificationSettingsInput!): OrganizationNotificationSettings! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
   """Создать или обновить шаблон уведомления"""
   upsertNotificationTemplate(input: UpsertNotificationTemplateInput!): NotificationTemplate! @join__field(graph: NOTIFICATIONS_SUBGRAPH)
   """Удалить шаблон уведомления"""
@@ -632,6 +638,14 @@ type Mutation @join__type(graph: AI_SUBGRAPH) @join__type(graph: BILLING_SUBGRAP
   createTasksFromChecklist(input: CreateTasksFromChecklistInput!): [Task!]! @join__field(graph: OPS_SUBGRAPH)
   """Создать задачу для следующего чек-листа"""
   createTaskForNextChecklist(input: CreateTaskForNextChecklistInput!): Task! @join__field(graph: OPS_SUBGRAPH)
+  """Создать задачу ежедневного уведомления о задачах на день"""
+  createDailyNotificationTask(input: CreateDailyNotificationTaskInput!): Task! @join__field(graph: OPS_SUBGRAPH)
+  """Обновить задачу в ежедневном уведомлении (время, исполнитель)"""
+  updateDailyNotificationTaskItem(input: UpdateDailyNotificationTaskItemInput!): Task! @join__field(graph: OPS_SUBGRAPH)
+  """
+  Отправить ежедневное уведомление (публикует событие и меняет статус на TODO)
+  """
+  sendDailyNotificationTask(taskId: UUID!): Task! @join__field(graph: OPS_SUBGRAPH)
   """Назначить задачу поставщику услуг"""
   assignTask(input: AssignTaskInput!): Task! @join__field(graph: OPS_SUBGRAPH)
   """Обновить статус задачи"""
@@ -1160,6 +1174,8 @@ type CleaningTemplate @join__type(graph: FIELD_SERVICE_SUBGRAPH, key: "id") {
   requiresLinenChange: Boolean!
   """Расчетная продолжительность в минутах"""
   estimatedDuration: Int
+  """Модификатор сложности (0-5, как у уборки)"""
+  difficultyModifier: Int
   """Чек-боксы для проверки"""
   checklistItems: [CleaningTemplateCheckbox!]!
   """Дата создания"""
@@ -1441,8 +1457,12 @@ type ChecklistTemplate @join__type(graph: FIELD_SERVICE_SUBGRAPH) {
   unitId: UUID!
   """Юнит"""
   unit: Unit!
+  """Название шаблона"""
+  name: String
   """Версия шаблона"""
   version: Int!
+  """Модификатор сложности (0-5, как у уборки)"""
+  difficultyModifier: Int
   """Пункты шаблона"""
   items: [ChecklistItemTemplate!]!
   """Дата создания"""
@@ -2220,6 +2240,24 @@ type UserNotificationSettings @join__type(graph: NOTIFICATIONS_SUBGRAPH, key: "u
   updatedAt: DateTime!
 }
 
+"""Настройки уведомлений организации."""
+type OrganizationNotificationSettings @join__type(graph: NOTIFICATIONS_SUBGRAPH, key: "orgId") {
+  """ID организации"""
+  orgId: UUID!
+  """Включена ли автоматическая рассылка уведомлений об уборках на день"""
+  dailyCleaningNotificationEnabled: Boolean!
+  """Время автоматической рассылки уведомлений об уборках (формат HH:mm)"""
+  dailyCleaningNotificationTime: String
+  """Включена ли автоматическая рассылка уведомлений о ремонтах на день"""
+  dailyRepairNotificationEnabled: Boolean!
+  """Время автоматической рассылки уведомлений о ремонтах (формат HH:mm)"""
+  dailyRepairNotificationTime: String
+  """Дата создания"""
+  createdAt: DateTime!
+  """Дата обновления"""
+  updatedAt: DateTime!
+}
+
 """Шаблон уведомления."""
 type NotificationTemplate @join__type(graph: NOTIFICATIONS_SUBGRAPH, key: "id") {
   """ID шаблона"""
@@ -2858,6 +2896,8 @@ enum DeliveryStatusEnum @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
 Определяет текущее состояние выполнения задачи.
 """
 enum TaskStatus @join__type(graph: OPS_SUBGRAPH) {
+  """Задача в черновике (для ежедневных уведомлений перед отправкой)"""
+  DRAFT @join__enumValue(graph: OPS_SUBGRAPH)
   """Задача создана, ожидает выполнения"""
   TODO @join__enumValue(graph: OPS_SUBGRAPH)
   """Задача в процессе выполнения"""
@@ -2883,6 +2923,8 @@ enum TaskType @join__type(graph: OPS_SUBGRAPH) {
   MAINTENANCE @join__enumValue(graph: OPS_SUBGRAPH)
   """Инвентаризация"""
   INVENTORY @join__enumValue(graph: OPS_SUBGRAPH)
+  """Ежедневное уведомление о задачах"""
+  DAILY_NOTIFICATION @join__enumValue(graph: OPS_SUBGRAPH)
 }
 
 """Тип исполнителя задачи."""
@@ -3177,6 +3219,8 @@ input UpdateCleaningTemplateInput @join__type(graph: FIELD_SERVICE_SUBGRAPH) {
   requiresLinenChange: Boolean
   """Расчетная продолжительность в минутах"""
   estimatedDuration: Int
+  """Модификатор сложности (0-5, как у уборки)"""
+  difficultyModifier: Int
   """Чек-боксы"""
   checklistItems: [ChecklistTemplateItemInput!]
 }
@@ -3189,6 +3233,14 @@ input ChecklistTemplateItemInput @join__type(graph: FIELD_SERVICE_SUBGRAPH) {
   order: Int
   """Обязателен ли пункт"""
   isRequired: Boolean
+}
+
+"""Входные данные для обновления шаблона чеклиста."""
+input UpdateChecklistTemplateInput @join__type(graph: FIELD_SERVICE_SUBGRAPH) {
+  """Название шаблона"""
+  name: String
+  """Модификатор сложности (0-5, как у уборки)"""
+  difficultyModifier: Int
 }
 
 """Входные данные для создания шаблона планового осмотра."""
@@ -3805,6 +3857,20 @@ input UpdateNotificationSettingsInput @join__type(graph: NOTIFICATIONS_SUBGRAPH)
   subscribedEvents: [EventType!]
 }
 
+"""Входные данные для обновления настроек уведомлений организации."""
+input UpdateOrganizationNotificationSettingsInput @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
+  """ID организации"""
+  orgId: UUID!
+  """Включена ли автоматическая рассылка уведомлений об уборках на день"""
+  dailyCleaningNotificationEnabled: Boolean
+  """Время автоматической рассылки уведомлений об уборках (формат HH:mm)"""
+  dailyCleaningNotificationTime: String
+  """Включена ли автоматическая рассылка уведомлений о ремонтах на день"""
+  dailyRepairNotificationEnabled: Boolean
+  """Время автоматической рассылки уведомлений о ремонтах (формат HH:mm)"""
+  dailyRepairNotificationTime: String
+}
+
 """Входные данные для создания/обновления шаблона."""
 input UpsertNotificationTemplateInput @join__type(graph: NOTIFICATIONS_SUBGRAPH) {
   """ID шаблона (для обновления)"""
@@ -3959,6 +4025,34 @@ input CreateTaskForNextChecklistInput @join__type(graph: OPS_SUBGRAPH) {
   dueAt: DateTime
   """Дополнительные заметки (опционально)"""
   note: String
+}
+
+"""Входные данные для создания ежедневного уведомления о задачах."""
+input CreateDailyNotificationTaskInput @join__type(graph: OPS_SUBGRAPH) {
+  """ID организации"""
+  orgId: UUID!
+  """Тип задач: CLEANING или REPAIR"""
+  taskType: String!
+  """Дата, на которую нужны задачи"""
+  targetDate: DateTime!
+}
+
+"""Входные данные для обновления задачи в ежедневном уведомлении."""
+input UpdateDailyNotificationTaskItemInput @join__type(graph: OPS_SUBGRAPH) {
+  """ID задачи типа DAILY_NOTIFICATION"""
+  taskId: UUID!
+  """ID задачи (cleaningId или repairId) для обновления"""
+  itemId: UUID!
+  """Новое время выполнения (опционально)"""
+  scheduledAt: DateTime
+  """ID нового исполнителя (cleanerId или masterId, опционально)"""
+  executorId: UUID
+  """Заметки к задаче (опционально)"""
+  notes: String
+  """Сложность уборки 0-5 (опционально, только для уборок)"""
+  difficulty: Int
+  """ID шаблона чеклиста для уборки (опционально, только для уборок)"""
+  templateId: UUID
 }
 
 """Входные данные для создания/обновления правила ценообразования."""

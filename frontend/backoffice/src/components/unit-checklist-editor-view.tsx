@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -15,6 +16,7 @@ import { graphqlClient } from '@/lib/graphql-client';
 import { 
   GET_CHECKLISTS_BY_UNIT,
   CREATE_CHECKLIST_TEMPLATE,
+  UPDATE_CHECKLIST_TEMPLATE,
   ADD_TEMPLATE_ITEM,
   UPDATE_TEMPLATE_ITEM,
   REMOVE_TEMPLATE_ITEM,
@@ -633,6 +635,177 @@ function AddItemDialog({
   );
 }
 
+function EditableTemplateName({ template, unitId, onUpdate }: { template: any; unitId: string; onUpdate: () => void }) {
+  const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState<string>(template.name || '');
+
+  useEffect(() => {
+    setName(template.name || '');
+  }, [template.id, template.name]);
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: async (input: any) => {
+      return graphqlClient.request(UPDATE_CHECKLIST_TEMPLATE, {
+        templateId: template.id,
+        input,
+      });
+    },
+    onSuccess: async () => {
+      setIsEditing(false);
+      // Обновляем данные
+      await queryClient.invalidateQueries({ queryKey: ['checklists', unitId] });
+      onUpdate();
+    },
+  });
+
+  const handleSave = () => {
+    if (name.trim() && name !== template.name) {
+      updateTemplateMutation.mutate({ name: name.trim() });
+    } else {
+      setIsEditing(false);
+      setName(template.name || '');
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setName(template.name || '');
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-2">
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleSave();
+            } else if (e.key === 'Escape') {
+              handleCancel();
+            }
+          }}
+          autoFocus
+          className="text-lg font-semibold px-2 py-1 min-w-[200px]"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setIsEditing(true)}
+      className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+      title="Нажмите для редактирования"
+    >
+      {template.name || `Чеклист ${template.version}`}
+      <PencilIcon className="w-4 h-4 inline-block ml-2 opacity-50 group-hover:opacity-100 transition-opacity" />
+    </button>
+  );
+}
+
+function TemplateSettings({ template, unitId }: { template: any; unitId: string }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState<string>(template.name || '');
+  const [difficultyModifier, setDifficultyModifier] = useState<number | null>(
+    template.difficultyModifier !== undefined && template.difficultyModifier !== null 
+      ? template.difficultyModifier 
+      : null
+  );
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Обновляем состояние при изменении template
+  useEffect(() => {
+    setName(template.name || '');
+    setDifficultyModifier(
+      template.difficultyModifier !== undefined && template.difficultyModifier !== null 
+        ? template.difficultyModifier 
+        : null
+    );
+  }, [template.id, template.name, template.difficultyModifier]);
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: async (input: any) => {
+      return graphqlClient.request(UPDATE_CHECKLIST_TEMPLATE, {
+        templateId: template.id,
+        input,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklists', unitId] });
+      setIsSaving(false);
+    },
+    onError: () => {
+      setIsSaving(false);
+    },
+  });
+
+  const handleSave = () => {
+    setIsSaving(true);
+    updateTemplateMutation.mutate({
+      name: name !== template.name ? name : undefined,
+      difficultyModifier: difficultyModifier !== (template.difficultyModifier !== undefined && template.difficultyModifier !== null ? template.difficultyModifier : null) ? (difficultyModifier !== null ? difficultyModifier : undefined) : undefined,
+    });
+  };
+
+  const hasChanges = name !== (template.name || '') || difficultyModifier !== (template.difficultyModifier !== undefined && template.difficultyModifier !== null ? template.difficultyModifier : null);
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+      <Heading level={5} className="mb-4">Настройки шаблона</Heading>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Название чеклиста
+          </label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Название чеклиста"
+            className="mb-4"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Модификатор сложности
+          </label>
+          <div className="flex items-center gap-4">
+            <select
+              value={difficultyModifier !== null ? difficultyModifier : ''}
+              onChange={(e) => {
+                const value = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                setDifficultyModifier(value);
+              }}
+              className="flex-1 max-w-xs border border-gray-300 dark:border-zinc-600 rounded-lg px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              <option value="">Не задан</option>
+              {[0, 1, 2, 3, 4, 5].map((value) => (
+                <option key={value} value={value}>
+                  D{value} {value === 0 ? '(Очень легко)' : value === 1 ? '(Легко)' : value === 2 ? '(Средне)' : value === 3 ? '(Сложно)' : value === 4 ? '(Очень сложно)' : '(Экстремально)'}
+                </option>
+              ))}
+            </select>
+            {hasChanges && (
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                color="blue"
+              >
+                {isSaving ? 'Сохранение...' : 'Сохранить'}
+              </Button>
+            )}
+          </div>
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Модификатор сложности применяется к уборке при выборе этого шаблона. Если у уборки уже есть сложность, модификатор добавляется к ней. Если сложности нет, устанавливается значение модификатора.
+          </Text>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EditItemDialog({ 
   isOpen, 
   onClose, 
@@ -891,9 +1064,18 @@ function EditItemDialog({
 
 export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEditorViewProps) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+
+  // Отслеживание изменений состояния диалога для отладки
+  useEffect(() => {
+    console.log('showCreateDialog changed:', showCreateDialog);
+  }, [showCreateDialog]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -902,16 +1084,58 @@ export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEdito
     })
   );
 
-  const { data: checklistsData, isLoading } = useQuery<any>({
+  // Получаем выбранный templateId из URL
+  const selectedTemplateId = searchParams.get('templateId');
+
+  const { data: checklistsData, isLoading, refetch: refetchChecklists } = useQuery<any>({
     queryKey: ['checklists', unitId],
     queryFn: () => graphqlClient.request(GET_CHECKLISTS_BY_UNIT, { unitId }),
     enabled: !!unitId,
   });
 
   const checklists = checklistsData?.checklistsByUnit || [];
-  const template = checklists[0];
+  
+  // Выбираем шаблон: из URL, или первый из списка
+  const template = selectedTemplateId 
+    ? checklists.find((t: any) => t.id === selectedTemplateId) || checklists[0]
+    : checklists[0];
+    
   const items = template?.items || [];
   const itemsWithPhotos = items.filter((item: any) => item.requiresPhoto).length;
+
+  // Функция для переключения шаблона
+  const handleTemplateChange = (templateId: string) => {
+    if (!templateId) return;
+    
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('templateId', templateId);
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    router.push(newUrl, { scroll: false });
+    
+    // Обновляем данные после изменения URL
+    refetchChecklists();
+  };
+
+  // Эффект для автоматического переключения при изменении selectedTemplateId из URL
+  useEffect(() => {
+    if (checklists.length === 0) return;
+    
+    if (selectedTemplateId) {
+      const foundTemplate = checklists.find((t: any) => t.id === selectedTemplateId);
+      if (!foundTemplate && checklists[0]?.id) {
+        // Если шаблон из URL не найден, переключаемся на первый
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('templateId', checklists[0].id);
+        router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false });
+      }
+    } else if (checklists[0]?.id) {
+      // Если templateId не указан в URL, но есть шаблоны, устанавливаем первый
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('templateId', checklists[0].id);
+      router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTemplateId, checklists.length]);
 
 
   const removeItemMutation = useMutation({
@@ -968,11 +1192,34 @@ export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEdito
   };
 
   const createTemplateMutation = useMutation({
-    mutationFn: async () => {
-      return graphqlClient.request(CREATE_CHECKLIST_TEMPLATE, { unitId });
+    mutationFn: async (name?: string) => {
+      console.log('Creating checklist template:', { unitId, name });
+      const result = await graphqlClient.request(CREATE_CHECKLIST_TEMPLATE, { unitId, name });
+      console.log('Create checklist template result:', result);
+      return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['checklists', unitId] });
+    onSuccess: async (data: any) => {
+      console.log('Create checklist template success:', data);
+      const newTemplateId = data?.createChecklistTemplate?.id;
+      setShowCreateDialog(false);
+      setNewTemplateName('');
+      
+      if (newTemplateId) {
+        // Сначала обновляем URL сразу
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('templateId', newTemplateId);
+        router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false });
+        
+        // Затем обновляем данные через refetch для немедленного обновления
+        await refetchChecklists();
+      } else {
+        // Если ID не получен, просто обновляем данные
+        await refetchChecklists();
+      }
+    },
+    onError: (error: any) => {
+      console.error('Failed to create checklist template:', error);
+      alert(`Ошибка при создании чеклиста: ${error?.message || 'Неизвестная ошибка'}`);
     },
   });
 
@@ -1001,8 +1248,54 @@ export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEdito
           <Text className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
             Создайте шаблон чек-листа для этой квартиры
           </Text>
+          <Dialog open={showCreateDialog} onClose={() => {
+            setShowCreateDialog(false);
+            setNewTemplateName('');
+          }}>
+            <DialogTitle>Создать новый чеклист</DialogTitle>
+            <DialogBody>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Название чеклиста
+                  </label>
+                  <Input
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    placeholder="Например: Стандартная уборка"
+                    autoFocus
+                  />
+                </div>
+              </div>
+            </DialogBody>
+            <DialogActions>
+              <Button onClick={() => {
+                setShowCreateDialog(false);
+                setNewTemplateName('');
+              }}>
+                Отмена
+              </Button>
+              <Button
+                onClick={() => {
+                  console.log('Create button clicked:', { unitId, name: newTemplateName });
+                  if (!unitId) {
+                    alert('Ошибка: unitId не определен');
+                    return;
+                  }
+                  createTemplateMutation.mutate(newTemplateName || undefined);
+                }}
+                color="blue"
+                disabled={createTemplateMutation.isPending}
+              >
+                {createTemplateMutation.isPending ? 'Создание...' : 'Создать'}
+              </Button>
+            </DialogActions>
+          </Dialog>
           <Button
-            onClick={() => createTemplateMutation.mutate()}
+            onClick={() => {
+              console.log('Button clicked - opening create dialog');
+              setShowCreateDialog(true);
+            }}
             color="blue"
             disabled={createTemplateMutation.isPending}
           >
@@ -1024,13 +1317,69 @@ export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEdito
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <Heading level={4}>Чек-лист (версия {template.version})</Heading>
+            {/* Выбор и редактирование шаблона */}
+            {checklists.length > 0 && (
+              <div className="flex items-center gap-2">
+                {/* Селект для переключения между шаблонами */}
+                <select
+                  value={template?.id || ''}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
+                  className="text-sm font-medium bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                >
+                  {checklists.map((t: any) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name || `Чеклист ${t.version}`}
+                    </option>
+                  ))}
+                </select>
+                {/* Редактируемое название текущего шаблона */}
+                {template && (
+                  <div className="group">
+                    <EditableTemplateName 
+                      template={template} 
+                      unitId={unitId}
+                      onUpdate={() => {
+                        refetchChecklists();
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            {checklists.length === 0 && (
+              <Heading level={4}>Чек-лист</Heading>
+            )}
           </div>
           <Text className="text-sm text-gray-600 dark:text-gray-400">
             {unitName && `Квартира: ${unitName}`}
+            {template && ` • Версия ${template.version}`}
           </Text>
         </div>
         <div className="flex items-center gap-2">
+          {/* Кнопка создания нового шаблона */}
+          {checklists.length > 0 && (
+            <Button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Button clicked - opening create dialog (when checklists exist)', {
+                  checklistsLength: checklists.length,
+                  showCreateDialog: showCreateDialog
+                });
+                setShowCreateDialog(true);
+              }}
+              color="blue"
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              Новый чеклист
+            </Button>
+          )}
+          {/* Отладочная информация */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-xs text-gray-500">
+              Checklists: {checklists.length}, Dialog: {showCreateDialog ? 'open' : 'closed'}
+            </div>
+          )}
           {/* View Mode Toggle */}
           <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-zinc-800 rounded-lg">
             <button
@@ -1062,6 +1411,9 @@ export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEdito
           </div>
         </div>
       </div>
+
+      {/* Template Settings */}
+      {template && <TemplateSettings template={template} unitId={unitId} />}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1165,6 +1517,51 @@ export function UnitChecklistEditorView({ unitId, unitName }: UnitChecklistEdito
           onSave={handleSaveEdit}
         />
       )}
+
+      {/* Create Template Dialog - для случая когда есть чеклисты */}
+      <Dialog open={showCreateDialog} onClose={() => {
+        setShowCreateDialog(false);
+        setNewTemplateName('');
+      }}>
+        <DialogTitle>Создать новый чеклист</DialogTitle>
+        <DialogBody>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Название чеклиста
+              </label>
+              <Input
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                placeholder="Например: Стандартная уборка"
+                autoFocus
+              />
+            </div>
+          </div>
+        </DialogBody>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowCreateDialog(false);
+            setNewTemplateName('');
+          }}>
+            Отмена
+          </Button>
+          <Button
+            onClick={() => {
+              console.log('Create button clicked:', { unitId, name: newTemplateName });
+              if (!unitId) {
+                alert('Ошибка: unitId не определен');
+                return;
+              }
+              createTemplateMutation.mutate(newTemplateName || undefined);
+            }}
+            color="blue"
+            disabled={createTemplateMutation.isPending}
+          >
+            {createTemplateMutation.isPending ? 'Создание...' : 'Создать'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

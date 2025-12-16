@@ -94,6 +94,8 @@ export class EventsClient {
     cleaningDifficulty?: string;
     priceAmount?: number;
     priceCurrency?: string;
+    templateId?: string;
+    templateName?: string;
   }): Promise<void> {
     try {
       await this.ensureConnected();
@@ -148,6 +150,12 @@ export class EventsClient {
       if (params.priceCurrency !== undefined && params.priceCurrency !== null) {
         payloadData.priceCurrency = params.priceCurrency;
       }
+      if (params.templateId !== undefined && params.templateId !== null) {
+        payloadData.templateId = params.templateId;
+      }
+      if (params.templateName !== undefined && params.templateName !== null) {
+        payloadData.templateName = params.templateName;
+      }
       
       logger.info('📤 Publishing CLEANING_ASSIGNED event with payload', {
         cleaningId: params.cleaningId,
@@ -159,6 +167,10 @@ export class EventsClient {
         priceAmount: payloadData.priceAmount,
         hasPriceCurrency: payloadData.priceCurrency !== undefined && payloadData.priceCurrency !== null,
         priceCurrency: payloadData.priceCurrency,
+        hasTemplateId: payloadData.templateId !== undefined && payloadData.templateId !== null,
+        templateId: payloadData.templateId,
+        hasTemplateName: payloadData.templateName !== undefined && payloadData.templateName !== null,
+        templateName: payloadData.templateName,
         requiresLinenChange: payloadData.requiresLinenChange,
         fullPayload: JSON.stringify(payloadData, null, 2),
       });

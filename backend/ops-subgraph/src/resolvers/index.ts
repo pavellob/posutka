@@ -399,6 +399,43 @@ export const resolvers = {
       
       return task;
     },
+    createDailyNotificationTask: async (_: unknown, { input }: { input: any }, { dailyNotificationTaskService }: Context) => {
+      if (!dailyNotificationTaskService) {
+        throw new Error('DailyNotificationTaskService is not available');
+      }
+      
+      return dailyNotificationTaskService.createDailyNotificationTask({
+        orgId: input.orgId,
+        taskType: input.taskType,
+        targetDate: new Date(input.targetDate),
+      });
+    },
+    updateDailyNotificationTaskItem: async (_: unknown, { input }: { input: any }, { dailyNotificationTaskService, userId }: Context) => {
+      if (!dailyNotificationTaskService) {
+        throw new Error('DailyNotificationTaskService is not available');
+      }
+      
+      return dailyNotificationTaskService.updateDailyNotificationTaskItem(
+        input.taskId,
+        input.itemId,
+        input.scheduledAt ? new Date(input.scheduledAt) : undefined,
+        input.executorId,
+        input.notes,
+        input.difficulty,
+        input.templateId
+      );
+    },
+    sendDailyNotificationTask: async (_: unknown, { taskId }: { taskId: string }, { dailyNotificationTaskService, userId }: Context) => {
+      if (!dailyNotificationTaskService) {
+        throw new Error('DailyNotificationTaskService is not available');
+      }
+      
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      
+      return dailyNotificationTaskService.sendDailyNotificationTask(taskId, userId);
+    },
     assignTask: (_: unknown, { input }: { input: any }, { dl }: Context) => 
       sharedResolvers.assignTask(dl, input),
     updateTaskStatus: (_: unknown, { id, status }: { id: string; status: string }, { dl }: Context) => 
@@ -414,6 +451,49 @@ export const resolvers = {
   },
   // Field resolvers для связанных типов
   Task: {
+    status: (parent: any) => {
+      try {
+        // Явно преобразуем статус в строку для GraphQL enum
+        let status: any = parent.status;
+        
+        // Если статус - это объект Prisma enum, извлекаем значение
+        if (status && typeof status === 'object') {
+          // Prisma enum может быть объектом с полем name или value
+          status = status.name || status.value || status.toString();
+        }
+        
+        // Преобразуем в строку и приводим к верхнему регистру
+        status = String(status || '').toUpperCase().trim();
+        
+        // Если статус отсутствует, используем значение по умолчанию
+        if (!status) {
+          logger.warn('Task status is missing, using TODO', { taskId: parent.id });
+          return 'TODO';
+        }
+        
+        // Валидация: проверяем, что статус соответствует допустимым значениям
+        const validStatuses = ['DRAFT', 'TODO', 'IN_PROGRESS', 'DONE', 'CANCELED'];
+        if (!validStatuses.includes(status)) {
+          logger.error('Invalid task status, using TODO', {
+            taskId: parent.id,
+            invalidStatus: status,
+            originalStatus: parent.status,
+            validStatuses,
+          });
+          return 'TODO';
+        }
+        
+        return status;
+      } catch (error) {
+        logger.error('Error resolving Task.status', {
+          taskId: parent.id,
+          error: error instanceof Error ? error.message : String(error),
+          parentStatus: parent.status,
+          parentStatusType: typeof parent.status,
+        });
+        return 'TODO'; // Возвращаем безопасное значение по умолчанию
+      }
+    },
     org: (parent: any) => ({ id: parent.orgId }),
     unit: (parent: any) => parent.unitId ? { id: parent.unitId } : null,
     booking: (parent: any) => parent.bookingId ? { id: parent.bookingId } : null,

@@ -1,7 +1,7 @@
 import type { UUID, DateTime, Money } from '@repo/shared/types-only';
 export type { UUID, DateTime, Money };
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELED';
-export type TaskType = 'CLEANING' | 'CHECKIN' | 'CHECKOUT' | 'MAINTENANCE' | 'INVENTORY';
+export type TaskType = 'CLEANING' | 'CHECKIN' | 'CHECKOUT' | 'MAINTENANCE' | 'INVENTORY' | 'DAILY_NOTIFICATION';
 export interface ServiceProvider {
     id: UUID;
     name: string;

@@ -18,6 +18,10 @@ export const resolvers = {
       return notificationService.getUserSettings(userId);
     },
     
+    organizationNotificationSettings: async (_: unknown, { orgId }: { orgId: string }, { notificationService }: Context) => {
+      return notificationService.getOrganizationSettings(orgId);
+    },
+    
     notificationTemplate: async (_: unknown, { id }: { id: string }, { prisma }: Context) => {
       return prisma.notificationTemplate.findUnique({
         where: { id },
@@ -168,6 +172,10 @@ export const resolvers = {
     
     updateNotificationSettings: async (_: unknown, { input }: { input: any }, { notificationService }: Context) => {
       return notificationService.updateUserSettings(input.userId, input);
+    },
+    
+    updateOrganizationNotificationSettings: async (_: unknown, { input }: { input: any }, { notificationService }: Context) => {
+      return notificationService.updateOrganizationSettings(input.orgId, input);
     },
     
     upsertNotificationTemplate: async (_: unknown, { input }: { input: any }, { prisma }: Context) => {

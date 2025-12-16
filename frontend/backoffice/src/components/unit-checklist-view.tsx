@@ -132,68 +132,81 @@ export function UnitChecklistView({ unitId, unitName }: UnitChecklistViewProps) 
 
       {/* Checklist Items */}
       {viewMode === 'cards' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
           {items.map((item: any, index: number) => (
             <div
               key={item.id}
-              className="bg-white dark:bg-zinc-900 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-6"
+              className="group relative bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md transition-all duration-200 p-4 h-full flex flex-col overflow-hidden"
             >
-              <div className="flex items-start gap-3 mb-4">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white font-semibold text-sm flex-shrink-0 shadow-md">
+              {/* Номер пункта - без отступа слева, Material Design стиль */}
+              <div className="flex items-start mb-3">
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] font-medium flex-shrink-0 mr-2.5">
                   {index + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Heading level={6} className="mb-0 text-gray-900 dark:text-gray-100">
+                  <Heading level={6} className="mb-0 text-gray-900 dark:text-gray-100 text-sm font-medium leading-snug line-clamp-2">
                     {item.title}
                   </Heading>
                 </div>
               </div>
               
+              {/* Описание */}
               {item.description && (
-                <div className="mb-4">
-                  <Text className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                <div className="mb-3 flex-1">
+                  <Text className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">
                     {item.description}
                   </Text>
                 </div>
               )}
 
+              {/* Бейдж с фото - Material Design стиль */}
               {item.requiresPhoto && (
-                <Badge color="blue" className="mt-2">
-                  Требуется фото
-                </Badge>
+                <div className="mt-auto pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <Text className="text-xs text-blue-600 dark:text-blue-400 font-normal">
+                      Требуется фото
+                    </Text>
+                  </div>
+                </div>
               )}
             </div>
           ))}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-200 dark:divide-zinc-700">
           {items.map((item: any, index: number) => (
             <div
               key={item.id}
-              className="bg-white dark:bg-zinc-900 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-4"
+              className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors duration-150"
             >
               <div className="flex items-start gap-4">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white font-semibold text-sm flex-shrink-0 shadow-md">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white font-semibold text-xs flex-shrink-0 shadow-sm">
                   {index + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Heading level={6} className="mb-0 text-gray-900 dark:text-gray-100">
-                    {item.title}
-                  </Heading>
-                  
-                  {item.description && (
-                    <div className="mt-2">
-                      <Text className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                        {item.description}
-                      </Text>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <Heading level={6} className="mb-1 text-gray-900 dark:text-gray-100">
+                        {item.title}
+                      </Heading>
+                      
+                      {item.description && (
+                        <Text className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mt-1">
+                          {item.description}
+                        </Text>
+                      )}
                     </div>
-                  )}
-
-                  {item.requiresPhoto && (
-                    <Badge color="blue" className="mt-2">
-                      Требуется фото
-                    </Badge>
-                  )}
+                    
+                    {item.requiresPhoto && (
+                      <Badge color="blue" className="flex-shrink-0">
+                        📷 Фото
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
