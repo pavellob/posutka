@@ -42,6 +42,23 @@ export class RealtyCalendarService {
     // 1. Найти или создать Property/Unit (orgId будет взят из найденного объекта или использован default)
     const { propertyId, unitId, orgId } = await this.findOrCreatePropertyAndUnit(dto, defaultOrgId);
 
+    // 1.1. Получаем Property для использования дефолтных времен заезда/выезда
+    let property: any = null;
+    try {
+      const propertyResponse = await this.inventoryClient.getProperty({ id: propertyId });
+      if (propertyResponse.success && propertyResponse.property) {
+        property = propertyResponse.property;
+      }
+    } catch (error) {
+      logger.warn('Failed to get property for default times', { propertyId, error });
+    }
+
+    // 1.2. Определяем время заезда и выезда с учетом дефолтов объекта
+    const { arrivalTime, departureTime, checkIn, checkOut } = this.calculateCheckInOutTimes(
+      dto,
+      property
+    );
+
     // 2. Проверить существующую бронь по externalRef
     let existingBooking = null;
     try {
@@ -84,10 +101,10 @@ export class RealtyCalendarService {
         guestName: dto.guest.name,
         guestEmail: dto.guest.email,
         guestPhone: dto.guest.phone,
-        checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
-        checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
-        arrivalTime: dto.arrivalTime,
-        departureTime: dto.departureTime,
+        checkIn: checkIn instanceof Date ? checkIn : new Date(checkIn),
+        checkOut: checkOut instanceof Date ? checkOut : new Date(checkOut),
+        arrivalTime: arrivalTime,
+        departureTime: departureTime,
         guestsCount: dto.guestsCount || 1,
         notes: dto.notes ?? dto.address,
         source: dto.source,
@@ -134,10 +151,10 @@ export class RealtyCalendarService {
     const basePriceAmount = dto.totalAmount ?? dto.amount ?? 0;
     
     logger.info('Creating booking via gRPC with times', {
-      arrivalTime: dto.arrivalTime,
-      departureTime: dto.departureTime,
-      hasArrivalTime: !!dto.arrivalTime,
-      hasDepartureTime: !!dto.departureTime,
+      arrivalTime: arrivalTime,
+      departureTime: departureTime,
+      hasArrivalTime: !!arrivalTime,
+      hasDepartureTime: !!departureTime,
     });
     
     // Подготавливаем запрос для gRPC
@@ -150,10 +167,10 @@ export class RealtyCalendarService {
       guestName: dto.guest.name,
       guestEmail: dto.guest.email, // Передаем email для создания гостя
       guestPhone: dto.guest.phone, // Передаем phone для создания гостя
-      checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
-      checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
-      arrivalTime: dto.arrivalTime, // nice-grpc автоматически конвертирует в arrival_time
-      departureTime: dto.departureTime, // nice-grpc автоматически конвертирует в departure_time
+      checkIn: checkIn instanceof Date ? checkIn : new Date(checkIn),
+      checkOut: checkOut instanceof Date ? checkOut : new Date(checkOut),
+      arrivalTime: arrivalTime, // nice-grpc автоматически конвертирует в arrival_time
+      departureTime: departureTime, // nice-grpc автоматически конвертирует в departure_time
       guestsCount: dto.guestsCount || 1,
       notes: dto.notes ?? dto.address,
       source: dto.source,
@@ -212,6 +229,23 @@ export class RealtyCalendarService {
     // 1. Найти или создать Property/Unit (orgId будет взят из найденного объекта или использован default)
     const { propertyId, unitId, orgId } = await this.findOrCreatePropertyAndUnit(dto, defaultOrgId);
 
+    // 1.1. Получаем Property для использования дефолтных времен заезда/выезда
+    let property: any = null;
+    try {
+      const propertyResponse = await this.inventoryClient.getProperty({ id: propertyId });
+      if (propertyResponse.success && propertyResponse.property) {
+        property = propertyResponse.property;
+      }
+    } catch (error) {
+      logger.warn('Failed to get property for default times', { propertyId, error });
+    }
+
+    // 1.2. Определяем время заезда и выезда с учетом дефолтов объекта
+    const { arrivalTime, departureTime, checkIn, checkOut } = this.calculateCheckInOutTimes(
+      dto,
+      property
+    );
+
     // 2. Проверить существующую бронь по externalRef
     let existingBooking = null;
     try {
@@ -239,10 +273,10 @@ export class RealtyCalendarService {
         guestName: dto.guest.name,
         guestEmail: dto.guest.email,
         guestPhone: dto.guest.phone,
-        checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
-        checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
-        arrivalTime: dto.arrivalTime,
-        departureTime: dto.departureTime,
+        checkIn: checkIn instanceof Date ? checkIn : new Date(checkIn),
+        checkOut: checkOut instanceof Date ? checkOut : new Date(checkOut),
+        arrivalTime: arrivalTime,
+        departureTime: departureTime,
         guestsCount: dto.guestsCount || 1,
         notes: dto.notes ?? dto.address,
         source: dto.source,
@@ -291,10 +325,10 @@ export class RealtyCalendarService {
         guestName: dto.guest.name,
         guestEmail: dto.guest.email,
         guestPhone: dto.guest.phone,
-        checkIn: dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn),
-        checkOut: dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut),
-        arrivalTime: dto.arrivalTime,
-        departureTime: dto.departureTime,
+        checkIn: checkIn instanceof Date ? checkIn : new Date(checkIn),
+        checkOut: checkOut instanceof Date ? checkOut : new Date(checkOut),
+        arrivalTime: arrivalTime,
+        departureTime: departureTime,
         guestsCount: dto.guestsCount || 1,
         notes: dto.notes ?? dto.address,
         source: dto.source,
@@ -823,7 +857,74 @@ export class RealtyCalendarService {
 
   private async deleteBooking(dto: InternalBookingDTO): Promise<WebhookResponse> {
     // Аналогично cancel, но если есть метод deleteBooking
-    return this.cancelBooking(dto); // Пока используем cancel
+      return this.cancelBooking(dto); // Пока используем cancel
+  }
+
+  /**
+   * Вычисляет время заезда и выезда с учетом дефолтных значений из Property
+   */
+  private calculateCheckInOutTimes(
+    dto: InternalBookingDTO,
+    property: any
+  ): { arrivalTime?: string; departureTime?: string; checkIn: Date; checkOut: Date } {
+    // Дефолтные значения из Property (или стандартные 14:00 и 12:00)
+    const defaultCheckInTime = property?.defaultCheckInTime || '14:00';
+    const defaultCheckOutTime = property?.defaultCheckOutTime || '12:00';
+
+    // Определяем даты заезда и выезда
+    const checkInDate = dto.checkIn instanceof Date ? dto.checkIn : new Date(dto.checkIn);
+    const checkOutDate = dto.checkOut instanceof Date ? dto.checkOut : new Date(dto.checkOut);
+
+    // Время заезда
+    let arrivalTime: string | undefined = dto.arrivalTime;
+    if (!arrivalTime) {
+      // Если время заезда не указано, используем дефолтное время заезда объекта
+      // Но если бронь сегодня и уже после дефолтного времени заезда, используем текущее время + 1 час
+      const now = new Date();
+      const isToday = checkInDate.toDateString() === now.toDateString();
+      const [defaultHour, defaultMinute] = defaultCheckInTime.split(':').map(Number);
+      const defaultTime = new Date(checkInDate);
+      defaultTime.setHours(defaultHour, defaultMinute, 0, 0);
+
+      if (isToday && now >= defaultTime) {
+        // Бронь сегодня и уже после дефолтного времени - используем текущее время + 1 час
+        const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+        arrivalTime = `${String(oneHourLater.getHours()).padStart(2, '0')}:${String(oneHourLater.getMinutes()).padStart(2, '0')}`;
+        logger.info('Using current time + 1 hour for arrival time', { arrivalTime, isToday, now: now.toISOString() });
+      } else {
+        // Используем дефолтное время заезда объекта
+        arrivalTime = defaultCheckInTime;
+        logger.info('Using default check-in time from property', { arrivalTime, defaultCheckInTime });
+      }
+    }
+
+    // Время выезда
+    let departureTime: string | undefined = dto.departureTime;
+    if (!departureTime) {
+      // Если время выезда не указано, используем дефолтное время выезда объекта
+      departureTime = defaultCheckOutTime;
+      logger.info('Using default check-out time from property', { departureTime, defaultCheckOutTime });
+    }
+
+    // Обновляем даты checkIn и checkOut с учетом времени заезда/выезда
+    const finalCheckIn = new Date(checkInDate);
+    if (arrivalTime) {
+      const [hours, minutes] = arrivalTime.split(':').map(Number);
+      finalCheckIn.setHours(hours || 0, minutes || 0, 0, 0);
+    }
+
+    const finalCheckOut = new Date(checkOutDate);
+    if (departureTime) {
+      const [hours, minutes] = departureTime.split(':').map(Number);
+      finalCheckOut.setHours(hours || 0, minutes || 0, 0, 0);
+    }
+
+    return {
+      arrivalTime,
+      departureTime,
+      checkIn: finalCheckIn,
+      checkOut: finalCheckOut,
+    };
   }
 }
 

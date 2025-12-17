@@ -54,6 +54,8 @@ export interface Property {
   renovation?: string;
   furniture?: boolean;
   isElite?: boolean;
+  defaultCheckInTime?: string; // Время заезда по умолчанию (формат HH:mm)
+  defaultCheckOutTime?: string; // Время выезда по умолчанию (формат HH:mm)
   yandexBuildingId?: string;
   yandexHouseId?: string;
   // External references для интеграций

@@ -76,8 +76,12 @@ export class InventoryDLPrisma {
                 renovation: input.renovation,
                 furniture: input.furniture,
                 isElite: input.isElite,
+                defaultCheckInTime: input.defaultCheckInTime,
+                defaultCheckOutTime: input.defaultCheckOutTime,
                 yandexBuildingId: input.yandexBuildingId,
                 yandexHouseId: input.yandexHouseId,
+                externalSource: input.externalSource,
+                externalId: input.externalId,
             },
             include: {
                 org: true,
@@ -133,8 +137,12 @@ export class InventoryDLPrisma {
                 renovation: updateData.renovation,
                 furniture: updateData.furniture,
                 isElite: updateData.isElite,
+                defaultCheckInTime: updateData.defaultCheckInTime,
+                defaultCheckOutTime: updateData.defaultCheckOutTime,
                 yandexBuildingId: updateData.yandexBuildingId,
                 yandexHouseId: updateData.yandexHouseId,
+                externalSource: updateData.externalSource,
+                externalId: updateData.externalId,
             },
             include: {
                 org: true,
@@ -177,7 +185,37 @@ export class InventoryDLPrisma {
                 beds: input.beds,
                 bathrooms: input.bathrooms,
                 amenities: input.amenities,
+                images: input.images || [],
+                externalSource: input.externalSource,
+                externalId: input.externalId,
             },
+            include: {
+                property: true,
+            }
+        });
+        return this.mapUnitFromPrisma(unit);
+    }
+    async updateUnit(id, input) {
+        const updateData = {};
+        if (input.name !== undefined)
+            updateData.name = input.name;
+        if (input.capacity !== undefined)
+            updateData.capacity = input.capacity;
+        if (input.beds !== undefined)
+            updateData.beds = input.beds;
+        if (input.bathrooms !== undefined)
+            updateData.bathrooms = input.bathrooms;
+        if (input.amenities !== undefined)
+            updateData.amenities = input.amenities;
+        if (input.grade !== undefined)
+            updateData.grade = input.grade;
+        if (input.cleaningDifficulty !== undefined)
+            updateData.cleaningDifficulty = input.cleaningDifficulty;
+        if (input.checkInInstructions !== undefined)
+            updateData.checkInInstructions = input.checkInInstructions;
+        const unit = await this.prisma.unit.update({
+            where: { id },
+            data: updateData,
             include: {
                 property: true,
             }
@@ -269,7 +307,7 @@ export class InventoryDLPrisma {
             address: property.address,
             amenities: property.amenities,
             org: property.org,
-            units: property.units,
+            units: property.units ? property.units.map((u) => this.mapUnitFromPrisma(u)) : [],
             // Яндекс.Недвижимость поля
             propertyType: property.propertyType,
             category: property.category,
@@ -310,8 +348,12 @@ export class InventoryDLPrisma {
             renovation: property.renovation,
             furniture: property.furniture,
             isElite: property.isElite,
+            defaultCheckInTime: property.defaultCheckInTime,
+            defaultCheckOutTime: property.defaultCheckOutTime,
             yandexBuildingId: property.yandexBuildingId,
             yandexHouseId: property.yandexHouseId,
+            externalSource: property.externalSource,
+            externalId: property.externalId,
         };
     }
     mapUnitFromPrisma(unit) {
@@ -323,7 +365,13 @@ export class InventoryDLPrisma {
             beds: unit.beds,
             bathrooms: unit.bathrooms,
             amenities: unit.amenities,
+            images: unit.images || [],
+            grade: unit.grade ?? 0,
+            cleaningDifficulty: unit.cleaningDifficulty ?? 0,
+            checkInInstructions: unit.checkInInstructions ?? undefined,
             property: unit.property,
+            externalSource: unit.externalSource,
+            externalId: unit.externalId,
         };
     }
 }

@@ -6,7 +6,7 @@ export class OpsDLPrisma {
     async getTaskById(id) {
         const task = await this.prisma.task.findUnique({
             where: { id },
-            include: { assignedProvider: true }
+            include: { assignedProvider: true, assignedMaster: true }
         });
         return task ? this.mapTaskFromPrisma(task) : null;
     }
@@ -22,7 +22,7 @@ export class OpsDLPrisma {
         const [tasks, totalCount] = await Promise.all([
             this.prisma.task.findMany({
                 where,
-                include: { assignedProvider: true },
+                include: { assignedProvider: true, assignedMaster: true },
                 take: first + 1,
                 skip,
                 cursor,
@@ -52,13 +52,22 @@ export class OpsDLPrisma {
                 orgId: input.orgId,
                 unitId: input.unitId,
                 bookingId: input.bookingId,
+                sourceId: input.sourceId,
+                checklistItemKey: input.checklistItemKey,
+                checklistItemInstanceId: input.checklistItemInstanceId,
+                authorId: input.authorId,
+                assignedProviderId: input.assignedProviderId,
+                assignedCleanerId: input.assignedCleanerId,
+                assignedMasterId: input.assignedMasterId,
+                plannedForNextChecklist: input.plannedForNextChecklist ?? false,
+                sourceCleaningId: input.sourceCleaningId,
                 type: input.type,
                 dueAt: input.dueAt ? new Date(input.dueAt) : null,
                 checklist: input.checklist || [],
                 note: input.note,
-                status: 'TODO'
+                status: input.status || 'TODO'
             },
-            include: { assignedProvider: true }
+            include: { assignedProvider: true, assignedMaster: true }
         });
         return this.mapTaskFromPrisma(task);
     }
@@ -66,6 +75,10 @@ export class OpsDLPrisma {
         const updateData = {};
         if (input.providerId)
             updateData.assignedProviderId = input.providerId;
+        if (input.cleanerId)
+            updateData.assignedCleanerId = input.cleanerId;
+        if (input.masterId)
+            updateData.assignedMasterId = input.masterId;
         if (input.status)
             updateData.status = input.status;
         if (input.note)
@@ -73,7 +86,7 @@ export class OpsDLPrisma {
         const task = await this.prisma.task.update({
             where: { id: input.taskId },
             data: updateData,
-            include: { assignedProvider: true }
+            include: { assignedProvider: true, assignedMaster: true }
         });
         return this.mapTaskFromPrisma(task);
     }
@@ -81,7 +94,7 @@ export class OpsDLPrisma {
         const task = await this.prisma.task.update({
             where: { id },
             data: { status: status },
-            include: { assignedProvider: true }
+            include: { assignedProvider: true, assignedMaster: true }
         });
         return this.mapTaskFromPrisma(task);
     }
@@ -98,7 +111,7 @@ export class OpsDLPrisma {
         const task = await this.prisma.task.update({
             where: { id },
             data: updateData,
-            include: { assignedProvider: true }
+            include: { assignedProvider: true, assignedMaster: true }
         });
         return this.mapTaskFromPrisma(task);
     }
@@ -177,15 +190,40 @@ export class OpsDLPrisma {
         return tasks.map((task) => this.mapTaskFromPrisma(task));
     }
     mapTaskFromPrisma(task) {
+        // Преобразуем статус в строку, если это enum объект Prisma
+        let status = task.status;
+        if (status && typeof status !== 'string') {
+            // Если это enum объект Prisma, берем значение
+            status = status.value || String(status);
+        }
+        // Если статус отсутствует, используем значение по умолчанию
+        if (!status) {
+            status = 'TODO';
+        }
+        // Валидация: проверяем, что статус соответствует допустимым значениям
+        const validStatuses = ['DRAFT', 'TODO', 'IN_PROGRESS', 'DONE', 'CANCELED'];
+        if (!validStatuses.includes(status)) {
+            // Если статус недопустим, логируем и используем значение по умолчанию
+            console.warn(`Invalid task status: ${status}, using TODO as default. Task ID: ${task.id}`);
+            status = 'TODO';
+        }
         return {
             id: task.id,
             orgId: task.orgId,
             unitId: task.unitId,
             bookingId: task.bookingId,
+            sourceId: task.sourceId,
+            checklistItemKey: task.checklistItemKey,
+            checklistItemInstanceId: task.checklistItemInstanceId,
+            authorId: task.authorId,
             type: task.type,
-            status: task.status,
+            status: status,
             dueAt: task.dueAt?.toISOString(),
             assignedProviderId: task.assignedProviderId,
+            assignedCleanerId: task.assignedCleanerId,
+            assignedMasterId: task.assignedMasterId,
+            plannedForNextChecklist: task.plannedForNextChecklist ?? false,
+            sourceCleaningId: task.sourceCleaningId,
             checklist: task.checklist,
             note: task.note,
             createdAt: task.createdAt.toISOString(),

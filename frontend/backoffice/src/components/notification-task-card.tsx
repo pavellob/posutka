@@ -98,71 +98,91 @@ export function NotificationTaskCard({
           handleEditItem(item)
         }
       }}
-      className={`group relative bg-white dark:bg-zinc-800 rounded-xl shadow-sm border transition-all duration-200 ${
-        canEdit ? 'cursor-pointer' : ''
-      } ${
-        isEditing 
-          ? 'border-blue-500 dark:border-blue-400 shadow-lg ring-2 ring-blue-200 dark:ring-blue-800' 
-          : 'border-zinc-200 dark:border-zinc-700 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600'
-      }`}
+      className={`
+        group relative
+        bg-white dark:bg-zinc-900
+        rounded-2xl
+        border border-zinc-200/60 dark:border-zinc-700/60
+        transition-all duration-200 ease-out
+        w-full max-w-full
+        ${canEdit ? 'cursor-pointer' : ''}
+        ${
+          isEditing 
+            ? 'shadow-[0px_1px_3px_0px_rgba(0,0,0,0.3),0px_4px_8px_3px_rgba(0,0,0,0.15)] ring-2 ring-blue-500 dark:ring-blue-400 border-blue-500 dark:border-blue-400' 
+            : 'shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_1px_3px_1px_rgba(0,0,0,0.15)] hover:shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_2px_6px_2px_rgba(0,0,0,0.15)] active:shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_1px_3px_1px_rgba(0,0,0,0.15)]'
+        }
+        ${canEdit && !isEditing ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' : ''}
+      `}
     >
-      {/* Material Design elevation effect */}
-      <div className={`absolute inset-0 rounded-xl transition-opacity ${
-        isEditing ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'bg-gradient-to-br from-white to-zinc-50 dark:from-zinc-800 dark:to-zinc-900 opacity-0 group-hover:opacity-100'
-      }`}></div>
+      {/* Material Design state layer */}
+      {canEdit && !isEditing && (
+        <div 
+          className="absolute inset-0 rounded-2xl bg-blue-500/0 group-hover:bg-blue-500/8 dark:group-hover:bg-blue-400/8 group-active:bg-blue-500/12 dark:group-active:bg-blue-400/12 transition-colors duration-150 ease-out pointer-events-none"
+        />
+      )}
       
-      <div className="relative p-5 space-y-3">
-        {/* Заголовок карточки */}
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                isCleaning 
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' 
-                  : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-              }`}>
-                {formattedTime}
-              </div>
-              <div className="flex-1 min-w-0">
-                <Text className="font-semibold text-base text-zinc-900 dark:text-zinc-100 truncate">
-                  {item.unitName || 'Неизвестная квартира'}
+      <div className="relative p-5 space-y-4">
+        {/* Header section */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            {/* Time badge - Material Design FAB-style */}
+            <div 
+              className={`
+                flex-shrink-0
+                h-10 w-10 md:h-12 md:w-12
+                rounded-full
+                flex items-center justify-center
+                text-xs md:text-sm font-medium
+                shadow-[0px_1px_2px_0px_rgba(0,0,0,0.3),0px_1px_3px_1px_rgba(0,0,0,0.15)]
+                ${isCleaning 
+                  ? 'bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-blue-100' 
+                  : 'bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-100'
+                }
+              `}
+            >
+              {formattedTime}
+            </div>
+            
+            {/* Title and address */}
+            <div className="flex-1 min-w-0">
+              <Text className="text-base md:text-lg font-medium text-zinc-900 dark:text-zinc-50 truncate leading-tight">
+                {item.unitName || 'Неизвестная квартира'}
+              </Text>
+              {item.unitAddress && (
+                <Text className="text-sm text-zinc-600 dark:text-zinc-400 truncate mt-1 leading-snug">
+                  {item.unitAddress}
                 </Text>
-                {item.unitAddress && (
-                  <Text className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                    {item.unitAddress}
-                  </Text>
-                )}
-              </div>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-1 ml-2">
-            {canEdit && (
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (confirm('Удалить эту задачу из списка?')) {
-                    removeTaskItem(itemId)
-                  }
-                }}
-                disabled={removeTaskItemMutation.isPending}
-                className="h-8 w-8 p-0 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-600 border-transparent bg-transparent"
-                title="Удалить"
-              >
-                <TrashIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
-              </Button>
-            )}
-          </div>
+          
+          {/* Action button */}
+          {canEdit && (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation()
+                if (confirm('Удалить эту задачу из списка?')) {
+                  removeTaskItem(itemId)
+                }
+              }}
+              disabled={removeTaskItemMutation.isPending}
+              className="flex-shrink-0 h-8 w-8 p-0 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/30 transition-colors duration-150"
+              title="Удалить"
+            >
+              <TrashIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
+            </Button>
+          )}
         </div>
 
-        {/* Время и дата */}
+        {/* Date and time info */}
         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-          <ClockIcon className="w-4 h-4" />
+          <ClockIcon className="w-4 h-4 flex-shrink-0" />
           <Text className="font-medium">{formattedTime}</Text>
-          <Text className="text-zinc-400 dark:text-zinc-500">•</Text>
+          <span className="text-zinc-400 dark:text-zinc-500">•</span>
           <Text>{formattedDate}</Text>
         </div>
         
-        {/* Контент карточки - редактирование или отображение */}
+        {/* Content section */}
         {isEditing ? (
           <NotificationTaskEditForm
             item={item}

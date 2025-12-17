@@ -1,5 +1,5 @@
 import { createGraphQLLogger } from '@repo/shared-logger';
-import type { IOpsDL, ICleaningDL, IDataLayerInventory } from '@repo/datalayer';
+import type { IOpsDL, ICleaningDL, IDataLayerInventory, IBookingsDL } from '@repo/datalayer';
 import type { PrismaClient } from '@prisma/client';
 import type { InventoryGrpcClient, EventsGrpcClient } from '@repo/grpc-sdk';
 import { EventsEventType } from '@repo/grpc-sdk';
@@ -18,6 +18,7 @@ export class DailyNotificationTaskService {
     private readonly cleaningDL: ICleaningDL,
     private readonly prisma: PrismaClient,
     private readonly inventoryDL: IDataLayerInventory,
+    private readonly bookingsDL: IBookingsDL,
     private readonly inventoryGrpcClient: InventoryGrpcClient,
     private readonly eventsGrpcClient: EventsGrpcClient
   ) {}
@@ -292,6 +293,8 @@ export class DailyNotificationTaskService {
         let notes: string | null = null;
         let difficulty: number | null = null;
         let templateId: string | null = null;
+        let checkoutBooking: any = null;
+        let checkinBooking: any = null;
         
         if (input.taskType === 'CLEANING') {
           try {
@@ -326,6 +329,85 @@ export class DailyNotificationTaskService {
                 difficulty,
                 templateId,
               });
+
+              // Получаем информацию о бронированиях для уборки
+              if (item.unitId && cleaning.scheduledAt) {
+                try {
+                  const scheduledDate = new Date(cleaning.scheduledAt);
+                  const fromDate = new Date(scheduledDate);
+                  fromDate.setDate(fromDate.getDate() - 30); // 30 дней назад для поиска выездов
+                  fromDate.setHours(0, 0, 0, 0);
+                  const toDate = new Date(scheduledDate);
+                  toDate.setDate(toDate.getDate() + 7); // 7 дней вперед для поиска заездов
+                  toDate.setHours(23, 59, 59, 999);
+
+                  // Получаем все бронирования для unitId
+                  const bookingsResult = await this.bookingsDL.listBookings({
+                    unitId: item.unitId,
+                    first: 200,
+                  });
+
+                  const allBookings = bookingsResult.edges.map(e => e.node);
+                  
+                  // Фильтруем только подтвержденные и pending бронирования
+                  const confirmedBookings = allBookings.filter(
+                    (b) => b.status === 'CONFIRMED' || b.status === 'PENDING'
+                  );
+
+                  // Фильтруем бронирования, которые пересекаются с диапазоном
+                  const relevantBookings = confirmedBookings.filter((booking) => {
+                    const checkIn = new Date(booking.checkIn);
+                    const checkOut = new Date(booking.checkOut);
+                    return (
+                      (checkIn >= fromDate && checkIn <= toDate) ||
+                      (checkOut >= fromDate && checkOut <= toDate) ||
+                      (checkIn <= fromDate && checkOut >= toDate)
+                    );
+                  });
+
+                  // Находим последний выезд до или в день уборки
+                  const cleaningDate = new Date(scheduledDate);
+                  cleaningDate.setHours(0, 0, 0, 0);
+
+                  const checkoutCandidates = relevantBookings.filter((b) => {
+                    const checkoutDate = new Date(b.checkOut);
+                    checkoutDate.setHours(0, 0, 0, 0);
+                    return checkoutDate <= cleaningDate;
+                  });
+
+                  if (checkoutCandidates.length > 0) {
+                    checkoutBooking = checkoutCandidates.sort((a, b) => {
+                      return new Date(b.checkOut).getTime() - new Date(a.checkOut).getTime();
+                    })[0];
+                  }
+
+                  // Находим первый заезд после или в день уборки
+                  const checkinCandidates = relevantBookings.filter((b) => {
+                    const checkinDate = new Date(b.checkIn);
+                    checkinDate.setHours(0, 0, 0, 0);
+                    return checkinDate >= cleaningDate;
+                  });
+
+                  if (checkinCandidates.length > 0) {
+                    checkinBooking = checkinCandidates.sort((a, b) => {
+                      return new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime();
+                    })[0];
+                  }
+
+                  logger.info('Bookings loaded for cleaning', {
+                    cleaningId: item.id,
+                    unitId: item.unitId,
+                    hasCheckout: !!checkoutBooking,
+                    hasCheckin: !!checkinBooking,
+                  });
+                } catch (error) {
+                  logger.warn('Failed to get bookings for cleaning', {
+                    cleaningId: item.id,
+                    unitId: item.unitId,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                }
+              }
             }
           } catch (error) {
             logger.warn('Failed to get cleaning data', {
@@ -335,16 +417,33 @@ export class DailyNotificationTaskService {
           }
         }
 
+        // Определяем executorId для группировки
+        const executorId = input.taskType === 'CLEANING' 
+          ? (item.cleanerId || null)
+          : (item.masterId || null);
+
         const taskData = {
           [input.taskType === 'CLEANING' ? 'cleaningId' : 'repairId']:
             item.id,
+          unitId: item.unitId,
           unitName: unitData.unitName,
           unitAddress: unitData.unitAddress,
           scheduledAt: item.scheduledAt,
-          executorName,
+          executorId: executorId || undefined,
+          executorName: executorName || undefined,
           notes: notes || undefined,
           difficulty: difficulty !== null ? difficulty : undefined,
           templateId: templateId || undefined,
+          checkoutBooking: checkoutBooking ? {
+            id: checkoutBooking.id,
+            checkOut: checkoutBooking.checkOut,
+            departureTime: checkoutBooking.departureTime || undefined,
+          } : undefined,
+          checkinBooking: checkinBooking ? {
+            id: checkinBooking.id,
+            checkIn: checkinBooking.checkIn,
+            arrivalTime: checkinBooking.arrivalTime || undefined,
+          } : undefined,
         };
 
         logger.info('Task data prepared', {
@@ -356,8 +455,48 @@ export class DailyNotificationTaskService {
       })
     );
 
-    // 6. Создать задачу типа DAILY_NOTIFICATION в статусе DRAFT
-    // Сохраняем tasksList в note для последующего редактирования в UI
+    // 6. Группируем задачи по исполнителям для удобной организации
+    const tasksByExecutor = new Map<string, any[]>();
+    const tasksWithoutExecutor: any[] = [];
+
+    tasksList.forEach((task) => {
+      const executorId = task.executorId;
+      if (executorId && task.executorName) {
+        if (!tasksByExecutor.has(executorId)) {
+          tasksByExecutor.set(executorId, []);
+        }
+        tasksByExecutor.get(executorId)!.push(task);
+      } else {
+        tasksWithoutExecutor.push(task);
+      }
+    });
+
+    // Сортируем задачи внутри каждой группы по времени
+    tasksByExecutor.forEach((tasks) => {
+      tasks.sort((a, b) => {
+        const timeA = new Date(a.scheduledAt).getTime();
+        const timeB = new Date(b.scheduledAt).getTime();
+        return timeA - timeB;
+      });
+    });
+
+    // Сортируем задачи без исполнителя по времени
+    tasksWithoutExecutor.sort((a, b) => {
+      const timeA = new Date(a.scheduledAt).getTime();
+      const timeB = new Date(b.scheduledAt).getTime();
+      return timeA - timeB;
+    });
+
+    // Создаем структуру с группировкой
+    const executorGroups = Array.from(tasksByExecutor.entries()).map(([executorId, tasks]) => ({
+      executorId,
+      executorName: tasks[0]?.executorName || null,
+      tasksCount: tasks.length,
+      tasks,
+    }));
+
+    // 7. Создать задачу типа DAILY_NOTIFICATION в статусе DRAFT
+    // Сохраняем tasksList и группировку в note для последующего редактирования в UI
     const task = await this.dl.createTask({
       orgId: input.orgId,
       type: 'DAILY_NOTIFICATION',
@@ -368,6 +507,8 @@ export class DailyNotificationTaskService {
         targetDate: input.targetDate.toISOString(),
         tasksCount: tasksList.length,
         tasks: tasksList, // Сохраняем полный список задач для редактирования
+        executorGroups, // Группировка по исполнителям
+        tasksWithoutExecutor, // Задачи без исполнителя
       }),
       dueAt: input.targetDate.toISOString(),
     });

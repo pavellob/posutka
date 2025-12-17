@@ -32,7 +32,9 @@ import {
   GET_MASTERS,
   GET_TASKS_BY_CLEANING,
   UPDATE_CLEANING_SCHEDULED_AT,
+  GET_BOOKINGS,
 } from '@/lib/graphql-queries'
+import { findAdjacentBookings, formatCheckInOutInfo } from '@/lib/booking-utils'
 import {
   ArrowLeftIcon,
   CalendarIcon,
@@ -89,6 +91,37 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
   const unitId = data?.unit?.id
   const cleaningId = data?.id
 
+  // Получаем бронирования для юнита
+  const { data: bookingsData } = useQuery({
+    queryKey: ['bookings', unitId, data?.scheduledAt],
+    queryFn: async () => {
+      if (!unitId || !data?.scheduledAt) return null
+      
+      // Получаем бронирования за период ±7 дней от даты уборки
+      const scheduledDate = new Date(data.scheduledAt)
+      const fromDate = new Date(scheduledDate)
+      fromDate.setDate(fromDate.getDate() - 7)
+      const toDate = new Date(scheduledDate)
+      toDate.setDate(toDate.getDate() + 7)
+
+      const response = await graphqlClient.request(GET_BOOKINGS, {
+        unitId: unitId,
+        from: fromDate.toISOString(),
+        to: toDate.toISOString(),
+        first: 50,
+      }) as any
+
+      return response.bookings?.edges?.map((edge: any) => edge.node) || []
+    },
+    enabled: !!unitId && !!data?.scheduledAt,
+  })
+
+  // Находим ближайшие бронирования
+  const { checkoutBooking, checkinBooking } = data?.scheduledAt && bookingsData
+    ? findAdjacentBookings(bookingsData, data.scheduledAt)
+    : { checkoutBooking: null, checkinBooking: null }
+  const { checkoutText, checkinText } = formatCheckInOutInfo(checkoutBooking, checkinBooking)
+
   const {
     data: templateData,
     isLoading: isTemplateLoading,
@@ -117,7 +150,14 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
     mutationFn: ({ id, scheduledAt }: { id: string; scheduledAt: string }) =>
       graphqlClient.request(UPDATE_CLEANING_SCHEDULED_AT, { id, scheduledAt }),
     onSuccess: () => {
+      // Инвалидируем все связанные запросы
       queryClient.invalidateQueries({ queryKey: ['cleaning', params.id] })
+      queryClient.invalidateQueries({ queryKey: ['cleanings'] })
+      if (unitId) {
+        queryClient.invalidateQueries({ queryKey: ['bookings', unitId] })
+      }
+      // Инвалидируем все запросы бронирований, которые могут быть связаны с этой уборкой
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       setIsEditingTime(false)
     },
     onError: (err: any) => {
@@ -777,6 +817,17 @@ export default function CleaningDetailsPage(props: CleaningDetailsPageProps) {
                     </div>
                   )}
                 </span>
+              )}
+              {/* Информация о заезде/выезде */}
+              {(checkoutText || checkinText) && (
+                <div className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-200">
+                  {checkoutText && (
+                    <span className="font-medium">{checkoutText}</span>
+                  )}
+                  {checkinText && (
+                    <span className="font-medium">{checkinText}</span>
+                  )}
+                </div>
               )}
               {data.startedAt && (
                 <span className="inline-flex items-center gap-1"><ClockIcon className="w-4 h-4" />Старт: {new Date(data.startedAt).toLocaleString('ru-RU')}</span>

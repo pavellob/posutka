@@ -8,6 +8,7 @@ import {
   NotificationChannel,
   Priority as NotificationPriority
 } from '@repo/grpc-sdk';
+import type { IBookingsDL } from '@repo/datalayer';
 import { TemplateRenderer } from '../utils/template-renderer.js';
 
 const logger = createGraphQLLogger('notification-event-handler');
@@ -20,7 +21,11 @@ export class NotificationEventHandler {
   private notificationsClient: NotificationsGrpcClient | null = null;
   private eventBusService: any = null;
   
-  constructor(private readonly prisma: PrismaClient, eventBusService?: any) {
+  constructor(
+    private readonly prisma: PrismaClient, 
+    private readonly bookingsDL: IBookingsDL,
+    eventBusService?: any
+  ) {
     this.eventBusService = eventBusService;
     // Инициализируем gRPC клиент для notifications-subgraph
     const grpcHost = process.env.NOTIFICATIONS_GRPC_HOST || 'localhost';
@@ -1670,6 +1675,59 @@ export class NotificationEventHandler {
               message += `📋 Шаблон чеклиста: ${templateName}\n`;
             }
             
+            // Добавляем информацию о бронированиях для уборок
+            if (isCleaning && task.scheduledAt && event.orgId) {
+              try {
+                // Получаем unitId - либо из задачи, либо из уборки по cleaningId
+                let unitId = task.unitId;
+                if (!unitId && task.cleaningId) {
+                  const cleaning = await this.prisma.cleaning.findUnique({
+                    where: { id: task.cleaningId },
+                    select: { unitId: true }
+                  });
+                  if (cleaning) {
+                    unitId = cleaning.unitId;
+                  }
+                }
+
+                if (unitId) {
+                  const { checkoutBooking, checkinBooking } = await this.findAdjacentBookings(
+                    unitId,
+                    task.scheduledAt,
+                    event.orgId
+                  );
+
+                  const bookingInfo: string[] = [];
+                  if (checkoutBooking?.checkOut) {
+                    const checkoutDate = this.formatShortDate(checkoutBooking.checkOut);
+                    const checkoutTime = (checkoutBooking as any).departureTime || '';
+                    bookingInfo.push(`Выезд ${checkoutDate}${checkoutTime ? ` ${checkoutTime}` : ''}`);
+                  }
+                  if (checkinBooking?.checkIn) {
+                    const checkinDate = this.formatShortDate(checkinBooking.checkIn);
+                    const checkinTime = (checkinBooking as any).arrivalTime || '';
+                    bookingInfo.push(`Заезд ${checkinDate}${checkinTime ? ` ${checkinTime}` : ''}`);
+                  }
+
+                  if (bookingInfo.length > 0) {
+                    message += `📅 ${bookingInfo.join(' | ')}\n`;
+                  }
+                } else {
+                  logger.warn('No unitId found for cleaning task', {
+                    cleaningId: task.cleaningId,
+                    hasUnitIdInTask: !!task.unitId,
+                  });
+                }
+              } catch (error) {
+                logger.warn('Failed to get bookings for task', {
+                  cleaningId: task.cleaningId,
+                  unitId: task.unitId,
+                  scheduledAt: task.scheduledAt,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              }
+            }
+            
             // Добавляем ссылку на уборку, если это уборка
             if (isCleaning && task.cleaningId) {
               message += `🔗 Уборка: ${frontendUrl}/cleanings/${task.cleaningId}\n`;
@@ -2107,6 +2165,91 @@ export class NotificationEventHandler {
     }
   }
   
+  /**
+   * Находит ближайшие бронирования для уборки по unitId и scheduledAt
+   */
+  private async findAdjacentBookings(
+    unitId: string,
+    scheduledAt: string,
+    orgId: string
+  ): Promise<{ checkoutBooking: any; checkinBooking: any }> {
+    try {
+      // Получаем все бронирования для юнита
+      const bookingsResult = await this.bookingsDL.listBookings({
+        orgId,
+        unitId,
+        first: 100, // Получаем достаточно много для поиска ближайших
+      });
+
+      const bookings = bookingsResult.edges.map((edge: any) => edge.node);
+      
+      if (bookings.length === 0) {
+        return { checkoutBooking: null, checkinBooking: null };
+      }
+
+      const cleaningDate = new Date(scheduledAt);
+      cleaningDate.setHours(0, 0, 0, 0); // Нормализуем до начала дня
+
+      // Фильтруем только подтвержденные бронирования
+      const confirmedBookings = bookings.filter(
+        (b: any) => b.status === 'CONFIRMED' || b.status === 'PENDING'
+      );
+
+      // Находим бронь с выездом <= scheduledAt (последний выезд до или в день уборки)
+      const checkoutBookingCandidates = confirmedBookings.filter((b: any) => {
+        const checkoutDate = new Date(b.checkOut);
+        checkoutDate.setHours(0, 0, 0, 0);
+        return checkoutDate <= cleaningDate;
+      });
+
+      const checkoutBooking = checkoutBookingCandidates.length > 0
+        ? checkoutBookingCandidates.sort((a: any, b: any) => {
+            return new Date(b.checkOut).getTime() - new Date(a.checkOut).getTime();
+          })[0]
+        : null;
+
+      // Находим бронь с заездом >= scheduledAt (первый заезд после или в день уборки)
+      const checkinBookingCandidates = confirmedBookings.filter((b: any) => {
+        const checkinDate = new Date(b.checkIn);
+        checkinDate.setHours(0, 0, 0, 0);
+        return checkinDate >= cleaningDate;
+      });
+
+      const checkinBooking = checkinBookingCandidates.length > 0
+        ? checkinBookingCandidates.sort((a: any, b: any) => {
+            return new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime();
+          })[0]
+        : null;
+
+      return { checkoutBooking, checkinBooking };
+    } catch (error) {
+      logger.warn('Failed to find adjacent bookings', {
+        unitId,
+        scheduledAt,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { checkoutBooking: null, checkinBooking: null };
+    }
+  }
+
+  /**
+   * Форматирует короткую дату (день.месяц)
+   */
+  private formatShortDate(dateString: string): string {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString;
+      }
+      return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  }
+
   private determinePriority(eventType: string): string {
     switch (eventType) {
       // High priority - urgent actions required

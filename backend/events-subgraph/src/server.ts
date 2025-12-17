@@ -6,6 +6,8 @@ import { makeExecutableSchema } from '@graphql-tools/schema';
 // @ts-ignore - PrismaClient is available at runtime but linter has cache issues
 import { PrismaClient } from '@prisma/client';
 import { createGraphQLLogger } from '@repo/shared-logger';
+// @ts-ignore - datalayer-prisma is in packages
+import { BookingsDLPrisma } from '@repo/datalayer-prisma';
 import { resolvers } from './resolvers/index.js';
 import { EventBusService } from './services/event-bus.service.js';
 import { NotificationEventHandler } from './handlers/notification-event-handler.js';
@@ -23,11 +25,14 @@ const prisma = new PrismaClient({
   log: ['error', 'warn'],
 });
 
+// Инициализация Data Layer
+const bookingsDL = new BookingsDLPrisma(prisma);
+
 // Инициализация Event Bus
 const eventBus = new EventBusService(prisma);
 
 // Инициализация handlers
-const notificationHandler = new NotificationEventHandler(prisma, eventBus);
+const notificationHandler = new NotificationEventHandler(prisma, bookingsDL, eventBus);
 
 // Регистрируем обработчики событий
 logger.info('Registering event handlers...');

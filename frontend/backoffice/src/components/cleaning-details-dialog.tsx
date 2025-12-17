@@ -8,7 +8,8 @@ import { Heading } from './heading'
 import { Text } from './text'
 import { Badge } from './badge'
 import { graphqlClient } from '@/lib/graphql-client'
-import { GET_CLEANING, UPDATE_CLEANING_SCHEDULED_AT } from '@/lib/graphql-queries'
+import { GET_CLEANING, UPDATE_CLEANING_SCHEDULED_AT, GET_BOOKINGS } from '@/lib/graphql-queries'
+import { findAdjacentBookings, formatCheckInOutInfo } from '@/lib/booking-utils'
 
 interface CleaningDetailsDialogProps {
   isOpen: boolean
@@ -48,7 +49,14 @@ export function CleaningDetailsDialog({
     mutationFn: ({ id, scheduledAt }: { id: string; scheduledAt: string }) =>
       graphqlClient.request(UPDATE_CLEANING_SCHEDULED_AT, { id, scheduledAt }),
     onSuccess: () => {
+      // Инвалидируем все связанные запросы
       queryClient.invalidateQueries({ queryKey: ['cleaning', cleaningId] })
+      queryClient.invalidateQueries({ queryKey: ['cleanings'] })
+      if (cleaning?.unit?.id) {
+        queryClient.invalidateQueries({ queryKey: ['bookings', cleaning.unit.id] })
+      }
+      // Инвалидируем все запросы бронирований, которые могут быть связаны с этой уборкой
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       setIsEditingTime(false)
     },
     onError: (err: any) => {
@@ -57,6 +65,37 @@ export function CleaningDetailsDialog({
   })
 
   const cleaning = cleaningData?.cleaning
+
+  // Получаем бронирования для юнита
+  const { data: bookingsData } = useQuery({
+    queryKey: ['bookings', cleaning?.unit?.id, cleaning?.scheduledAt],
+    queryFn: async () => {
+      if (!cleaning?.unit?.id) return null
+      
+      // Получаем бронирования за период ±7 дней от даты уборки
+      const scheduledDate = new Date(cleaning.scheduledAt)
+      const fromDate = new Date(scheduledDate)
+      fromDate.setDate(fromDate.getDate() - 7)
+      const toDate = new Date(scheduledDate)
+      toDate.setDate(toDate.getDate() + 7)
+
+      const response = await graphqlClient.request(GET_BOOKINGS, {
+        unitId: cleaning.unit.id,
+        from: fromDate.toISOString(),
+        to: toDate.toISOString(),
+        first: 50,
+      }) as any
+
+      return response.bookings?.edges?.map((edge: any) => edge.node) || []
+    },
+    enabled: isOpen && !!cleaning?.unit?.id && !!cleaning?.scheduledAt,
+  })
+
+  // Находим ближайшие бронирования
+  const { checkoutBooking, checkinBooking } = cleaning?.scheduledAt && bookingsData
+    ? findAdjacentBookings(bookingsData, cleaning.scheduledAt)
+    : { checkoutBooking: null, checkinBooking: null }
+  const { checkoutText, checkinText } = formatCheckInOutInfo(checkoutBooking, checkinBooking)
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
@@ -212,6 +251,25 @@ export function CleaningDetailsDialog({
                 )}
               </div>
             </div>
+
+            {/* Информация о заезде/выезде */}
+            {(checkoutText || checkinText) && (
+              <div>
+                <Text className="text-sm text-gray-500 dark:text-gray-400">Бронирования</Text>
+                <div className="mt-1 space-y-1">
+                  {checkoutText && (
+                    <Text className="text-sm font-medium text-gray-900 dark:text-white">
+                      {checkoutText}
+                    </Text>
+                  )}
+                  {checkinText && (
+                    <Text className="text-sm font-medium text-gray-900 dark:text-white">
+                      {checkinText}
+                    </Text>
+                  )}
+                </div>
+              </div>
+            )}
 
             {cleaning.startedAt && (
               <div>

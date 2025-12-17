@@ -21,15 +21,14 @@ import {
   XCircleIcon,
   PencilIcon,
   SparklesIcon,
-  Squares2X2Icon,
-  ListBulletIcon,
   UserPlusIcon,
   ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/outline'
 import { graphqlClient } from '@/lib/graphql-client'
 import { graphqlRequest } from '@/lib/graphql-wrapper'
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
-import { GET_TASK_BY_ID, UPDATE_TASK_STATUS, ASSIGN_TASK, GET_SERVICE_PROVIDERS, GET_CLEANERS, GET_MASTERS, SCHEDULE_CLEANING, SCHEDULE_REPAIR, GET_UNITS_BY_PROPERTY, GET_PROPERTIES_BY_ORG, UPDATE_DAILY_NOTIFICATION_TASK_ITEM, SEND_DAILY_NOTIFICATION_TASK, UPDATE_TASK, GET_MEMBERSHIPS_BY_ORG, GET_CHECKLISTS_BY_UNIT, GET_CHECKLIST_TEMPLATE, GET_CLEANING } from '@/lib/graphql-queries'
+import { GET_TASK_BY_ID, UPDATE_TASK_STATUS, ASSIGN_TASK, GET_SERVICE_PROVIDERS, GET_CLEANERS, GET_MASTERS, SCHEDULE_CLEANING, SCHEDULE_REPAIR, GET_UNITS_BY_PROPERTY, GET_PROPERTIES_BY_ORG, UPDATE_DAILY_NOTIFICATION_TASK_ITEM, SEND_DAILY_NOTIFICATION_TASK, UPDATE_TASK, GET_MEMBERSHIPS_BY_ORG, GET_CHECKLISTS_BY_UNIT, GET_CHECKLIST_TEMPLATE, GET_CLEANING, GET_BOOKINGS } from '@/lib/graphql-queries'
+import { findAdjacentBookings, formatCheckInOutInfo } from '@/lib/booking-utils'
 import { Input } from '@/components/input'
 import { Select } from '@/components/select'
 import { TrashIcon } from '@heroicons/react/24/outline'
@@ -54,7 +53,6 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   // Состояние для редактирования карточек DAILY_NOTIFICATION
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editedItems, setEditedItems] = useState<Record<string, EditedItem>>({})
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
   const [showAssignDailyDialog, setShowAssignDailyDialog] = useState(false)
   const [selectedManagerId, setSelectedManagerId] = useState<string>('')
 
@@ -132,6 +130,41 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   })
 
   const masters = mastersData?.masters?.edges?.map((edge: any) => edge.node) || []
+
+  // Получаем бронирования для связанной уборки (если есть) - ДО условий возврата
+  const sourceCleaning = taskData?.task ? (taskData.task as any)?.source?.cleaning : null
+  const sourceCleaningUnitId = sourceCleaning?.unit?.id
+  const sourceCleaningScheduledAt = sourceCleaning?.scheduledAt
+
+  const { data: sourceCleaningBookingsData } = useQuery({
+    queryKey: ['bookings', sourceCleaningUnitId, sourceCleaningScheduledAt],
+    queryFn: async () => {
+      if (!sourceCleaningUnitId || !sourceCleaningScheduledAt) return null
+      
+      // Получаем бронирования за период ±7 дней от даты уборки
+      const scheduledDate = new Date(sourceCleaningScheduledAt)
+      const fromDate = new Date(scheduledDate)
+      fromDate.setDate(fromDate.getDate() - 7)
+      const toDate = new Date(scheduledDate)
+      toDate.setDate(toDate.getDate() + 7)
+
+      const response = await graphqlClient.request(GET_BOOKINGS, {
+        unitId: sourceCleaningUnitId,
+        from: fromDate.toISOString(),
+        to: toDate.toISOString(),
+        first: 50,
+      }) as any
+
+      return response.bookings?.edges?.map((edge: any) => edge.node) || []
+    },
+    enabled: !!sourceCleaningUnitId && !!sourceCleaningScheduledAt,
+  })
+
+  // Находим ближайшие бронирования для связанной уборки
+  const { checkoutBooking: sourceCleaningCheckout, checkinBooking: sourceCleaningCheckin } = sourceCleaningScheduledAt && sourceCleaningBookingsData
+    ? findAdjacentBookings(sourceCleaningBookingsData, sourceCleaningScheduledAt)
+    : { checkoutBooking: null, checkinBooking: null }
+  const { checkoutText: sourceCleaningCheckoutText, checkinText: sourceCleaningCheckinText } = formatCheckInOutInfo(sourceCleaningCheckout, sourceCleaningCheckin)
 
   // Мутация обновления статуса
   const updateTaskStatusMutation = useMutation({
@@ -662,49 +695,42 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                         <Badge color={isCleaning ? 'blue' : 'orange'} className="text-sm px-3 py-1">
                           {isCleaning ? 'Уборки' : 'Ремонты'}
                         </Badge>
-                        {/* Переключатель вида */}
-                        <div className="flex items-center gap-1 bg-white dark:bg-zinc-800 rounded-lg p-1 border border-zinc-200 dark:border-zinc-700 shadow-sm">
-                          <Button
-                            onClick={() => setViewMode('cards')}
-                            className={`p-2 h-8 w-8 ${viewMode === 'cards' ? 'bg-blue-500 text-white shadow-md' : 'bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'}`}
-                            title="Карточки"
-                          >
-                            <Squares2X2Icon className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            onClick={() => setViewMode('list')}
-                            className={`p-2 h-8 w-8 ${viewMode === 'list' ? 'bg-blue-500 text-white shadow-md' : 'bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'}`}
-                            title="Список"
-                          >
-                            <ListBulletIcon className="w-4 h-4" />
-                          </Button>
-                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="p-6">
                   {/* Карточки задач */}
-                  <NotificationTasksView
-                    tasks={taskInfo.tasks || []}
-                    viewMode={viewMode}
-                    editingItemId={editingItemId}
-                    editedItems={editedItems}
-                    setEditedItems={handleSetEditedItems}
-                    handleEditItem={handleEditItem}
-                    handleSaveItem={handleSaveItem}
-                    setEditingItemId={setEditingItemId}
-                    removeTaskItem={removeTaskItem}
-                    removeTaskItemMutation={removeTaskItemMutation}
-                    task={task}
-                    isCleaning={isCleaning}
-                    isDailyNotification={isDailyNotification}
-                    isDoneStatus={isDoneStatus}
-                    isCanceledStatus={isCanceledStatus}
-                    isDraftStatus={isDraftStatus}
-                    cleanersData={cleanersData}
-                    mastersData={mastersData}
-                  />
+                  {taskInfo.tasks && taskInfo.tasks.length > 0 ? (
+                    <NotificationTasksView
+                      tasks={taskInfo.tasks}
+                      editingItemId={editingItemId}
+                      editedItems={editedItems}
+                      setEditedItems={handleSetEditedItems}
+                      handleEditItem={handleEditItem}
+                      handleSaveItem={handleSaveItem}
+                      setEditingItemId={setEditingItemId}
+                      removeTaskItem={removeTaskItem}
+                      removeTaskItemMutation={removeTaskItemMutation}
+                      task={task}
+                      isCleaning={isCleaning}
+                      isDailyNotification={isDailyNotification}
+                      isDoneStatus={isDoneStatus}
+                      isCanceledStatus={isCanceledStatus}
+                      isDraftStatus={isDraftStatus}
+                      cleanersData={cleanersData}
+                      mastersData={mastersData}
+                    />
+                  ) : (
+                    <div className="text-center py-12">
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-lg mb-2">
+                        Задачи не найдены
+                      </Text>
+                      <Text className="text-zinc-400 dark:text-zinc-500 text-sm">
+                        Для этой даты не запланировано {isCleaning ? 'уборок' : 'ремонтов'}
+                      </Text>
+                    </div>
+                  )}
                   {/* Кнопка отправки уведомлений - всегда доступна для DAILY_NOTIFICATION */}
                   {isDailyNotification && (
                     <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-zinc-200 dark:border-zinc-700">
@@ -725,17 +751,40 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
               );
             } catch (e) {
-              // Если не удалось распарсить JSON, показываем как обычный текст
+              // Если не удалось распарсить JSON, показываем сообщение об ошибке
+              console.error('Failed to parse task.note:', e, task.note);
               return (
-                <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
-                  <Subheading className="mb-4">Описание</Subheading>
-                  <Text className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
-                    {task.note}
-                  </Text>
+                <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                  <div className="p-6">
+                    <Subheading className="mb-4">Ежедневное уведомление</Subheading>
+                    <Text className="text-zinc-500 dark:text-zinc-400 mb-2">
+                      Не удалось загрузить данные о задачах. Ошибка парсинга JSON.
+                    </Text>
+                    {task.note && (
+                      <details className="mt-4">
+                        <summary className="text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                          Показать содержимое note
+                        </summary>
+                        <Text className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap text-xs mt-2 font-mono bg-zinc-50 dark:bg-zinc-800 p-3 rounded">
+                          {task.note}
+                        </Text>
+                      </details>
+                    )}
+                  </div>
                 </div>
               );
             }
-          })() : (
+          })() : isDailyNotification ? (
+            // Для DAILY_NOTIFICATION если note пустой, показываем сообщение
+            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+              <div className="p-6">
+                <Subheading className="mb-4">Ежедневное уведомление</Subheading>
+                <Text className="text-zinc-500 dark:text-zinc-400">
+                  Данные о задачах отсутствуют. Возможно, задача еще не была полностью создана.
+                </Text>
+              </div>
+            </div>
+          ) : (
             <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
               <Subheading className="mb-4">Описание</Subheading>
               {task.note ? (
@@ -877,6 +926,21 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                           return `${dateStr} ${timeStr}`
                         })()}
                       </Text>
+                    )}
+                    {/* Информация о бронированиях */}
+                    {(sourceCleaningCheckoutText || sourceCleaningCheckinText) && (
+                      <div className="mt-2 space-y-1">
+                        {sourceCleaningCheckoutText && (
+                          <Text className="text-sm font-medium text-gray-900 dark:text-white">
+                            {sourceCleaningCheckoutText}
+                          </Text>
+                        )}
+                        {sourceCleaningCheckinText && (
+                          <Text className="text-sm font-medium text-gray-900 dark:text-white">
+                            {sourceCleaningCheckinText}
+                          </Text>
+                        )}
+                      </div>
                     )}
                     <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                       🔗 Нажмите для перехода к уборке

@@ -7,7 +7,7 @@ import { createServer } from 'http';
 import jwt from 'jsonwebtoken';
 
 import { resolvers } from './resolvers/index.js';
-import { OpsDLPrisma, CleaningDLPrisma, InventoryDLPrisma } from '@repo/datalayer-prisma';
+import { OpsDLPrisma, CleaningDLPrisma, InventoryDLPrisma, BookingsDLPrisma } from '@repo/datalayer-prisma';
 // @ts-ignore - PrismaClient is available at runtime but linter has cache issues
 import { PrismaClient } from '@prisma/client';
 
@@ -64,6 +64,7 @@ async function startServer() {
     const dl = new OpsDLPrisma(prisma);
     const cleaningDL = new CleaningDLPrisma(prisma);
     const inventoryDL = new InventoryDLPrisma(prisma);
+    const bookingsDL = new BookingsDLPrisma(prisma);
 
     // Создаем gRPC клиенты
     const inventoryGrpcClient = createInventoryGrpcClient({
@@ -94,6 +95,7 @@ async function startServer() {
       cleaningDL,
       prisma,
       inventoryDL,
+      bookingsDL,
       inventoryGrpcClient,
       eventsGrpcClient
     );

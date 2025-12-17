@@ -194,6 +194,8 @@ type Mutation {
     renovation: String
     furniture: Boolean
     isElite: Boolean
+    defaultCheckInTime: String
+    defaultCheckOutTime: String
     yandexBuildingId: String
     yandexHouseId: String
   ): Property!
@@ -241,6 +243,8 @@ type Mutation {
     renovation: String
     furniture: Boolean
     isElite: Boolean
+    defaultCheckInTime: String
+    defaultCheckOutTime: String
     yandexBuildingId: String
     yandexHouseId: String
   ): Property!
@@ -378,6 +382,12 @@ type Property {
   # Элитная недвижимость
   """Элитная недвижимость"""
   isElite: Boolean
+  
+  # Время заезда и выезда по умолчанию
+  """Время заезда по умолчанию (формат HH:mm)"""
+  defaultCheckInTime: String
+  """Время выезда по умолчанию (формат HH:mm)"""
+  defaultCheckOutTime: String
   
   # Внешние ID
   """ID здания в Яндекс.Недвижимости"""

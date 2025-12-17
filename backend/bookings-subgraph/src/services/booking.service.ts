@@ -263,10 +263,6 @@ export class BookingService {
 
   private async createCleaningTask(booking: any): Promise<void> {
     try {
-      // Вычисляем время для уборки (за 2 часа до заезда)
-      const scheduledAt = new Date(booking.checkIn);
-      scheduledAt.setHours(scheduledAt.getHours() - 2);
-
       // Get unit to extract propertyId
       const unit = await this.inventoryDL.getUnitById(booking.unitId);
       if (!unit) {
@@ -275,6 +271,53 @@ export class BookingService {
           bookingId: booking.id 
         });
         return;
+      }
+
+      // Получаем Property для получения времени выезда по умолчанию
+      let property: any = null;
+      let scheduledAt: Date;
+      
+      try {
+        if (unit.propertyId) {
+          property = await this.inventoryDL.getPropertyById(unit.propertyId);
+        }
+      } catch (propertyError: any) {
+        logger.warn('Failed to get property for cleaning task time', {
+          bookingId: booking.id,
+          propertyId: unit.propertyId,
+          error: propertyError.message,
+        });
+      }
+
+      // Устанавливаем время уборки на время выезда объекта
+      // Используем дефолтное время выезда из Property (по умолчанию 12:00) или время выезда из бронирования
+      scheduledAt = new Date(booking.checkOut);
+      
+      // Если есть дефолтное время выезда в Property, используем его
+      if (property?.defaultCheckOutTime) {
+        const [hours, minutes] = property.defaultCheckOutTime.split(':').map(Number);
+        scheduledAt.setHours(hours || 12, minutes || 0, 0, 0);
+        logger.info('Using default check-out time from property for cleaning', {
+          bookingId: booking.id,
+          defaultCheckOutTime: property.defaultCheckOutTime,
+          scheduledAt: scheduledAt.toISOString(),
+        });
+      } else if (booking.departureTime) {
+        // Если указано время выезда в бронировании, используем его
+        const [hours, minutes] = booking.departureTime.split(':').map(Number);
+        scheduledAt.setHours(hours || 12, minutes || 0, 0, 0);
+        logger.info('Using departure time from booking for cleaning', {
+          bookingId: booking.id,
+          departureTime: booking.departureTime,
+          scheduledAt: scheduledAt.toISOString(),
+        });
+      } else {
+        // По умолчанию используем 12:00
+        scheduledAt.setHours(12, 0, 0, 0);
+        logger.info('Using default 12:00 for cleaning task', {
+          bookingId: booking.id,
+          scheduledAt: scheduledAt.toISOString(),
+        });
       }
 
       // Получаем информацию о госте
@@ -290,22 +333,12 @@ export class BookingService {
       }
       const guestName = guest?.name || 'Неизвестный гость';
 
-      // Получаем адрес из property
-      let property: any = null;
+      // Получаем адрес из property (переиспользуем переменную property, объявленную выше)
       let address = 'Адрес не указан';
-      try {
-        if (unit.propertyId) {
-          property = await this.inventoryDL.getPropertyById(unit.propertyId);
-          address = property?.address || unit?.address || 'Адрес не указан';
-        } else if (unit.address) {
-          address = unit.address;
-        }
-      } catch (propertyError: any) {
-        logger.warn('Failed to get property for cleaning task', {
-          bookingId: booking.id,
-          propertyId: unit.propertyId,
-          error: propertyError.message,
-        });
+      if (property) {
+        address = property?.address || unit?.address || 'Адрес не указан';
+      } else if (unit.address) {
+        address = unit.address;
       }
 
       const request = {

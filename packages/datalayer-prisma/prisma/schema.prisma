@@ -86,6 +86,10 @@ model Property {
   // Элитная недвижимость
   isElite Boolean? @default(false)
 
+  // Время заезда и выезда по умолчанию (в формате HH:mm)
+  defaultCheckInTime  String? @default("14:00") // Время заезда по умолчанию
+  defaultCheckOutTime String? @default("12:00") // Время выезда по умолчанию
+
   // Внешние ID
   yandexBuildingId String?
   yandexHouseId    String?

@@ -1,6 +1,6 @@
 'use client'
 
-import { UserIcon, ClockIcon } from '@heroicons/react/24/outline'
+import { UserIcon } from '@heroicons/react/24/outline'
 import { Badge } from '@/components/badge'
 import { Text } from '@/components/text'
 import { NotificationTaskCard } from '@/components/notification-task-card'
@@ -24,7 +24,6 @@ export type EditedItem = {
 
 interface NotificationTasksViewProps {
   tasks: any[]
-  viewMode: 'cards' | 'list'
   editingItemId: string | null
   editedItems: Record<string, EditedItem>
   setEditedItems: (items: Record<string, EditedItem>) => void
@@ -45,7 +44,6 @@ interface NotificationTasksViewProps {
 
 export function NotificationTasksView({
   tasks,
-  viewMode,
   editingItemId,
   editedItems,
   setEditedItems,
@@ -63,25 +61,74 @@ export function NotificationTasksView({
   cleanersData,
   mastersData,
 }: NotificationTasksViewProps) {
-  // Группируем задачи по исполнителям
-  const tasksByExecutor = new Map<string, any[]>()
-  const tasksWithoutExecutor: any[] = []
+  // Пытаемся использовать группировку из task.note (если есть), иначе группируем на клиенте
+  let tasksByExecutor = new Map<string, any[]>()
+  let tasksWithoutExecutor: any[] = []
   
-  tasks?.forEach((item: any) => {
-    const executorId = item.executorId || item.cleanerId || item.masterId
-    const executorName = item.executorName
-    
-    if (executorId && executorName) {
-      if (!tasksByExecutor.has(executorId)) {
-        tasksByExecutor.set(executorId, [])
+  try {
+    if (task.note) {
+      const taskInfo = JSON.parse(task.note)
+      // Если есть executorGroups в taskInfo, используем их
+      if (taskInfo.executorGroups && Array.isArray(taskInfo.executorGroups)) {
+        taskInfo.executorGroups.forEach((group: any) => {
+          if (group.executorId && group.tasks) {
+            tasksByExecutor.set(group.executorId, group.tasks)
+          }
+        })
+        // Используем tasksWithoutExecutor из taskInfo, если есть
+        if (taskInfo.tasksWithoutExecutor && Array.isArray(taskInfo.tasksWithoutExecutor)) {
+          tasksWithoutExecutor = taskInfo.tasksWithoutExecutor
+        }
+      } else {
+        // Fallback: группируем на клиенте
+        tasks?.forEach((item: any) => {
+          const executorId = item.executorId || item.cleanerId || item.masterId
+          const executorName = item.executorName
+          
+          if (executorId && executorName) {
+            if (!tasksByExecutor.has(executorId)) {
+              tasksByExecutor.set(executorId, [])
+            }
+            tasksByExecutor.get(executorId)!.push(item)
+          } else {
+            tasksWithoutExecutor.push(item)
+          }
+        })
       }
-      tasksByExecutor.get(executorId)!.push(item)
     } else {
-      tasksWithoutExecutor.push(item)
+      // Fallback: группируем на клиенте
+      tasks?.forEach((item: any) => {
+        const executorId = item.executorId || item.cleanerId || item.masterId
+        const executorName = item.executorName
+        
+        if (executorId && executorName) {
+          if (!tasksByExecutor.has(executorId)) {
+            tasksByExecutor.set(executorId, [])
+          }
+          tasksByExecutor.get(executorId)!.push(item)
+        } else {
+          tasksWithoutExecutor.push(item)
+        }
+      })
     }
-  })
+  } catch (error) {
+    // Если ошибка парсинга, группируем на клиенте
+    tasks?.forEach((item: any) => {
+      const executorId = item.executorId || item.cleanerId || item.masterId
+      const executorName = item.executorName
+      
+      if (executorId && executorName) {
+        if (!tasksByExecutor.has(executorId)) {
+          tasksByExecutor.set(executorId, [])
+        }
+        tasksByExecutor.get(executorId)!.push(item)
+      } else {
+        tasksWithoutExecutor.push(item)
+      }
+    })
+  }
   
-  // Сортируем задачи внутри каждой группы по времени
+  // Сортируем задачи внутри каждой группы по времени (на случай если группа пришла не отсортированной)
   tasksByExecutor.forEach((tasks) => {
     tasks.sort((a, b) => {
       const timeA = new Date(a.scheduledAt).getTime()
@@ -97,32 +144,45 @@ export function NotificationTasksView({
     return timeA - timeB
   })
 
-  if (viewMode === 'cards') {
-    return (
-      <div className="space-y-6">
-        {/* Группы по исполнителям */}
-        {Array.from(tasksByExecutor.entries()).map(([executorId, executorTasks]) => {
-          const executorName = executorTasks[0]?.executorName || 'Неизвестный исполнитель'
-          return (
-            <div key={executorId} className="space-y-3">
-              <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <UserIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <Text className="font-semibold text-blue-900 dark:text-blue-100">
-                  {executorName}
-                </Text>
-                <Badge color="blue" className="ml-auto">
-                  {executorTasks.length} {executorTasks.length === 1 ? 'задача' : executorTasks.length < 5 ? 'задачи' : 'задач'}
-                </Badge>
+  // List view - список (одна карточка под другой)
+  return (
+    <div className="space-y-4 md:space-y-6">
+      {Array.from(tasksByExecutor.entries()).map(([executorId, executorTasks]) => {
+        // Пытаемся получить имя исполнителя из первой задачи или из taskInfo
+        let executorName = executorTasks[0]?.executorName
+        if (!executorName && task.note) {
+          try {
+            const taskInfo = JSON.parse(task.note)
+            const executorGroup = taskInfo.executorGroups?.find((g: any) => g.executorId === executorId)
+            executorName = executorGroup?.executorName || 'Неизвестный исполнитель'
+          } catch (e) {
+            executorName = executorName || 'Неизвестный исполнитель'
+          }
+        } else {
+          executorName = executorName || 'Неизвестный исполнитель'
+        }
+        return (
+          <div key={executorId} className="space-y-3">
+            <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200/50 dark:border-blue-900/30 shadow-sm">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/50">
+                <UserIcon className="w-4 h-4 text-blue-700 dark:text-blue-300" />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {executorTasks.map((item: any) => {
-                  const itemId = item.cleaningId || item.repairId || ''
-                  const isEditing = editingItemId === itemId
-                  const edited = editedItems[itemId] || {}
-                  
-                  return (
+              <Text className="font-semibold text-base text-blue-900 dark:text-blue-100">
+                {executorName}
+              </Text>
+              <Badge color="blue" className="ml-auto">
+                {executorTasks.length} {executorTasks.length === 1 ? 'задача' : executorTasks.length < 5 ? 'задачи' : 'задач'}
+              </Badge>
+            </div>
+            <div className="space-y-3">
+              {executorTasks.map((item: any) => {
+                const itemId = item.cleaningId || item.repairId || ''
+                const isEditing = editingItemId === itemId
+                const edited = editedItems[itemId] || {}
+                
+                return (
+                  <div key={itemId} className="w-full">
                     <NotificationTaskCard
-                      key={itemId}
                       item={item}
                       itemId={itemId}
                       isEditing={isEditing}
@@ -143,108 +203,7 @@ export function NotificationTasksView({
                       cleanersData={cleanersData}
                       mastersData={mastersData}
                     />
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-        
-        {/* Задачи без исполнителя */}
-        {tasksWithoutExecutor.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 px-4 py-2 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
-              <UserIcon className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
-              <Text className="font-semibold text-zinc-600 dark:text-zinc-400">
-                Без исполнителя
-              </Text>
-              <Badge color="zinc" className="ml-auto">
-                {tasksWithoutExecutor.length} {tasksWithoutExecutor.length === 1 ? 'задача' : tasksWithoutExecutor.length < 5 ? 'задачи' : 'задач'}
-              </Badge>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tasksWithoutExecutor.map((item: any) => {
-                const itemId = item.cleaningId || item.repairId || ''
-                const isEditing = editingItemId === itemId
-                const edited = editedItems[itemId] || {}
-                
-                return (
-                  <NotificationTaskCard
-                    key={itemId}
-                    item={item}
-                    itemId={itemId}
-                    isEditing={isEditing}
-                    edited={edited}
-                    editedItems={editedItems}
-                    setEditedItems={setEditedItems}
-                    handleEditItem={handleEditItem}
-                    handleSaveItem={handleSaveItem}
-                    setEditingItemId={setEditingItemId}
-                    removeTaskItem={removeTaskItem}
-                    removeTaskItemMutation={removeTaskItemMutation}
-                    task={task}
-                    isCleaning={isCleaning}
-                    isDailyNotification={isDailyNotification}
-                    isDoneStatus={isDoneStatus}
-                    isCanceledStatus={isCanceledStatus}
-                    isDraftStatus={isDraftStatus}
-                    cleanersData={cleanersData}
-                    mastersData={mastersData}
-                  />
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // List view - упрощенная версия, можно расширить позже
-  return (
-    <div className="space-y-4">
-      {Array.from(tasksByExecutor.entries()).map(([executorId, executorTasks]) => {
-        const executorName = executorTasks[0]?.executorName || 'Неизвестный исполнитель'
-        return (
-          <div key={executorId} className="space-y-2">
-            <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <UserIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <Text className="font-semibold text-blue-900 dark:text-blue-100">
-                {executorName}
-              </Text>
-              <Badge color="blue" className="ml-auto">
-                {executorTasks.length} {executorTasks.length === 1 ? 'задача' : executorTasks.length < 5 ? 'задачи' : 'задач'}
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              {executorTasks.map((item: any) => {
-                const itemId = item.cleaningId || item.repairId || ''
-                const isEditing = editingItemId === itemId
-                const edited = editedItems[itemId] || {}
-                
-                return (
-                  <NotificationTaskCard
-                    key={itemId}
-                    item={item}
-                    itemId={itemId}
-                    isEditing={isEditing}
-                    edited={edited}
-                    editedItems={editedItems}
-                    setEditedItems={setEditedItems}
-                    handleEditItem={handleEditItem}
-                    handleSaveItem={handleSaveItem}
-                    setEditingItemId={setEditingItemId}
-                    removeTaskItem={removeTaskItem}
-                    removeTaskItemMutation={removeTaskItemMutation}
-                    task={task}
-                    isCleaning={isCleaning}
-                    isDailyNotification={isDailyNotification}
-                    isDoneStatus={isDoneStatus}
-                    isCanceledStatus={isCanceledStatus}
-                    isDraftStatus={isDraftStatus}
-                    cleanersData={cleanersData}
-                    mastersData={mastersData}
-                  />
+                  </div>
                 )
               })}
             </div>
@@ -252,45 +211,48 @@ export function NotificationTasksView({
         )
       })}
       {tasksWithoutExecutor.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 px-4 py-2 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
-            <UserIcon className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
-            <Text className="font-semibold text-zinc-600 dark:text-zinc-400">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200/50 dark:border-zinc-700/30 shadow-sm">
+            <div className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-700/50">
+              <UserIcon className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+            </div>
+            <Text className="font-semibold text-base text-zinc-700 dark:text-zinc-300">
               Без исполнителя
             </Text>
             <Badge color="zinc" className="ml-auto">
               {tasksWithoutExecutor.length} {tasksWithoutExecutor.length === 1 ? 'задача' : tasksWithoutExecutor.length < 5 ? 'задачи' : 'задач'}
             </Badge>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {tasksWithoutExecutor.map((item: any) => {
               const itemId = item.cleaningId || item.repairId || ''
               const isEditing = editingItemId === itemId
               const edited = editedItems[itemId] || {}
               
               return (
-                <NotificationTaskCard
-                  key={itemId}
-                  item={item}
-                  itemId={itemId}
-                  isEditing={isEditing}
-                  edited={edited}
-                  editedItems={editedItems}
-                  setEditedItems={setEditedItems}
-                  handleEditItem={handleEditItem}
-                  handleSaveItem={handleSaveItem}
-                  setEditingItemId={setEditingItemId}
-                  removeTaskItem={removeTaskItem}
-                  removeTaskItemMutation={removeTaskItemMutation}
-                  task={task}
-                  isCleaning={isCleaning}
-                  isDailyNotification={isDailyNotification}
-                  isDoneStatus={isDoneStatus}
-                  isCanceledStatus={isCanceledStatus}
-                  isDraftStatus={isDraftStatus}
-                  cleanersData={cleanersData}
-                  mastersData={mastersData}
-                />
+                <div key={itemId} className="w-full">
+                  <NotificationTaskCard
+                    item={item}
+                    itemId={itemId}
+                    isEditing={isEditing}
+                    edited={edited}
+                    editedItems={editedItems}
+                    setEditedItems={setEditedItems}
+                    handleEditItem={handleEditItem}
+                    handleSaveItem={handleSaveItem}
+                    setEditingItemId={setEditingItemId}
+                    removeTaskItem={removeTaskItem}
+                    removeTaskItemMutation={removeTaskItemMutation}
+                    task={task}
+                    isCleaning={isCleaning}
+                    isDailyNotification={isDailyNotification}
+                    isDoneStatus={isDoneStatus}
+                    isCanceledStatus={isCanceledStatus}
+                    isDraftStatus={isDraftStatus}
+                    cleanersData={cleanersData}
+                    mastersData={mastersData}
+                  />
+                </div>
               )
             })}
           </div>

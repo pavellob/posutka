@@ -6,6 +6,10 @@ import { Button } from '@/components/button'
 import { Dropdown, DropdownButton, DropdownMenu, DropdownItem } from '@/components/dropdown'
 import { EllipsisVerticalIcon, ClockIcon, UserIcon, HomeIcon, CheckCircleIcon, EyeIcon, PlayIcon } from '@heroicons/react/24/outline'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { graphqlClient } from '@/lib/graphql-client'
+import { GET_BOOKINGS } from '@/lib/graphql-queries'
+import { findAdjacentBookings, formatCheckInOutInfo } from '@/lib/booking-utils'
 
 interface CleaningCardProps {
   cleaning: any
@@ -16,6 +20,49 @@ interface CleaningCardProps {
 
 export function CleaningCard({ cleaning, onUpdateStatus, onStartCleaning, onAssign }: CleaningCardProps) {
   const router = useRouter()
+
+  // Получаем бронирования для юнита
+  const { data: bookingsData } = useQuery({
+    queryKey: ['bookings', cleaning.unit?.id, cleaning.scheduledAt],
+    queryFn: async () => {
+      if (!cleaning.unit?.id || !cleaning.scheduledAt) return null
+      
+      // Запрашиваем все бронирования для unitId без фильтрации по датам
+      // Это необходимо, так как параметр 'from' фильтрует по checkIn, а нам нужны также выезды из ранних бронирований
+      const response = await graphqlClient.request(GET_BOOKINGS, {
+        unitId: cleaning.unit.id,
+        first: 200, // Достаточно большой лимит
+      }) as any
+
+      const allBookings = response.bookings?.edges?.map((edge: any) => edge.node) || []
+      
+      // Фильтруем на клиенте: берем бронирования, которые пересекаются с диапазоном ±30 дней от даты уборки
+      const scheduledDate = new Date(cleaning.scheduledAt)
+      const fromDate = new Date(scheduledDate)
+      fromDate.setDate(fromDate.getDate() - 30) // 30 дней назад для поиска выездов
+      fromDate.setHours(0, 0, 0, 0)
+      const toDate = new Date(scheduledDate)
+      toDate.setDate(toDate.getDate() + 7) // 7 дней вперед для поиска заездов
+      toDate.setHours(23, 59, 59, 999)
+
+      // Включаем бронирования где checkIn или checkOut попадают в диапазон
+      return allBookings.filter((booking: any) => {
+        const checkIn = new Date(booking.checkIn)
+        const checkOut = new Date(booking.checkOut)
+        // Бронирование релевантно если его checkIn или checkOut попадают в диапазон
+        return (checkIn >= fromDate && checkIn <= toDate) || 
+               (checkOut >= fromDate && checkOut <= toDate) ||
+               (checkIn <= fromDate && checkOut >= toDate) // Бронирование которое покрывает весь диапазон
+      })
+    },
+    enabled: !!cleaning.unit?.id && !!cleaning.scheduledAt,
+  })
+
+  // Находим ближайшие бронирования
+  const { checkoutBooking, checkinBooking } = cleaning.scheduledAt && bookingsData
+    ? findAdjacentBookings(bookingsData, cleaning.scheduledAt)
+    : { checkoutBooking: null, checkinBooking: null }
+  const { checkoutText, checkinText } = formatCheckInOutInfo(checkoutBooking, checkinBooking)
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
@@ -96,6 +143,22 @@ export function CleaningCard({ cleaning, onUpdateStatus, onStartCleaning, onAssi
             {scheduledDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </div>
+
+        {/* Информация о заезде/выезде */}
+        {(checkoutText || checkinText) && (
+          <div className="mb-2 space-y-0.5">
+            {checkoutText && (
+              <Text className="text-[11px] font-medium text-gray-700 dark:text-gray-300">
+                {checkoutText}
+              </Text>
+            )}
+            {checkinText && (
+              <Text className="text-[11px] font-medium text-gray-700 dark:text-gray-300">
+                {checkinText}
+              </Text>
+            )}
+          </div>
+        )}
 
         {/* Уборщик */}
         <div className="flex items-center gap-2 mb-2">
